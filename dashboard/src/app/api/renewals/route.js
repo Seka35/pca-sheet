@@ -105,22 +105,23 @@ export async function GET(req) {
       const startDate = new Date(lastRecord.start_date);
       const dayOfMonth = startDate.getDate();
       
-      // On calcule la date de renouvellement pour le mois en cours
-      const predictedDue = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
+      // On calcule la date de renouvellement théorique pour le mois en cours
+      let predictedDue = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
       predictedDue.setHours(0, 0, 0, 0);
 
-      // Si le jour est déjà passé ce mois-ci, on regarde le mois prochain (anticipation)
+      // Si le jour est déjà passé ce mois-ci, on regarde le mois prochain
       if (predictedDue < today) {
         predictedDue.setMonth(predictedDue.getMonth() + 1);
       }
 
       const diffDays = Math.ceil((predictedDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const monthStr = predictedDue.toLocaleString('en-US', { month: 'short' }) + '-' + predictedDue.getFullYear();
 
-      // On ne l'ajoute que s'il n'est pas déjà dans les listes via une ligne réelle
-      const isAlreadyListed = [...lateRenewals, ...todayRenewals, ...thisWeekRenewals, ...thisMonthRenewals]
-        .some(r => r.client_id === lastRecord.client_id && r.month === predictedDue.toLocaleString('en-US', { month: 'short' }) + '-' + predictedDue.getFullYear());
+      // On ne l'ajoute que s'il n'y a STRICTEMENT AUCUNE ligne pour ce mois dans le sheet
+      // (Si une ligne existe, qu'elle soit payée ou non, on laisse la LOGIQUE 1 gérer)
+      const hasExistingRow = allActiveRenewals.some(r => r.client_id === lastRecord.client_id && r.month === monthStr);
 
-      if (!isAlreadyListed) {
+      if (!hasExistingRow) {
         const predictedRow = {
           ...lastRecord,
           total_due: parseAmount(lastRecord.subscription_fee), // On anticipe le prix habituel
@@ -128,7 +129,7 @@ export async function GET(req) {
           is_predicted: true,
           diff_days: diffDays,
           valid_stopped_date: predictedDue.toISOString().split('T')[0],
-          month: predictedDue.toLocaleString('en-US', { month: 'short' }) + '-' + predictedDue.getFullYear()
+          month: monthStr
         };
 
         if (diffDays === 0) todayRenewals.push(predictedRow);
