@@ -5,7 +5,7 @@ import ClientModal from '@/components/ClientModal';
 import ProductBadge from '@/components/ProductBadge';
 
 export default function RenewalsPage() {
-  const [data, setData] = useState({ late: [], today: [], thisWeek: [], allActive: [] });
+  const [data, setData] = useState({ late: [], today: [], thisWeek: [], thisMonth: [], allActive: [] });
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState(null);
 
@@ -26,8 +26,79 @@ export default function RenewalsPage() {
     setSelectedClient(clientData);
   };
 
+  const RenewalTable = ({ title, list, color = 'var(--text-primary)', borderColor = 'var(--border-color)' }) => (
+    <div style={{ marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: '600', color }}>{title}</h2>
+        <span style={{ backgroundColor: 'var(--bg-card)', padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold', border: `1px solid ${borderColor}` }}>
+          {list.length} clients
+        </span>
+      </div>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', border: `1px solid ${borderColor}` }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '13px' }}>
+              <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>
+              <th style={{ padding: '16px 24px', fontWeight: '500' }}>Products</th>
+              <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
+              <th style={{ padding: '16px 24px', fontWeight: '500' }}>Amount Due</th>
+              <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due Date</th>
+              <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due</th>
+              <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map(row => (
+              <tr 
+                key={row.sr_no} 
+                onClick={() => openClientModal(row.client_id)}
+                style={{ borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <td style={{ padding: '16px 24px', fontWeight: '500' }}>{row.client_name}</td>
+                <td style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {row.products && row.products.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map((p, i) => (
+                    <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} />
+                  ))}
+                </td>
+                <td style={{ padding: '16px 24px' }}>
+                  <span className="badge" style={{ backgroundColor: 'var(--border-color)' }}>{row.bank_name || 'N/A'}</span>
+                </td>
+                <td style={{ padding: '16px 24px', fontWeight: '600' }}>
+                  {row.total_due > 0 ? formatCurrency(row.total_due) : '—'}
+                  {row.total_products > 1 && <span style={{ fontSize: '11px', opacity: 0.8, marginLeft: '8px' }}>({row.total_products} items)</span>}
+                </td>
+                <td style={{ padding: '16px 24px', fontWeight: 'bold' }}>{row.valid_stopped_date || row.start_date || '—'}</td>
+                <td style={{ padding: '16px 24px' }}>
+                  <span style={{ 
+                    fontWeight: '700', 
+                    color: row.diff_days < 0 ? '#ef4444' : row.diff_days === 0 ? 'var(--status-cut)' : 'var(--status-active)'
+                  }}>
+                    {row.diff_days > 0 ? `+${row.diff_days}j` : row.diff_days < 0 ? `${row.diff_days}j` : 'Today'}
+                  </span>
+                </td>
+                <td style={{ padding: '16px 24px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                   <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'var(--status-active-bg)', color: 'var(--primary-accent)', fontSize: '12px', border: '1px solid var(--primary-accent)', fontWeight: '500' }}>
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      <span>Mark Paid</span>
+                   </button>
+                </td>
+              </tr>
+            ))}
+            {list.length === 0 && (
+              <tr>
+                <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No items in this category.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
-    <div>
+    <div style={{ paddingBottom: '64px' }}>
       <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Renewals</h1>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
         {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -35,224 +106,73 @@ export default function RenewalsPage() {
 
       {/* Cards */}
       <div style={{ display: 'flex', gap: '24px', marginBottom: '32px' }}>
-        <div className="card" style={{ flex: 1, backgroundColor: 'var(--bg-main)' }}>
-          <h3 style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '12px' }}>Bot Renewals</h3>
-          <div style={{ fontSize: '24px', fontWeight: '600', color: 'var(--text-primary)' }}>Upcoming...</div>
-        </div>
-        <div className="card" style={{ flex: 1, borderColor: '#7f1d1d', backgroundColor: 'rgba(127, 29, 29, 0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        
+        {/* LATE */}
+        <div className="card" style={{ flex: 1, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <h3 style={{ fontSize: '14px', color: '#ef4444', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <span style={{ fontSize: '18px' }}>❌</span> Late / Overdue
-            </h3>
-            <span style={{ backgroundColor: 'var(--bg-main)', color: '#ef4444', padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+              <h3 style={{ fontSize: '13px', color: '#ef4444', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Late / Overdue</h3>
+            </div>
+            <span style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
               {data.late.length} clients
             </span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: '#ef4444', marginTop: '12px' }}>
+          <div style={{ fontSize: '28px', fontWeight: '700', color: '#ef4444', marginTop: '16px' }}>
             {formatCurrency(data.late.reduce((acc, row) => acc + (row.total_due || 0), 0))}
           </div>
         </div>
-        <div className="card" style={{ flex: 1, borderColor: 'var(--status-cut)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+
+        {/* TODAY */}
+        <div className="card" style={{ flex: 1, borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <h3 style={{ fontSize: '14px', color: 'var(--status-cut)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <span style={{ fontSize: '18px' }}>⚠️</span> Today
-            </h3>
-            <span style={{ backgroundColor: 'var(--bg-main)', padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <h3 style={{ fontSize: '13px', color: '#F59E0B', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</h3>
+            </div>
+            <span style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
               {data.today.length} clients
             </span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--status-cut)', marginTop: '12px' }}>
+          <div style={{ fontSize: '28px', fontWeight: '700', color: '#F59E0B', marginTop: '16px' }}>
             {formatCurrency(data.today.reduce((acc, row) => acc + (row.total_due || 0), 0))}
           </div>
         </div>
-      </div>
 
-      {/* LATE / OVERDUE TABLE */}
-      {data.late.length > 0 && (
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#ef4444' }}>Late / Overdue</h2>
+        {/* THIS MONTH */}
+        <div className="card" style={{ flex: 1, borderColor: 'var(--primary-accent)', backgroundColor: 'rgba(52, 211, 153, 0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--primary-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              </div>
+              <h3 style={{ fontSize: '13px', color: 'var(--primary-accent)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Month</h3>
+            </div>
+            <span style={{ backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--primary-accent)', padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+              {data.thisMonth?.length || 0} clients
+            </span>
           </div>
-          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #7f1d1d' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Products</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Amount Due</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due Date</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.late.map(row => (
-                  <tr 
-                    key={row.sr_no} 
-                    onClick={() => openClientModal(row.client_id)}
-                    style={{ borderBottom: '1px solid var(--border-color)', cursor: 'pointer', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                  >
-                    <td style={{ padding: '16px 24px', color: '#ef4444', fontWeight: '500' }}>{row.client_name}</td>
-                    <td style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {row.products && row.products.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map((p, i) => (
-                        <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} />
-                      ))}
-                    </td>
-                    <td style={{ padding: '16px 24px' }}>
-                      <span className="badge" style={{ backgroundColor: 'var(--border-color)' }}>{row.bank_name || 'N/A'}</span>
-                    </td>
-                    <td style={{ padding: '16px 24px', fontWeight: '600', color: '#ef4444' }}>
-                      {row.total_due > 0 ? formatCurrency(row.total_due) : '—'}
-                      {row.total_products > 1 && <span style={{ fontSize: '11px', opacity: 0.8, marginLeft: '8px' }}>({row.total_products} items)</span>}
-                    </td>
-                    <td style={{ padding: '16px 24px', color: '#ef4444', fontWeight: 'bold' }}>{row.valid_stopped_date || row.start_date || '—'}</td>
-                    <td style={{ padding: '16px 24px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', backgroundColor: '#ef4444', color: '#fff', fontSize: '12px', border: 'none' }}>
-                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                          <span>Mark Paid</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--primary-accent)', marginTop: '16px' }}>
+            {formatCurrency(data.thisMonth?.reduce((acc, row) => acc + (row.total_due || 0), 0) || 0)}
           </div>
         </div>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading renewals...</div>
+      ) : (
+        <>
+          {data.late.length > 0 && <RenewalTable title="Late / Overdue" list={data.late} color="#ef4444" borderColor="#7f1d1d" />}
+          {data.today.length > 0 && <RenewalTable title="Today" list={data.today} color="var(--status-cut)" borderColor="var(--status-cut)" />}
+          <RenewalTable title="This Week" list={data.thisWeek} borderColor="var(--primary-accent)" />
+          <RenewalTable title="This Month" list={data.thisMonth} />
+        </>
       )}
-
-      {/* TODAY TABLE */}
-      {data.today.length > 0 && (
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', color: 'var(--status-cut)' }}>Today</h2>
-          </div>
-          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--status-cut)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Products</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Amount Due</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due Date</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.today.map(row => (
-                  <tr 
-                    key={row.sr_no} 
-                    onClick={() => openClientModal(row.client_id)}
-                    style={{ borderBottom: '1px solid var(--border-color)', cursor: 'pointer', backgroundColor: 'rgba(255, 77, 77, 0.05)' }}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--status-cut-bg)'}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 77, 77, 0.05)'}
-                  >
-                    <td style={{ padding: '16px 24px', color: 'var(--status-cut)' }}>{row.client_name}</td>
-                    <td style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {row.products && row.products.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map((p, i) => (
-                        <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} />
-                      ))}
-                    </td>
-                    <td style={{ padding: '16px 24px' }}>
-                      <span className="badge" style={{ backgroundColor: 'var(--border-color)' }}>{row.bank_name || 'N/A'}</span>
-                    </td>
-                    <td style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--status-cut)' }}>
-                      {row.total_due > 0 ? formatCurrency(row.total_due) : '—'}
-                      {row.total_products > 1 && <span style={{ fontSize: '11px', opacity: 0.8, marginLeft: '8px' }}>({row.total_products} items)</span>}
-                    </td>
-                    <td style={{ padding: '16px 24px', color: 'var(--status-cut)', fontWeight: 'bold' }}>{row.valid_stopped_date || row.start_date || '—'}</td>
-                    <td style={{ padding: '16px 24px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', backgroundColor: '#FBBF24', color: '#000', fontSize: '12px', border: 'none', fontWeight: '500' }}>
-                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                          <span>Mark Paid</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* THIS WEEK */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: '600' }}>This Week</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ backgroundColor: 'var(--primary-accent)', color: '#000', padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold' }}>
-            {data.thisWeek.length}
-          </span>
-          <button className="btn-primary" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}>
-            Generate WhatsApp Msg
-          </button>
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center' }}>Loading...</div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>
-                <th style={{ padding: '16px 24px', fontWeight: '500' }}>Products</th>
-                <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
-                <th style={{ padding: '16px 24px', fontWeight: '500' }}>Amount Due</th>
-                <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due Date</th>
-                <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.thisWeek.map(row => (
-                <tr 
-                  key={row.sr_no} 
-                  onClick={() => openClientModal(row.client_id)}
-                  style={{ borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  <td style={{ padding: '16px 24px' }}>{row.client_name}</td>
-                  <td style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {row.products && row.products.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map((p, i) => (
-                      <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} />
-                    ))}
-                  </td>
-                  <td style={{ padding: '16px 24px' }}>
-                    <span className="badge" style={{ backgroundColor: 'var(--border-color)' }}>{row.bank_name || 'N/A'}</span>
-                  </td>
-                  <td style={{ padding: '16px 24px', fontWeight: '600' }}>
-                    {row.total_due > 0 ? formatCurrency(row.total_due) : '—'}
-                    {row.total_products > 1 && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '8px' }}>({row.total_products} items)</span>}
-                  </td>
-                  <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>{row.valid_stopped_date || row.start_date || '—'}</td>
-                  <td style={{ padding: '16px 24px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'var(--status-active-bg)', color: 'var(--primary-accent)', fontSize: '12px', border: '1px solid var(--primary-accent)', fontWeight: '500' }}>
-                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        <span>Mark Paid</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {data.thisWeek.length === 0 && (
-                <tr>
-                  <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No renewals scheduled this week.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
       
-      {/* MODAL */}
       <ClientModal selectedClient={selectedClient} onClose={() => setSelectedClient(null)} />
     </div>
   );

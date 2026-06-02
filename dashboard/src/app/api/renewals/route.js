@@ -20,9 +20,10 @@ export async function GET(req) {
     
     const allActiveRenewals = await all(query);
     
-    // Grouper par client_id ET mois pour gérer les dettes sur plusieurs mois
-    const clientMonthlyMap = {}; // { "clientId-Month": { records: [], ... } }
-    
+    // 1. Grouper les données existantes par client et par mois
+    const clientMonthlyMap = {}; 
+    const clientLastKnownRecord = {}; // Pour stocker les infos de base par client
+
     for (let row of allActiveRenewals) {
       const key = `${row.client_id}-${row.month}`;
       if (!clientMonthlyMap[key]) {
@@ -32,10 +33,16 @@ export async function GET(req) {
           client_id: row.client_id,
           client_name: row.c_name,
           bank_name: row.bank_name,
-          valid_stopped_date: row.valid_stopped_date || row.start_date
+          valid_stopped_date: row.valid_stopped_date || row.start_date,
+          start_date: row.start_date
         };
       }
       clientMonthlyMap[key].records.push(row);
+      
+      // On garde l'enregistrement le plus récent pour les prédictions
+      if (!clientLastKnownRecord[row.client_id]) {
+        clientLastKnownRecord[row.client_id] = row;
+      }
     }
 
     const today = new Date();
@@ -44,8 +51,9 @@ export async function GET(req) {
     const lateRenewals = [];
     const todayRenewals = [];
     const thisWeekRenewals = [];
+    const thisMonthRenewals = [];
 
-    // Pour chaque groupe (Client + Mois), on calcule le dû
+    // --- LOGIQUE 1 : TRAITEMENT DES DETTES EXISTANTES (Lignes dans le sheet) ---
     Object.values(clientMonthlyMap).forEach(group => {
       let totalAmount = 0;
       group.records.forEach(r => {
@@ -55,15 +63,11 @@ export async function GET(req) {
           const setup = parseAmount(r.setup_fee);
           const disc = parseAmount(r.discount);
           const received = parseAmount(r.amount_received);
-          
           const due = (sub + setup) - disc - received;
-          if (due > 0) {
-            totalAmount += due;
-          }
+          if (due > 0) totalAmount += due;
         }
       });
       
-      // Si tout est payé pour ce mois précis, on ne l'affiche pas
       if (totalAmount <= 0) return;
 
       const computedRow = {
@@ -80,25 +84,74 @@ export async function GET(req) {
       if (computedRow.valid_stopped_date) {
         const dueDate = new Date(computedRow.valid_stopped_date);
         dueDate.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        computedRow.diff_days = diffDays;
 
-        const diffTime = dueDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) lateRenewals.push(computedRow);
+        else if (diffDays === 0) todayRenewals.push(computedRow);
+        else if (diffDays > 0 && diffDays <= 7) thisWeekRenewals.push(computedRow);
 
-        if (diffDays < 0) {
-          lateRenewals.push(computedRow);
-        } else if (diffDays === 0) {
-          todayRenewals.push(computedRow);
-        } else if (diffDays > 0 && diffDays <= 7) {
-          thisWeekRenewals.push(computedRow);
+        if (dueDate.getMonth() === today.getMonth() && dueDate.getFullYear() === today.getFullYear()) {
+          thisMonthRenewals.push(computedRow);
         }
       }
     });
-    
+
+    // --- LOGIQUE 2 : PRÉDICTION DES RENOUVELLEMENTS À VENIR (Basé sur Start Date) ---
+    // Pour chaque client actif, on regarde si son jour anniversaire de paiement approche
+    Object.values(clientLastKnownRecord).forEach(lastRecord => {
+      if (!lastRecord.start_date) return;
+
+      const startDate = new Date(lastRecord.start_date);
+      const dayOfMonth = startDate.getDate();
+      
+      // On calcule la date de renouvellement pour le mois en cours
+      const predictedDue = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
+      predictedDue.setHours(0, 0, 0, 0);
+
+      // Si le jour est déjà passé ce mois-ci, on regarde le mois prochain (anticipation)
+      if (predictedDue < today) {
+        predictedDue.setMonth(predictedDue.getMonth() + 1);
+      }
+
+      const diffDays = Math.ceil((predictedDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      // On ne l'ajoute que s'il n'est pas déjà dans les listes via une ligne réelle
+      const isAlreadyListed = [...lateRenewals, ...todayRenewals, ...thisWeekRenewals, ...thisMonthRenewals]
+        .some(r => r.client_id === lastRecord.client_id && r.month === predictedDue.toLocaleString('en-US', { month: 'short' }) + '-' + predictedDue.getFullYear());
+
+      if (!isAlreadyListed) {
+        const predictedRow = {
+          ...lastRecord,
+          total_due: parseAmount(lastRecord.subscription_fee), // On anticipe le prix habituel
+          total_products: 1,
+          is_predicted: true,
+          diff_days: diffDays,
+          valid_stopped_date: predictedDue.toISOString().split('T')[0],
+          month: predictedDue.toLocaleString('en-US', { month: 'short' }) + '-' + predictedDue.getFullYear()
+        };
+
+        if (diffDays === 0) todayRenewals.push(predictedRow);
+        else if (diffDays > 0 && diffDays <= 7) thisWeekRenewals.push(predictedRow);
+
+        if (predictedDue.getMonth() === today.getMonth() && predictedDue.getFullYear() === today.getFullYear()) {
+          thisMonthRenewals.push(predictedRow);
+        }
+      }
+    });
+
+    // Trier les listes par proximité de date
+    const sortByDue = (a, b) => a.diff_days - b.diff_days;
+    todayRenewals.sort(sortByDue);
+    thisWeekRenewals.sort(sortByDue);
+    thisMonthRenewals.sort(sortByDue);
+    lateRenewals.sort(sortByDue);
+
     return NextResponse.json({
       late: lateRenewals,
       today: todayRenewals,
       thisWeek: thisWeekRenewals,
-      allActive: Object.values(clientMonthlyMap) // Juste pour debug si besoin
+      thisMonth: thisMonthRenewals
     });
   } catch (error) {
     console.error('Erreur API /renewals:', error);
