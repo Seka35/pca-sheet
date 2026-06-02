@@ -20,12 +20,14 @@ export async function GET(req) {
     
     const allActiveRenewals = await all(query);
     
-    // Grouper par client_id et isoler le "mois courant"
-    const clientsMap = {};
+    // Grouper par client_id ET mois pour gérer les dettes sur plusieurs mois
+    const clientMonthlyMap = {}; // { "clientId-Month": { records: [], ... } }
+    
     for (let row of allActiveRenewals) {
-      if (!clientsMap[row.client_id]) {
-        clientsMap[row.client_id] = {
-          latestMonth: row.month,
+      const key = `${row.client_id}-${row.month}`;
+      if (!clientMonthlyMap[key]) {
+        clientMonthlyMap[key] = {
+          month: row.month,
           records: [],
           client_id: row.client_id,
           client_name: row.c_name,
@@ -33,11 +35,7 @@ export async function GET(req) {
           valid_stopped_date: row.valid_stopped_date || row.start_date
         };
       }
-      
-      // On prend tous les enregistrements du même mois que le plus récent
-      if (row.month === clientsMap[row.client_id].latestMonth) {
-        clientsMap[row.client_id].records.push(row);
-      }
+      clientMonthlyMap[key].records.push(row);
     }
 
     const today = new Date();
@@ -47,42 +45,50 @@ export async function GET(req) {
     const todayRenewals = [];
     const thisWeekRenewals = [];
 
-    // Pour chaque client, on calcule le total dû et on vérifie la date
-    Object.values(clientsMap).forEach(clientObj => {
+    // Pour chaque groupe (Client + Mois), on calcule le dû
+    Object.values(clientMonthlyMap).forEach(group => {
       let totalAmount = 0;
-      clientObj.records.forEach(r => {
-        totalAmount += parseAmount(r.subscription_fee);
-        totalAmount += parseAmount(r.setup_fee);
+      group.records.forEach(r => {
+        const isPaid = r.reference_no && r.reference_no.trim() !== "";
+        if (!isPaid) {
+          const sub = parseAmount(r.subscription_fee);
+          const setup = parseAmount(r.setup_fee);
+          const disc = parseAmount(r.discount);
+          const received = parseAmount(r.amount_received);
+          
+          const due = (sub + setup) - disc - received;
+          if (due > 0) {
+            totalAmount += due;
+          }
+        }
       });
       
-      // Créer un objet fusionné pour le front
+      // Si tout est payé pour ce mois précis, on ne l'affiche pas
+      if (totalAmount <= 0) return;
+
       const computedRow = {
-        ...clientObj.records[0], // On prend les infos de base du premier
+        ...group.records[0],
         total_due: totalAmount,
-        total_products: clientObj.records.length,
-        products: clientObj.records.map(r => ({ tier: r.tier, setup_type: r.setup_type })),
-        client_name: clientObj.client_name,
-        client_id: clientObj.client_id,
-        bank_name: clientObj.bank_name,
-        valid_stopped_date: clientObj.valid_stopped_date
+        total_products: group.records.length,
+        products: group.records.map(r => ({ tier: r.tier, setup_type: r.setup_type, reference_no: r.reference_no })),
+        client_name: group.client_name,
+        client_id: group.client_id,
+        bank_name: group.bank_name,
+        valid_stopped_date: group.valid_stopped_date
       };
 
       if (computedRow.valid_stopped_date) {
         const dueDate = new Date(computedRow.valid_stopped_date);
         dueDate.setHours(0, 0, 0, 0);
 
-        // Différence en jours
         const diffTime = dueDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays < 0) {
-          // Retard
           lateRenewals.push(computedRow);
         } else if (diffDays === 0) {
-          // Aujourd'hui
           todayRenewals.push(computedRow);
         } else if (diffDays > 0 && diffDays <= 7) {
-          // Dans les 7 prochains jours
           thisWeekRenewals.push(computedRow);
         }
       }
@@ -92,7 +98,7 @@ export async function GET(req) {
       late: lateRenewals,
       today: todayRenewals,
       thisWeek: thisWeekRenewals,
-      allActive: Object.values(clientsMap) // Juste pour debug si besoin
+      allActive: Object.values(clientMonthlyMap) // Juste pour debug si besoin
     });
   } catch (error) {
     console.error('Erreur API /renewals:', error);

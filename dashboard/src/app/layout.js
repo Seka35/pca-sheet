@@ -1,6 +1,5 @@
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
+import ClientLayout from "@/components/ClientLayout";
 
 export const metadata = {
   title: "SubBuddy Dashboard",
@@ -11,17 +10,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <div className="layout-wrapper">
-          <Sidebar />
-
-          {/* Main Content Area */}
-          <main className="main-content" style={{ padding: 0 }}>
-            <Header />
-            <div style={{ padding: '32px' }}>
-              {children}
-            </div>
-          </main>
-        </div>
+        <ClientLayout>
+          {children}
+        </ClientLayout>
       </body>
     </html>
   );

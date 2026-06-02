@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { run, all } from '@/lib/db';
 
-const WEBHOOK_SECRET = "TON_SECRET_ICI";
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "TON_SECRET_ICI";
 
 export async function POST(req) {
   try {

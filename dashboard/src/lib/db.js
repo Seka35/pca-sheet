@@ -11,37 +11,27 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
     }
 });
 
-// Helper pour exécuter des requêtes (CREATE, INSERT, UPDATE, etc.) avec Promises
 function run(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.run(sql, params, function (err) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve({ id: this.lastID, changes: this.changes });
-            }
+            if (err) reject(err);
+            else resolve({ id: this.lastID, changes: this.changes });
         });
     });
 }
 
-// Helper pour récupérer toutes les lignes d'une requête SELECT
 function all(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.all(sql, params, (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(rows);
-            }
+            if (err) reject(err);
+            else resolve(rows);
         });
     });
 }
 
-// Initialisation des tables
 async function initDatabase() {
     console.log('Initialisation du schéma de la base de données...');
 
-    // Table clients
     await run(`
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY,
@@ -51,15 +41,13 @@ async function initDatabase() {
         )
     `);
 
-    // Table renewals avec toutes les 26 colonnes
+    // Table renewals mise à jour avec 27 colonnes pour correspondre à A-AA
     await run(`
         CREATE TABLE IF NOT EXISTS renewals (
             sr_no TEXT PRIMARY KEY,
             client_id INTEGER,
             client_name TEXT,
-            telegram_group_id TEXT,
-            status_validation TEXT,
-            client_status TEXT,
+            client_status_history TEXT,
             month TEXT,
             start_date TEXT,
             client_ad_id_name TEXT,
@@ -82,11 +70,12 @@ async function initDatabase() {
             payment_received_month TEXT,
             reference_no TEXT,
             actual_balance_difference TEXT,
+            notes TEXT,
+            visual_status TEXT,
             FOREIGN KEY(client_id) REFERENCES clients(id)
         )
     `);
 
-    // Table pending_updates pour les modifications en attente
     await run(`
         CREATE TABLE IF NOT EXISTS pending_updates (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,12 +89,7 @@ async function initDatabase() {
         )
     `);
 
-    console.log('Tables créées ou déjà existantes.');
+    console.log('Tables prêtes.');
 }
 
-module.exports = {
-    db,
-    run,
-    all,
-    initDatabase
-};
+module.exports = { db, run, all, initDatabase };

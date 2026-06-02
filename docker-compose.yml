@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  pca-sheet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pca-sheet
+    restart: always
+    networks:
+      - pcb_pcb-network
+    volumes:
+      - ./dashboard/src/lib:/app/dashboard/src/lib
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pca-sheet.rule=Host(`pca.primecircle.pro`)"
+      - "traefik.http.routers.pca-sheet.entrypoints=websecure"
+      - "traefik.http.routers.pca-sheet.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pca-sheet.loadbalancer.server.port=3000"
+      
+      - "traefik.http.routers.pca-webhook.rule=Host(`sheet.primecircle.pro`)"
+      - "traefik.http.routers.pca-webhook.entrypoints=websecure"
+      - "traefik.http.routers.pca-webhook.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.pca-webhook.service=pca-sheet"
+
+networks:
+  pcb_pcb-network:
+    external: true

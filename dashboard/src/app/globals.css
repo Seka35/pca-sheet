@@ -97,12 +97,49 @@ button {
 
 .main-content {
   flex: 1;
-  padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
   height: 100vh;
   overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .layout-wrapper {
+    flex-direction: column;
+  }
+  
+  .sidebar-container {
+    display: none;
+  }
+
+  .sidebar-mobile-visible {
+    display: block !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    z-index: 1000;
+  }
+
+  .main-content {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 0 16px !important;
+  }
+
+  .search-container {
+    width: 100% !important;
+  }
 }
 
 @keyframes spin {

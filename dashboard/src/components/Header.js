@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ClientModal from './ClientModal';
 
-export default function Header() {
+export default function Header(props) {
   const [query, setQuery] = useState('');
   const [clients, setClients] = useState([]);
   const [results, setResults] = useState([]);
@@ -62,13 +62,31 @@ export default function Header() {
         display: 'flex', 
         alignItems: 'center', 
         padding: '0 32px',
+        gap: '16px',
         position: 'sticky',
         top: 0,
         backgroundColor: 'rgba(11, 17, 26, 0.8)',
         backdropFilter: 'blur(10px)',
         zIndex: 100
       }}>
-        <div ref={searchRef} style={{ position: 'relative', width: '400px' }}>
+        <button 
+          onClick={props.onMenuClick}
+          className="mobile-menu-btn"
+          style={{
+            display: 'none',
+            color: 'var(--text-primary)',
+            padding: '8px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)'
+          }}
+        >
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
+        <div ref={searchRef} className="search-container" style={{ position: 'relative', width: '400px' }}>
           <input 
             type="text" 
             placeholder="Search for a client..." 

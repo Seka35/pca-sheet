@@ -9,8 +9,39 @@ export default function ClientModal({ selectedClient, onClose }) {
 
   const { client, history } = selectedClient;
 
+  const parseAmount = (val) => {
+    if (!val) return 0;
+    const parsed = parseFloat(val.toString().replace(/[^0-9.-]+/g, ""));
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const calculateProductDue = (p) => {
+    const isPaid = p.reference_no && p.reference_no.trim() !== "";
+    if (isPaid) return 0;
+    const sub = parseAmount(p.subscription_fee);
+    const setup = parseAmount(p.setup_fee);
+    const disc = parseAmount(p.discount);
+    const received = parseAmount(p.amount_received);
+    const due = (sub + setup) - disc - received;
+    return Math.max(0, due);
+  };
+
+  // On identifie tous les produits non payés (tous mois confondus)
+  const outstandingProducts = history.filter(p => calculateProductDue(p) > 0);
+  
+  // Et on prend aussi les produits du mois le plus récent (pour l'affichage par défaut)
   const latestMonth = history.length > 0 ? history[0].month : null;
-  const currentProducts = history.filter(row => row.month === latestMonth);
+  const latestProducts = history.filter(row => row.month === latestMonth);
+
+  // Fusionner les deux listes sans doublons
+  const displayProducts = [...outstandingProducts];
+  latestProducts.forEach(lp => {
+    if (!displayProducts.find(dp => dp.sr_no === lp.sr_no)) {
+      displayProducts.push(lp);
+    }
+  });
+
+  const totalDue = outstandingProducts.reduce((acc, p) => acc + calculateProductDue(p), 0);
 
   return (
     <div style={{
@@ -38,32 +69,31 @@ export default function ClientModal({ selectedClient, onClose }) {
         
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-            <h3 style={{ fontSize: '16px', margin: 0 }}>Active Products ({latestMonth || 'No data'})</h3>
-            {currentProducts.length > 0 && (
-              <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--status-cut)' }}>
-                Total Due: {formatCurrency(currentProducts.reduce((acc, p) => acc + (parseFloat((p.subscription_fee || '0').toString().replace(/[^0-9.-]+/g, "")) || 0) + (parseFloat((p.setup_fee || '0').toString().replace(/[^0-9.-]+/g, "")) || 0), 0))}
+            <h3 style={{ fontSize: '16px', margin: 0 }}>Outstanding & Latest Products</h3>
+            {displayProducts.length > 0 && (
+              <div style={{ fontSize: '16px', fontWeight: '600', color: totalDue > 0 ? 'var(--status-cut)' : 'var(--status-active)' }}>
+                Total Debt: {formatCurrency(totalDue)}
               </div>
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {currentProducts.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).length > 0 ? currentProducts.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map(product => {
-              const subFee = parseFloat((product.subscription_fee || '0').toString().replace(/[^0-9.-]+/g, "")) || 0;
-              const setupFee = parseFloat((product.setup_fee || '0').toString().replace(/[^0-9.-]+/g, "")) || 0;
-              const productDue = subFee + setupFee;
+            {displayProducts.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).length > 0 ? displayProducts.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map(product => {
+              const productDue = calculateProductDue(product);
+              const isPaid = product.reference_no && product.reference_no.trim() !== "";
               
               return (
-              <div key={product.sr_no} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', position: 'relative' }}>
+              <div key={product.sr_no} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', position: 'relative', border: isPaid ? 'none' : '1px solid var(--status-cut)' }}>
                 <div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Product Type</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Product Type ({product.month})</div>
                   <ProductBadge tier={product.tier} setup_type={product.setup_type} />
                 </div>
                 <div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Amount Due</div>
-                  <div style={{ fontWeight: '700', color: 'var(--status-cut)', fontSize: '16px' }}>
-                    {formatCurrency(productDue)}
+                  <div style={{ fontWeight: '700', color: productDue > 0 ? 'var(--status-cut)' : 'var(--status-active)', fontSize: '16px' }}>
+                    {isPaid ? 'PAID' : formatCurrency(productDue)}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    (Sub: {product.subscription_fee ? formatCurrency(parseFloat(product.subscription_fee.toString().replace(/[^0-9.-]+/g, ""))) : '$0'} / Setup: {product.setup_fee ? formatCurrency(parseFloat(product.setup_fee.toString().replace(/[^0-9.-]+/g, ""))) : '$0'})
+                    (Sub: {product.subscription_fee ? formatCurrency(parseAmount(product.subscription_fee)) : '$0'} / Setup: {product.setup_fee ? formatCurrency(parseAmount(product.setup_fee)) : '$0'})
                   </div>
                 </div>
                 <div>
