@@ -47,31 +47,31 @@ export default function ClientModal({ selectedClient, onClose }) {
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '16px'
     }} onClick={onClose}>
-      <div className="card" style={{ width: '900px', maxHeight: '85vh', overflowY: 'auto', position: 'relative', display: 'flex', flexDirection: 'column', gap: '24px' }} onClick={e => e.stopPropagation()}>
+      <div className="card" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', display: 'flex', flexDirection: 'column', gap: '20px' }} onClick={e => e.stopPropagation()}>
         <button 
           onClick={onClose} 
-          style={{ position: 'absolute', top: '24px', right: '24px', color: 'var(--text-secondary)', fontSize: '20px', cursor: 'pointer', background: 'transparent', border: 'none' }}
+          style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-secondary)', fontSize: '20px', cursor: 'pointer', background: 'transparent', border: 'none', zIndex: 10 }}
         >
           ✕
         </button>
         
-        <div>
-          <h2 style={{ fontSize: '24px', marginBottom: '4px' }}>{client.name}</h2>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ paddingRight: '40px' }}>
+          <h2 style={{ fontSize: '20px', marginBottom: '4px' }}>{client.name}</h2>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="badge" style={{ backgroundColor: client.status === 'Actif' ? 'var(--status-active-bg)' : 'var(--status-cut-bg)', color: client.status === 'Actif' ? 'var(--status-active)' : 'var(--status-cut)' }}>
               {client.status === 'Actif' ? 'Active' : 'Inactive'}
             </span>
-            <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Telegram ID: {client.telegram_group_id || 'N/A'}</span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Telegram ID: {client.telegram_group_id || 'N/A'}</span>
           </div>
         </div>
         
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-            <h3 style={{ fontSize: '16px', margin: 0 }}>Outstanding & Latest Products</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+            <h3 style={{ fontSize: '15px', margin: 0 }}>Outstanding & Latest Products</h3>
             {displayProducts.length > 0 && (
-              <div style={{ fontSize: '16px', fontWeight: '600', color: totalDue > 0 ? 'var(--status-cut)' : 'var(--status-active)' }}>
+              <div style={{ fontSize: '15px', fontWeight: '600', color: totalDue > 0 ? 'var(--status-cut)' : 'var(--status-active)' }}>
                 Total Debt: {formatCurrency(totalDue)}
               </div>
             )}
@@ -82,7 +82,7 @@ export default function ClientModal({ selectedClient, onClose }) {
               const isPaid = product.reference_no && product.reference_no.trim() !== "";
               
               return (
-              <div key={product.sr_no} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', position: 'relative', border: isPaid ? 'none' : '1px solid var(--status-cut)' }}>
+              <div key={product.sr_no} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', position: 'relative', border: isPaid ? 'none' : '1px solid var(--status-cut)' }}>
                 <div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Product Type ({product.month})</div>
                   <ProductBadge tier={product.tier} setup_type={product.setup_type} />

@@ -80,7 +80,7 @@ export default function ClientsPage() {
     <div style={{ paddingBottom: '64px' }}>
       
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div className="flex-mobile-column" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px' }}>Clients</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{clients.length} total clients</p>
@@ -95,7 +95,7 @@ export default function ClientsPage() {
       </div>
 
       {/* Filter Bar */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+      <div className="flex-mobile-column" style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
         <div style={{ flex: 1, position: 'relative' }}>
           <div style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-secondary)' }}>
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -144,8 +144,8 @@ export default function ClientsPage() {
         {loading ? (
           <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading clients...</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+          <div className="table-responsive">
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '900px' }}>
               <thead>
                 <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>

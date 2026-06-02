@@ -101,36 +101,35 @@ button {
   flex-direction: column;
   height: 100vh;
   overflow-y: auto;
+  padding-bottom: 0;
+}
+
+/* Responsive Grid Helpers */
+.grid-metrics {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .grid-metrics {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
-  .mobile-menu-btn {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .layout-wrapper {
-    flex-direction: column;
+  .grid-metrics {
+    grid-template-columns: repeat(2, 1fr);
   }
   
-  .sidebar-container {
-    display: none;
-  }
-
-  .sidebar-mobile-visible {
-    display: block !important;
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 260px;
-    z-index: 1000;
+  .mobile-hide {
+    display: none !important;
   }
 
   .main-content {
     height: auto;
     min-height: 100vh;
+    padding-bottom: 80px; /* Space for bottom nav */
   }
 
   header {
@@ -139,6 +138,59 @@ button {
 
   .search-container {
     width: 100% !important;
+  }
+
+  .sidebar-container {
+    display: none;
+  }
+
+  .bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background-color: var(--bg-sidebar);
+    border-top: 1px solid var(--border-color);
+    z-index: 1000;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 16px;
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: 10px;
+    gap: 4px;
+  }
+
+  .bottom-nav-item.active {
+    color: var(--primary-accent);
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .table-responsive {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .flex-mobile-column {
+    flex-direction: column !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-metrics {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -149,3 +201,4 @@ button {
 .spinner {
   animation: spin 1s linear infinite;
 }
+

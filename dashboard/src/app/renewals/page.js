@@ -35,7 +35,8 @@ export default function RenewalsPage() {
         </span>
       </div>
       <div className="card" style={{ padding: 0, overflow: 'hidden', border: `1px solid ${borderColor}` }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="table-responsive">
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '13px' }}>
               <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>
@@ -73,7 +74,7 @@ export default function RenewalsPage() {
                 <td style={{ padding: '16px 24px' }}>
                   <span style={{ 
                     fontWeight: '700', 
-                    color: row.diff_days < 0 ? '#ef4444' : row.diff_days === 0 ? 'var(--status-cut)' : 'var(--status-active)'
+                    color: row.diff_days < 0 ? '#ef4444' : row.diff_days === 0 ? '#FBBF24' : 'var(--primary-accent)'
                   }}>
                     {row.diff_days > 0 ? `+${row.diff_days}j` : row.diff_days < 0 ? `${row.diff_days}j` : 'Today'}
                   </span>
@@ -88,11 +89,12 @@ export default function RenewalsPage() {
             ))}
             {list.length === 0 && (
               <tr>
-                <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No items in this category.</td>
+                <td colSpan="7" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No items in this category.</td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
@@ -105,55 +107,55 @@ export default function RenewalsPage() {
       </p>
 
       {/* Cards */}
-      <div style={{ display: 'flex', gap: '24px', marginBottom: '32px' }}>
+      <div className="grid-metrics" style={{ marginBottom: '32px' }}>
         
         {/* LATE */}
-        <div className="card" style={{ flex: 1, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
+        <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(239, 68, 68, 0.08)', color: '#F87171', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </div>
-              <h3 style={{ fontSize: '13px', color: '#ef4444', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Late / Overdue</h3>
+              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Late / Overdue</h3>
             </div>
-            <span style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
-              {data.late.length} clients
+            <span style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#F87171', padding: '2px 8px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+              {data.late.length}
             </span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: '#ef4444', marginTop: '16px' }}>
+          <div style={{ fontSize: '28px', fontWeight: '700', color: '#F87171', marginTop: '16px' }}>
             {formatCurrency(data.late.reduce((acc, row) => acc + (row.total_due || 0), 0))}
           </div>
         </div>
 
         {/* TODAY */}
-        <div className="card" style={{ flex: 1, borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
+        <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(245, 158, 11, 0.08)', color: '#FBBF24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
-              <h3 style={{ fontSize: '13px', color: '#F59E0B', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</h3>
+              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</h3>
             </div>
-            <span style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
-              {data.today.length} clients
+            <span style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#FBBF24', padding: '2px 8px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+              {data.today.length}
             </span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: '#F59E0B', marginTop: '16px' }}>
+          <div style={{ fontSize: '28px', fontWeight: '700', color: '#FBBF24', marginTop: '16px' }}>
             {formatCurrency(data.today.reduce((acc, row) => acc + (row.total_due || 0), 0))}
           </div>
         </div>
 
         {/* THIS MONTH */}
-        <div className="card" style={{ flex: 1, borderColor: 'var(--primary-accent)', backgroundColor: 'rgba(52, 211, 153, 0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
+        <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--primary-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(52, 211, 153, 0.08)', color: 'var(--primary-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               </div>
-              <h3 style={{ fontSize: '13px', color: 'var(--primary-accent)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Month</h3>
+              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Month</h3>
             </div>
-            <span style={{ backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--primary-accent)', padding: '4px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
-              {data.thisMonth?.length || 0} clients
+            <span style={{ backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--primary-accent)', padding: '2px 8px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+              {data.thisMonth?.length || 0}
             </span>
           </div>
           <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--primary-accent)', marginTop: '16px' }}>
@@ -166,9 +168,9 @@ export default function RenewalsPage() {
         <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading renewals...</div>
       ) : (
         <>
-          {data.late.length > 0 && <RenewalTable title="Late / Overdue" list={data.late} color="#ef4444" borderColor="#7f1d1d" />}
-          {data.today.length > 0 && <RenewalTable title="Today" list={data.today} color="var(--status-cut)" borderColor="var(--status-cut)" />}
-          <RenewalTable title="This Week" list={data.thisWeek} borderColor="var(--primary-accent)" />
+          {data.late.length > 0 && <RenewalTable title="Late / Overdue" list={data.late} color="#F87171" borderColor="rgba(239, 68, 68, 0.2)" />}
+          {data.today.length > 0 && <RenewalTable title="Today" list={data.today} color="#FBBF24" borderColor="rgba(245, 158, 11, 0.2)" />}
+          <RenewalTable title="This Week" list={data.thisWeek} borderColor="rgba(0, 242, 181, 0.2)" />
           <RenewalTable title="This Month" list={data.thisMonth} />
         </>
       )}
