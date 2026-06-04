@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules
+**/node_modules
+npm-debug.log*
+
+# Build artifacts
+.next
+**/.next
+out
+build
+
+# Git
+.git
+.gitignore
+
+# IDE / OS
+.DS_Store
+.vscode
+.idea
+
+# Test / debug scripts
+test.js
+debug_*.js
+inspect_*.js
+analyze_*.js
+test_db.js
+verify.js
+sync.js
+db.js
+package.json
+package-lock.json

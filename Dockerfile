@@ -3,31 +3,19 @@ FROM node:20-alpine AS builder
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
-# Copier les fichiers de dépendances de la racine et du dashboard
-COPY package*.json ./
+# Copier le manifest dashboard et installer les dépendances
 COPY dashboard/package*.json ./dashboard/
+RUN cd dashboard && npm install && npm rebuild better-sqlite3 --build-from-source
 
-# Installer les dépendances (racine et dashboard)
-RUN npm install && npm rebuild sqlite3 --build-from-source
-RUN cd dashboard && npm install && npm rebuild sqlite3 --build-from-source
-
-# Copier tout le reste
+# Copier le code source et builder
 COPY . .
-
-# Build du dashboard Next.js
 RUN cd dashboard && npm run build
 
 # Production stage
 FROM node:20-alpine
 WORKDIR /app
 
-# Copier les fichiers nécessaires de la racine
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/sync.js ./
-COPY --from=builder /app/db.js ./
-
-# Copier les fichiers du dashboard
+# Copier le dashboard buildé + ses node_modules
 COPY --from=builder /app/dashboard/package*.json ./dashboard/
 COPY --from=builder /app/dashboard/.next ./dashboard/.next
 COPY --from=builder /app/dashboard/public ./dashboard/public
@@ -39,6 +27,5 @@ RUN mkdir -p dashboard/src/lib && chown -R node:node dashboard/src/lib
 EXPOSE 3000
 ENV NODE_ENV=production
 
-# On lance le dashboard depuis son dossier
 WORKDIR /app/dashboard
 CMD ["npm", "start"]
