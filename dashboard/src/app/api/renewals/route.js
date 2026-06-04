@@ -19,6 +19,8 @@ export async function GET(req) {
       ORDER BY r.client_id ASC, r.sr_no DESC
     `;
 
+    const allActiveRenewals = await all(query);
+
     // Pre-compute the parsed value for every active client so we can surface
     // conflicts (parsed value differs from the assigned tele_id, usually
     // because a duplicate ID was NULLed during the backfill).
@@ -28,8 +30,6 @@ export async function GET(req) {
         parsedCache.set(r.client_id, extractTeleId(r.c_name));
       }
     }
-    
-    const allActiveRenewals = await all(query);
 
     // Lookup linked Telegram groups per client (one row per linked group).
     const groupRows = await all(

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getConfig, upsertConfig, getBot } from '@/lib/telegramBot';
+import { getConfig, upsertConfig, getBot, startBot, stopBot } from '@/lib/telegramBot';
 import { startSweepTimer, stopSweepTimer } from '@/lib/botScheduler';
 
 export async function GET() {
@@ -42,10 +42,25 @@ export async function PUT(req) {
     if (typeof body.quiet_hours_end === 'string') patch.quiet_hours_end = body.quiet_hours_end || null;
     if (typeof body.timezone === 'string') patch.timezone = body.timezone.trim() || 'UTC';
 
+    // Capture the previous enabled state BEFORE we save the new one, so we
+    // can decide whether to start or stop the live bot instance.
+    const prevCfg = getConfig();
+    const wasEnabled = !!prevCfg?.enabled;
+    const willBeEnabled = typeof body.enabled === 'boolean' ? body.enabled : wasEnabled;
+
     const updated = upsertConfig(patch);
 
-    // Reschedule sweep timer if interval changed.
-    if (getBot()) {
+    // Start or stop the live bot instance to match the new enabled state.
+    // Without this, toggling the checkbox in the UI would persist the flag
+    // but leave the polling loop in its previous state.
+    if (willBeEnabled && !getBot()) {
+      const res = await startBot();
+      console.log('[bot/config] startBot after enable:', res);
+    } else if (!willBeEnabled && getBot()) {
+      await stopBot();
+      console.log('[bot/config] stopBot after disable');
+    } else if (getBot()) {
+      // Already running — just reschedule the sweep timer (interval may have changed).
       stopSweepTimer();
       startSweepTimer(() => getBot());
     }

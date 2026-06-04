@@ -301,7 +301,8 @@ async function handleMessage(msg, TelegramBotInstance) {
 
 export async function startBot() {
   if (bot) return { started: true, reason: 'already_running' };
-  if (globalThis.__pcaTelegramBotStarted) return { started: false, reason: 'boot_lock' };
+  // Reset the boot lock so a previous failure (invalid token, import error,
+  // etc.) doesn't permanently wedge us. The next call will re-attempt.
   globalThis.__pcaTelegramBotStarted = true;
 
   const cfg = getConfig();
@@ -382,6 +383,7 @@ export async function startBot() {
 }
 
 export async function stopBot() {
+  stopSweepTimer();
   if (!bot) return;
   try { await bot.stopPolling(); } catch {}
   bot = null;
