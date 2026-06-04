@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import ClientModal from '@/components/ClientModal';
 import ProductBadge from '@/components/ProductBadge';
+import TelegramBadge from '@/components/TelegramBadge';
+import TeleIdBadge from '@/components/TeleIdBadge';
 
 export default function RenewalsPage() {
   const [data, setData] = useState({ late: [], today: [], thisWeek: [], thisMonth: [], allActive: [] });
@@ -40,11 +42,13 @@ export default function RenewalsPage() {
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '13px' }}>
               <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>
+              <th style={{ padding: '16px 24px', fontWeight: '500' }}>Tele ID</th>
               <th style={{ padding: '16px 24px', fontWeight: '500' }}>Products</th>
               <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
               <th style={{ padding: '16px 24px', fontWeight: '500' }}>Amount Due</th>
               <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due Date</th>
               <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due</th>
+              <th style={{ padding: '16px 24px', fontWeight: '500' }}>Telegram</th>
               <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
@@ -58,6 +62,13 @@ export default function RenewalsPage() {
                 onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <td style={{ padding: '16px 24px', fontWeight: '500' }}>{row.client_name}</td>
+                <td style={{ padding: '16px 24px' }}>
+                  <TeleIdBadge
+                    teleId={row.tele_id}
+                    parsedTeleId={row.parsed_tele_id}
+                    conflict={row.tele_id_conflict}
+                  />
+                </td>
                 <td style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {row.products && row.products.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map((p, i) => (
                     <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} />
@@ -72,12 +83,15 @@ export default function RenewalsPage() {
                 </td>
                 <td style={{ padding: '16px 24px', fontWeight: 'bold' }}>{row.valid_stopped_date || row.start_date || '—'}</td>
                 <td style={{ padding: '16px 24px' }}>
-                  <span style={{ 
-                    fontWeight: '700', 
+                  <span style={{
+                    fontWeight: '700',
                     color: row.diff_days < 0 ? '#ef4444' : row.diff_days === 0 ? '#FBBF24' : 'var(--primary-accent)'
                   }}>
                     {row.diff_days > 0 ? `+${row.diff_days}j` : row.diff_days < 0 ? `${row.diff_days}j` : 'Today'}
                   </span>
+                </td>
+                <td style={{ padding: '16px 24px' }}>
+                  <TelegramBadge chatId={row.telegram_chat_id} title={row.telegram_chats?.[0]?.chat_title} />
                 </td>
                 <td style={{ padding: '16px 24px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                    <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'var(--status-active-bg)', color: 'var(--primary-accent)', fontSize: '12px', border: '1px solid var(--primary-accent)', fontWeight: '500' }}>
@@ -89,7 +103,7 @@ export default function RenewalsPage() {
             ))}
             {list.length === 0 && (
               <tr>
-                <td colSpan="7" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No items in this category.</td>
+                <td colSpan="9" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No items in this category.</td>
               </tr>
             )}
           </tbody>

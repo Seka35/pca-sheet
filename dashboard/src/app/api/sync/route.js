@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { run, all, initDatabase } from '@/lib/db';
+import { extractTeleId } from '@/lib/teleIdParser';
 
 const SHEET_ID = '140xAk8mQz1MRbG-X7THPTsVNorw14SnbMVbP2FXhhFY';
 
@@ -86,10 +87,10 @@ async function performSync() {
     const isClientHeader = parseFloat(srNo) % 1 === 0;
 
     if (isClientHeader) {
-      clientsToInsert.set(baseClientId, { id: baseClientId, name: clientName, status: 'inactif' });
+      clientsToInsert.set(baseClientId, { id: baseClientId, name: clientName, status: 'inactif', tele_id: extractTeleId(clientName) });
     } else {
       if (!clientsToInsert.has(baseClientId)) {
-        clientsToInsert.set(baseClientId, { id: baseClientId, name: clientName, status: 'inactif' });
+        clientsToInsert.set(baseClientId, { id: baseClientId, name: clientName, status: 'inactif', tele_id: extractTeleId(clientName) });
       }
       if (isActive) {
         clientsToInsert.get(baseClientId).status = 'Actif';
@@ -138,8 +139,8 @@ async function performSync() {
     run('DELETE FROM clients');
 
     for (const client of clientsToInsert.values()) {
-      run('INSERT OR REPLACE INTO clients (id, name, status) VALUES (?, ?, ?)', [
-        client.id, client.name, client.status,
+      run('INSERT OR REPLACE INTO clients (id, name, status, tele_id) VALUES (?, ?, ?, ?)', [
+        client.id, client.name, client.status, client.tele_id,
       ]);
     }
 

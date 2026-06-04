@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { all } from '@/lib/db';
+import { extractTeleId } from '@/lib/teleIdParser';
 
 function parseAmount(val) {
   if (!val) return 0;
@@ -11,22 +12,44 @@ function parseAmount(val) {
 export async function GET(req) {
   try {
     const query = `
-      SELECT r.*, c.status as client_global_status, c.name as c_name 
+      SELECT r.*, c.status as client_global_status, c.name as c_name, c.tele_id as c_tele_id
       FROM renewals r
       JOIN clients c ON c.id = r.client_id
       WHERE c.status = 'Actif'
       ORDER BY r.client_id ASC, r.sr_no DESC
     `;
+
+    // Pre-compute the parsed value for every active client so we can surface
+    // conflicts (parsed value differs from the assigned tele_id, usually
+    // because a duplicate ID was NULLed during the backfill).
+    const parsedCache = new Map();
+    for (const r of allActiveRenewals) {
+      if (!parsedCache.has(r.client_id)) {
+        parsedCache.set(r.client_id, extractTeleId(r.c_name));
+      }
+    }
     
     const allActiveRenewals = await all(query);
-    
+
+    // Lookup linked Telegram groups per client (one row per linked group).
+    const groupRows = await all(
+      `SELECT chat_id, chat_title, client_id FROM bot_group_links WHERE status = 'linked'`
+    );
+    const groupsByClient = {};
+    for (const g of groupRows) {
+      if (!groupsByClient[g.client_id]) groupsByClient[g.client_id] = [];
+      groupsByClient[g.client_id].push({ chat_id: g.chat_id, chat_title: g.chat_title });
+    }
+
     // 1. Grouper les données existantes par client et par mois
-    const clientMonthlyMap = {}; 
+    const clientMonthlyMap = {};
     const clientLastKnownRecord = {}; // Pour stocker les infos de base par client
 
     for (let row of allActiveRenewals) {
       const key = `${row.client_id}-${row.month}`;
       if (!clientMonthlyMap[key]) {
+        const assignedTele = row.c_tele_id || null;
+        const parsedTele = parsedCache.get(row.client_id) || null;
         clientMonthlyMap[key] = {
           month: row.month,
           records: [],
@@ -34,11 +57,17 @@ export async function GET(req) {
           client_name: row.c_name,
           bank_name: row.bank_name,
           valid_stopped_date: row.valid_stopped_date || row.start_date,
-          start_date: row.start_date
+          start_date: row.start_date,
+          groups: groupsByClient[row.client_id] || [],
+          tele_id: assignedTele,
+          parsed_tele_id: parsedTele,
+          // True conflict: DB has no tele_id but the name parses to one
+          // (meaning another client already owns it).
+          tele_id_conflict: !assignedTele && !!parsedTele,
         };
       }
       clientMonthlyMap[key].records.push(row);
-      
+
       // On garde l'enregistrement le plus récent pour les prédictions
       if (!clientLastKnownRecord[row.client_id]) {
         clientLastKnownRecord[row.client_id] = row;
@@ -78,7 +107,10 @@ export async function GET(req) {
         client_name: group.client_name,
         client_id: group.client_id,
         bank_name: group.bank_name,
-        valid_stopped_date: group.valid_stopped_date
+        valid_stopped_date: group.valid_stopped_date,
+        telegram_chats: group.groups || [],
+        telegram_chat_id: group.groups?.[0]?.chat_id || null,
+        tele_id: group.tele_id || null,
       };
 
       if (computedRow.valid_stopped_date) {
@@ -129,7 +161,10 @@ export async function GET(req) {
           is_predicted: true,
           diff_days: diffDays,
           valid_stopped_date: predictedDue.toISOString().split('T')[0],
-          month: monthStr
+          month: monthStr,
+          telegram_chats: groupsByClient[lastRecord.client_id] || [],
+          telegram_chat_id: groupsByClient[lastRecord.client_id]?.[0]?.chat_id || null,
+          tele_id: lastRecord.c_tele_id || null,
         };
 
         if (diffDays === 0) todayRenewals.push(predictedRow);

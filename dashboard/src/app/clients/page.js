@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import ClientModal from '@/components/ClientModal';
+import TelegramBadge from '@/components/TelegramBadge';
+import TeleIdBadge from '@/components/TeleIdBadge';
 
 export default function ClientsPage() {
   const [clients, setClients] = useState([]);
@@ -33,9 +35,11 @@ export default function ClientsPage() {
   const filteredClients = clients.filter(c => {
     // Search
     const searchLower = search.toLowerCase();
-    const matchSearch = c.nom?.toLowerCase().includes(searchLower) || 
+    const matchSearch = c.nom?.toLowerCase().includes(searchLower) ||
                         c.email?.toLowerCase().includes(searchLower) ||
-                        c.pd_id?.toString().includes(searchLower);
+                        c.pd_id?.toString().includes(searchLower) ||
+                        c.telegram_group_id?.toLowerCase().includes(searchLower) ||
+                        c.tele_id?.toString().includes(searchLower);
     
     // Status Filter
     const matchStatus = statusFilter === 'All statuses' || 
@@ -149,11 +153,13 @@ export default function ClientsPage() {
               <thead>
                 <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Tele ID</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Email</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Product(s)</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Monthly</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Status</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Telegram</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'center' }}>Renewal</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Tenure</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>PD ID</th>
@@ -169,6 +175,13 @@ export default function ClientsPage() {
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <td style={{ padding: '16px 24px', fontWeight: '500', color: 'var(--text-primary)' }}>{client.nom}</td>
+                    <td style={{ padding: '16px 24px' }}>
+                      <TeleIdBadge
+                        teleId={client.tele_id}
+                        parsedTeleId={client.parsed_tele_id}
+                        conflict={client.tele_id_conflict}
+                      />
+                    </td>
                     <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>{client.email}</td>
                     <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>
                       {client.produits.length > 25 ? client.produits.substring(0, 25) + '...' : client.produits}
@@ -181,6 +194,9 @@ export default function ClientsPage() {
                     </td>
                     <td style={{ padding: '16px 24px' }}>
                       {getChannelBadge(client.canal)}
+                    </td>
+                    <td style={{ padding: '16px 24px' }}>
+                      <TelegramBadge chatId={client.telegram_group_id} title="Primary linked group" />
                     </td>
                     <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', textAlign: 'center' }}>
                       {client.renouvellement}
@@ -196,7 +212,7 @@ export default function ClientsPage() {
                 
                 {filteredClients.length === 0 && (
                   <tr>
-                    <td colSpan="9" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <td colSpan="11" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                       No clients match your search.
                     </td>
                   </tr>

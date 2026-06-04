@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { all } from '@/lib/db';
+import { extractTeleId } from '@/lib/teleIdParser';
 
 function parseAmount(val) {
   if (!val) return 0;
@@ -84,11 +85,24 @@ export async function GET(req) {
         }
       }
 
+      // For the Tele ID column, we want to show the PARSED value even when
+      // it's NULL in DB (which happens when the parsed ID is already taken
+      // by another client — a Sheet data-quality issue). The conflict flag
+      // is only set for TRUE unresolved cases: tele_id is NULL but the name
+      // has a pattern. Clients like Vince (id=184) whose name resolves via
+      // a secondary pattern end up with tele_id=184 and are NOT flagged.
+      const parsedTeleId = extractTeleId(client.name);
+      const teleIdConflict = !client.tele_id && !!parsedTeleId;
+
       return {
         id: client.id,
         pd_id: client.id + 1000, // Fake a Pipedrive ID by adding 1000
         nom: client.name,
         email: client.telegram_group_id || 'No contact',
+        telegram_group_id: client.telegram_group_id || null,
+        tele_id: client.tele_id || null,
+        parsed_tele_id: parsedTeleId,
+        tele_id_conflict: teleIdConflict,
         produits: produits.length > 0 ? produits.join(', ') : '—',
         mensuel: mrr,
         statut: client.status === 'Actif' ? 'Active' : 'Inactive',

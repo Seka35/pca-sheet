@@ -1,0 +1,213 @@
+// Reminder sweep — checks renewals and sends Telegram reminders.
+// Runs on a setInterval timer, plus on-demand from /api/bot/sweep.
+
+import { all, get, run, db } from './db.js';
+import { renderTemplate, buildVars, parseDate } from './botTemplates.js';
+
+const MIN_INTERVAL_MIN = 1;
+const DEFAULT_INTERVAL_MIN = 15;
+
+function safeJsonParse(s, fallback) {
+  if (!s) return fallback;
+  try { return JSON.parse(s); } catch { return fallback; }
+}
+
+export function getConfig() {
+  const row = get('SELECT * FROM bot_config WHERE id = 1');
+  if (!row) return null;
+  return {
+    id: row.id,
+    token: row.token,
+    enabled: !!row.enabled,
+    reminder_days: safeJsonParse(row.reminder_days, [-7, -2, 0, 1]),
+    templates: safeJsonParse(row.templates_json, {}),
+    sweep_interval_minutes: row.sweep_interval_minutes || DEFAULT_INTERVAL_MIN,
+    quiet_hours_start: row.quiet_hours_start || null,
+    quiet_hours_end: row.quiet_hours_end || null,
+    timezone: row.timezone || 'UTC',
+    bot_username: row.bot_username || null,
+    last_sweep_at: row.last_sweep_at || null,
+  };
+}
+
+export function upsertConfig(patch) {
+  const current = getConfig() || {};
+  const merged = { ...current, ...patch };
+  run(
+    `INSERT INTO bot_config (
+       id, token, enabled, reminder_days, templates_json,
+       sweep_interval_minutes, quiet_hours_start, quiet_hours_end,
+       timezone, bot_username, updated_at
+     )
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(id) DO UPDATE SET
+       token = excluded.token,
+       enabled = excluded.enabled,
+       reminder_days = excluded.reminder_days,
+       templates_json = excluded.templates_json,
+       sweep_interval_minutes = excluded.sweep_interval_minutes,
+       quiet_hours_start = excluded.quiet_hours_start,
+       quiet_hours_end = excluded.quiet_hours_end,
+       timezone = excluded.timezone,
+       bot_username = excluded.bot_username,
+       updated_at = CURRENT_TIMESTAMP`,
+    [
+      merged.token || null,
+      merged.enabled ? 1 : 0,
+      JSON.stringify(merged.reminder_days || []),
+      JSON.stringify(merged.templates || {}),
+      Math.max(MIN_INTERVAL_MIN, Number(merged.sweep_interval_minutes) || DEFAULT_INTERVAL_MIN),
+      merged.quiet_hours_start || null,
+      merged.quiet_hours_end || null,
+      merged.timezone || 'UTC',
+      merged.bot_username || null,
+    ]
+  );
+  return getConfig();
+}
+
+function inQuietHours(cfg) {
+  if (!cfg.quiet_hours_start || !cfg.quiet_hours_end) return false;
+  const now = new Date();
+  const fmt = (s) => {
+    const m = String(s).match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2]);
+  };
+  const start = fmt(cfg.quiet_hours_start);
+  const end = fmt(cfg.quiet_hours_end);
+  if (start == null || end == null) return false;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  if (start <= end) return cur >= start && cur < end;
+  // Wraparound (e.g. 22:00 -> 08:00).
+  return cur >= start || cur < end;
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export async function runReminderSweepOnce(bot) {
+  const cfg = getConfig();
+  if (!cfg) return { skipped: 'no_config' };
+  if (!cfg.enabled) return { skipped: 'disabled' };
+  if (inQuietHours(cfg)) return { skipped: 'quiet_hours' };
+
+  const templates = cfg.templates || {};
+  const offsets = Object.keys(templates)
+    .map((k) => Number(k))
+    .filter((n) => Number.isFinite(n) && templates[String(n)] && templates[String(n)].enabled !== false);
+  if (offsets.length === 0) return { skipped: 'no_templates' };
+
+  // Pull candidates: real renewals, active clients, valid date, unpaid, has a linked group.
+  const candidates = all(
+    `SELECT r.sr_no, r.client_id, r.client_name, r.tier, r.setup_type,
+            r.subscription_fee, r.setup_fee, r.discount, r.amount_received,
+            r.valid_stopped_date, r.reminders_sent_json, r.bank_name,
+            g.chat_id, g.chat_title
+       FROM renewals r
+       JOIN clients c ON c.id = r.client_id AND c.status = 'Actif'
+       JOIN bot_group_links g ON g.client_id = c.id AND g.status = 'linked'
+      WHERE COALESCE(r.valid_stopped_date,'') <> ''
+        AND COALESCE(r.reference_no,'') = ''`
+  );
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const result = { scheduled: 0, sent: 0, failed: 0, skipped_existing: 0, errors: [] };
+
+  for (const row of candidates) {
+    const dueDate = parseDate(row.valid_stopped_date);
+    if (!dueDate) continue;
+    const diffDays = Math.floor((dueDate.getTime() - today.getTime()) / 86400000);
+
+    for (const dayOffset of offsets) {
+      // dayOffset = -7 means "send 7 days BEFORE the due date" -> diffDays must equal 7.
+      const targetDiff = -dayOffset;
+      if (diffDays !== targetDiff) continue;
+
+      // Fast cache check.
+      let cache = [];
+      try { cache = JSON.parse(row.reminders_sent_json || '[]'); } catch { cache = []; }
+      if (cache.includes(dayOffset)) { result.skipped_existing++; continue; }
+
+      // Belt-and-braces: log table check.
+      const existing = get(
+        'SELECT 1 AS hit FROM reminder_logs WHERE renewal_sr_no = ? AND reminder_type = ? AND chat_id = ?',
+        [row.sr_no, formatType(dayOffset), row.chat_id]
+      );
+      if (existing) { result.skipped_existing++; continue; }
+
+      const tpl = templates[String(dayOffset)];
+      const vars = buildVars(row, diffDays);
+      const text = renderTemplate(tpl.message, vars);
+
+      result.scheduled++;
+      if (!bot) {
+        result.errors.push({ sr_no: row.sr_no, chat_id: row.chat_id, reason: 'bot_not_started' });
+        continue;
+      }
+
+      try {
+        const msg = await bot.sendMessage(row.chat_id, text, {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        });
+        run(
+          `INSERT INTO reminder_logs
+             (chat_id, client_id, renewal_sr_no, reminder_type, message, status, telegram_message_id)
+           VALUES (?, ?, ?, ?, ?, 'sent', ?)
+           ON CONFLICT(renewal_sr_no, reminder_type, chat_id) DO NOTHING`,
+          [row.chat_id, row.client_id, row.sr_no, formatType(dayOffset), text, msg?.message_id || null]
+        );
+        cache.push(dayOffset);
+        run('UPDATE renewals SET reminders_sent_json = ? WHERE sr_no = ?', [JSON.stringify(cache), row.sr_no]);
+        result.sent++;
+      } catch (err) {
+        const errMsg = err?.response?.body?.description || err?.message || String(err);
+        run(
+          `INSERT INTO reminder_logs
+             (chat_id, client_id, renewal_sr_no, reminder_type, message, status, error)
+           VALUES (?, ?, ?, ?, ?, 'failed', ?)
+           ON CONFLICT(renewal_sr_no, reminder_type, chat_id) DO NOTHING`,
+          [row.chat_id, row.client_id, row.sr_no, formatType(dayOffset), text, errMsg]
+        );
+        result.failed++;
+        result.errors.push({ sr_no: row.sr_no, chat_id: row.chat_id, reason: errMsg });
+      }
+
+      // Telegram per-chat rate limit: 1 msg/s.
+      await sleep(1100);
+    }
+  }
+
+  run('UPDATE bot_config SET last_sweep_at = CURRENT_TIMESTAMP WHERE id = 1');
+  return result;
+}
+
+export function formatType(dayOffset) {
+  if (dayOffset === 0) return 'T0';
+  return dayOffset > 0 ? `T+${dayOffset}` : `T${dayOffset}`;
+}
+
+// Timer management. Stored on globalThis so dev hot-reload doesn't double-schedule.
+export function startSweepTimer(getBot) {
+  if (globalThis.__pcaSweepTimer) clearInterval(globalThis.__pcaSweepTimer);
+  const cfg = getConfig();
+  const minutes = cfg?.sweep_interval_minutes || DEFAULT_INTERVAL_MIN;
+  const ms = Math.max(MIN_INTERVAL_MIN, minutes) * 60 * 1000;
+
+  // Kick off one immediately on boot.
+  runReminderSweepOnce(getBot()).catch((e) => console.error('[sweep] initial run failed', e));
+
+  globalThis.__pcaSweepTimer = setInterval(() => {
+    runReminderSweepOnce(getBot()).catch((e) => console.error('[sweep] tick failed', e));
+  }, ms);
+  return ms;
+}
+
+export function stopSweepTimer() {
+  if (globalThis.__pcaSweepTimer) {
+    clearInterval(globalThis.__pcaSweepTimer);
+    globalThis.__pcaSweepTimer = null;
+  }
+}

@@ -4,22 +4,50 @@
 
 import Database from 'better-sqlite3';
 import path from 'path';
+import { extractTeleId, extractAllTeleIds } from './teleIdParser.js';
 
 const DB_PATH = path.join(process.cwd(), 'src', 'lib', 'pca_renew.db');
 
-const db = new Database(DB_PATH);
+let dbInstance = new Database(DB_PATH);
 console.log('Connecté à la base de données SQLite (better-sqlite3).');
 
 function all(sql, params = []) {
-  return db.prepare(sql).all(...params);
+  return dbInstance.prepare(sql).all(...params);
 }
 
 function get(sql, params = []) {
-  return db.prepare(sql).get(...params);
+  return dbInstance.prepare(sql).get(...params);
 }
 
 function run(sql, params = []) {
-  return db.prepare(sql).run(...params);
+  return dbInstance.prepare(sql).run(...params);
+}
+
+// Live proxy: `db` always points to the current connection, even after
+// closeDb() + reopenDb(). Backwards-compatible with code that imports `db`.
+const db = new Proxy({}, {
+  get(_t, prop) { return dbInstance[prop]; },
+  has(_t, prop) { return prop in dbInstance; },
+});
+
+// Close + reopen the database. Used by the restore flow — the file on disk
+// is replaced, then the connection is dropped so the next call sees the new file.
+function closeDb() {
+  if (dbInstance) {
+    try { dbInstance.close(); } catch (e) { /* already closed */ }
+    dbInstance = null;
+  }
+}
+
+function reopenDb() {
+  if (!dbInstance) {
+    dbInstance = new Database(DB_PATH);
+  }
+  return dbInstance;
+}
+
+function getDb() {
+  return dbInstance;
 }
 
 function initDatabase() {
@@ -28,7 +56,8 @@ function initDatabase() {
       id INTEGER PRIMARY KEY,
       name TEXT,
       telegram_group_id TEXT,
-      status TEXT
+      status TEXT,
+      tele_id TEXT
     )
   `);
 
@@ -78,6 +107,191 @@ function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // --- Bot Telegram ---
+
+  // Single-row config (id always = 1).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bot_config (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      token TEXT,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      reminder_days TEXT NOT NULL DEFAULT '[-7,-2,0,1]',
+      templates_json TEXT NOT NULL DEFAULT '{}',
+      sweep_interval_minutes INTEGER NOT NULL DEFAULT 15,
+      quiet_hours_start TEXT,
+      quiet_hours_end TEXT,
+      timezone TEXT NOT NULL DEFAULT 'UTC',
+      bot_username TEXT,
+      last_sweep_at DATETIME,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Seed default config + default English templates if empty.
+  const existingCfg = db.prepare('SELECT id FROM bot_config WHERE id = 1').get();
+  if (!existingCfg) {
+    const defaultTemplates = {
+      '-7': {
+        label: '7 days before',
+        message: '⚠️ <b>{{client_name}}</b> — your <b>{{product}}</b> of <b>{{amount}}</b> expires in <b>{{days_until}} days</b> (on {{due_date_long}}).'
+      },
+      '-2': {
+        label: '48 hours before',
+        message: '⏰ <b>{{client_name}}</b> — your <b>{{product}}</b> of <b>{{amount}}</b> expires in <b>{{days_until}} days</b>. Please renew before {{due_date_long}}.'
+      },
+      '0': {
+        label: 'Day of expiration',
+        message: '🚨 <b>{{client_name}}</b> — your <b>{{product}}</b> of <b>{{amount}}</b> expires <b>today</b>. Renew to avoid interruption.'
+      },
+      '+1': {
+        label: '1 day after expiration',
+        message: '❌ <b>{{client_name}}</b> — your <b>{{product}}</b> of <b>{{amount}}</b> expired {{days_absolute}} day ago. Service may be suspended; please renew immediately.'
+      }
+    };
+    db.prepare(`
+      INSERT INTO bot_config (id, token, enabled, reminder_days, templates_json)
+      VALUES (1, NULL, 0, '[-7,-2,0,1]', ?)
+    `).run(JSON.stringify(defaultTemplates));
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bot_group_links (
+      chat_id      TEXT PRIMARY KEY,
+      chat_title   TEXT NOT NULL,
+      client_id    INTEGER,
+      status       TEXT NOT NULL DEFAULT 'pending',
+      linked_at    DATETIME,
+      last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(client_id) REFERENCES clients(id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_bot_group_links_client ON bot_group_links(client_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_bot_group_links_status ON bot_group_links(status)`);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reminder_logs (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id             TEXT NOT NULL,
+      client_id           INTEGER NOT NULL,
+      renewal_sr_no       TEXT NOT NULL,
+      reminder_type       TEXT NOT NULL,
+      message             TEXT NOT NULL,
+      status              TEXT NOT NULL,
+      error               TEXT,
+      telegram_message_id TEXT,
+      sent_at             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(renewal_sr_no, reminder_type, chat_id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_reminder_logs_client ON reminder_logs(client_id, sent_at DESC)`);
+
+  // Cache colonne sur renewals — peut être wipe par le sync Google Sheets,
+  // reminder_logs reste la source de vérité.
+  try {
+    db.exec(`ALTER TABLE renewals ADD COLUMN reminders_sent_json TEXT DEFAULT '[]'`);
+  } catch (e) {
+    if (!/duplicate column/.test(e.message)) throw e;
+  }
+
+  // --- Tele ID parsing ---
+  // Column was added in a later release — keep the migration idempotent so
+  // existing DBs get it on the next boot, and new DBs include it in CREATE TABLE.
+  try {
+    db.exec(`ALTER TABLE clients ADD COLUMN tele_id TEXT`);
+  } catch (e) {
+    if (!/duplicate column/.test(e.message)) throw e;
+  }
+  // Partial UNIQUE index: two clients can't share the same Tele ID,
+  // but a client with no Tele ID is fine (NULL doesn't conflict with NULL
+  // in SQLite UNIQUE indexes, and the WHERE clause excludes them entirely).
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_tele_id ON clients(tele_id) WHERE tele_id IS NOT NULL`);
+
+  // Backfill: parse Tele ID from every existing client's name.
+  // Idempotent — re-running just overwrites with the same value.
+  try {
+    backfillTeleIds();
+  } catch (e) {
+    console.error('[tele_id backfill] FAILED:', e.message);
+    console.error(e.stack);
+    throw e;
+  }
 }
 
-export { db, all, get, run, initDatabase };
+// Walk all clients and (re)compute tele_id from name. Safe to call repeatedly.
+//
+// Resolution order for each client:
+//   1. Parse ALL "Tele NNN" tokens in the name (left to right).
+//   2. Try each in order. The first one that is either free, or already
+//      owned by a lower-id client, wins.
+//   3. If the first pattern is taken by a HIGHER-id client, that client
+//      is NULLed and we take its slot (lower id always wins ties).
+//   4. If no pattern yields a free slot, the client is left with tele_id=NULL
+//      and logged as a "data quality" issue (the Sheet probably has a
+//      duplicate row or a wrong Tele ID for this client).
+function backfillTeleIds() {
+  const rows = db.prepare('SELECT id, name FROM clients ORDER BY id ASC').all();
+  const findOwner = db.prepare('SELECT id FROM clients WHERE tele_id = ? AND id != ? LIMIT 1');
+  const update    = db.prepare('UPDATE clients SET tele_id = ? WHERE id = ?');
+  const nullIt    = db.prepare('UPDATE clients SET tele_id = NULL WHERE id = ?');
+  const conflicts = [];
+  const unresolved = [];
+
+  for (const r of rows) {
+    const candidates = extractAllTeleIds(r.name);
+    if (candidates.length === 0) continue;
+
+    let assigned = false;
+    for (const teleId of candidates) {
+      // .get() returns the row object { id }, or undefined. Extract the id.
+      const owner = findOwner.get(teleId, r.id);
+      const ownerId = owner ? owner.id : null;
+      if (!ownerId) {
+        // Free slot — just take it.
+        update.run(teleId, r.id);
+        assigned = true;
+        break;
+      }
+      if (ownerId < r.id) {
+        // Already owned by an older client. Try the next candidate.
+        continue;
+      }
+      // Owned by a NEWER client — they lose, we win.
+      nullIt.run(ownerId);
+      update.run(teleId, r.id);
+      conflicts.push({ teleId, kept: r.id, dropped: ownerId });
+      assigned = true;
+      break;
+    }
+
+    if (!assigned) {
+      unresolved.push({ id: r.id, name: r.name, tried: candidates });
+    }
+  }
+
+  if (conflicts.length > 0) {
+    console.warn(`[tele_id backfill] resolved ${conflicts.length} duplicate Tele ID(s) (lower id wins):`);
+    for (const c of conflicts) {
+      console.warn(`  Tele ${c.teleId}: kept client id=${c.kept}, dropped id=${c.dropped}`);
+    }
+  }
+  if (unresolved.length > 0) {
+    console.warn(`[tele_id backfill] ${unresolved.length} client(s) could not be assigned a unique Tele ID — likely duplicate rows or wrong IDs in the Sheet:`);
+    for (const c of unresolved) {
+      console.warn(`  id=${c.id} | name="${c.name}" | tried: ${c.tried.join(', ')}`);
+    }
+  }
+}
+
+export {
+  DB_PATH,
+  db,
+  all,
+  get,
+  run,
+  closeDb,
+  reopenDb,
+  getDb,
+  initDatabase,
+  backfillTeleIds,
+};

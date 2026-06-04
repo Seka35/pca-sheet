@@ -5,3 +5,5 @@ node_modules/
 dashboard/.env.local
 dashboard/.next/
 dashboard/node_modules/
+dashboard/src/lib/backups/
+dashboard/src/lib/pca_renew.db

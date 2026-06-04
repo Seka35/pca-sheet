@@ -1,13 +1,30 @@
 "use client";
 
+import { useEffect, useState } from 'react';
 import ProductBadge from './ProductBadge';
+import TelegramBadge from './TelegramBadge';
+import TeleIdBadge from './TeleIdBadge';
+import { extractTeleId } from '@/lib/teleIdParser';
 
 export default function ClientModal({ selectedClient, onClose }) {
   if (!selectedClient) return null;
-  
+
   const formatCurrency = (val) => '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   const { client, history } = selectedClient;
+  const [linkedGroups, setLinkedGroups] = useState([]);
+  const parsedTeleId = extractTeleId(client?.name);
+  const teleIdConflict = !client.tele_id && !!parsedTeleId;
+
+  useEffect(() => {
+    if (!client?.id) return;
+    fetch(`/api/bot/groups?client_id=${client.id}`)
+      .then((r) => r.json())
+      .then((rows) => {
+        if (Array.isArray(rows)) setLinkedGroups(rows.filter((g) => g.status === 'linked'));
+      })
+      .catch(() => {});
+  }, [client?.id]);
 
   const parseAmount = (val) => {
     if (!val) return 0;
@@ -63,8 +80,26 @@ export default function ClientModal({ selectedClient, onClose }) {
             <span className="badge" style={{ backgroundColor: client.status === 'Actif' ? 'var(--status-active-bg)' : 'var(--status-cut-bg)', color: client.status === 'Actif' ? 'var(--status-active)' : 'var(--status-cut)' }}>
               {client.status === 'Actif' ? 'Active' : 'Inactive'}
             </span>
-            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Telegram ID: {client.telegram_group_id || 'N/A'}</span>
+            <TeleIdBadge
+              teleId={client.tele_id}
+              parsedTeleId={parsedTeleId}
+              conflict={teleIdConflict}
+            />
+            <TelegramBadge chatId={client.telegram_group_id} title="Primary linked group" />
           </div>
+          {linkedGroups.length > 1 && (
+            <div style={{ marginTop: '12px', padding: '10px 12px', backgroundColor: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                All linked Telegram groups ({linkedGroups.length})
+              </div>
+              {linkedGroups.map((g) => (
+                <div key={g.chat_id} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '4px 0' }}>
+                  <TelegramBadge chatId={g.chat_id} title={g.chat_title} />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{g.chat_title}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         
         <div>
