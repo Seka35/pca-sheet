@@ -5,6 +5,8 @@ import 'server-only';
 import { all, get, run } from './db.js';
 import { startSweepTimer, stopSweepTimer, getConfig, upsertConfig } from './botScheduler.js';
 import { extractTeleId } from './teleIdParser.js';
+import { buildCreateClientKeyboard, parseCallbackData } from './telegramInlineButtons.js';
+import { createClient } from './clientCreator.js';
 
 let bot = null;
 let isShuttingDown = false;
@@ -50,15 +52,10 @@ function linkGroupByTitle(chatId, chatTitle) {
       [teleId]
     );
     if (teleMatch) return finalizeLink(chatId, teleMatch);
-    // Tele ID found in title but no client in DB has it.
-    return {
-      reply:
-        `🔎 Detected "Tele <b>${escapeHtml(teleId)}</b>" in this group title, but no client in the dashboard has this ID.\n\n` +
-        `Either wait for the next Google Sheet sync to pick it up, or link manually with:\n` +
-        `  <code>/link &lt;client name&gt;</code>\n` +
-        `  or\n` +
-        `  <code>/link ${escapeHtml(teleId)}</code> (if a client already has this ID)`,
-    };
+    // Tele ID found in title but no client in DB has it. The seller has
+    // explicitly tagged the group, so propose to create a new client
+    // (header-only — they add products from the dashboard later).
+    return proposeAutoCreate(chatId, title, teleId);
   }
 
   // 2) Fallback: exact case-insensitive match on the full name.
@@ -71,26 +68,49 @@ function linkGroupByTitle(chatId, chatTitle) {
 
   if (matches.length === 1) return finalizeLink(chatId, matches[0]);
   if (matches.length === 0) {
-    const suggestions = all(
-      `SELECT name FROM clients
-        WHERE status = 'Actif' AND LOWER(name) LIKE ? LIMIT 3`,
-      ['%' + title.toLowerCase() + '%']
-    );
-    return {
-      reply:
-        `❓ No client in the DB matches the group name "<b>${escapeHtml(title)}</b>".\n\n` +
-        (suggestions.length > 0
-          ? `Did you mean:\n${suggestions.map((s) => '  • ' + s.name).join('\n')}\n\n`
-          : '') +
-        `Use the command: <code>/link &lt;client name&gt;</code> to link this group to a client, ` +
-        `or <code>/link &lt;number&gt;</code> if you know the Tele ID.`,
-    };
+    // No client at all matches the group name — propose to create a new one
+    // with tele_id=null (the human can add "Tele NNN" via the dashboard).
+    return proposeAutoCreate(chatId, title, null);
   }
+  // Multiple matches: ambiguous, fall back to /link for explicit disambiguation.
   return {
     reply:
       `⚠️ Multiple clients match the group name "<b>${escapeHtml(title)}</b>".\n\n` +
       `Please use: <code>/link &lt;exact client name&gt;</code> or <code>/link &lt;number&gt;</code>`,
   };
+}
+
+// Persist a pending auto-create proposal in bot_group_links and return the
+// preview message + inline keyboard. The seller clicks "Create" or "Cancel";
+// the callback_query handler in handleCallbackQuery resolves it.
+function proposeAutoCreate(chatId, title, teleId) {
+  const safeTitle = String(title || '').trim() || '(unnamed group)';
+  const safeTele = teleId ? String(teleId) : null;
+
+  run(
+    `INSERT INTO bot_group_links (chat_id, chat_title, status, last_seen_at,
+                                  pending_create_name, pending_create_tele_id)
+     VALUES (?, ?, 'pending', CURRENT_TIMESTAMP, ?, ?)
+     ON CONFLICT(chat_id) DO UPDATE SET
+       chat_title = excluded.chat_title,
+       last_seen_at = CURRENT_TIMESTAMP,
+       pending_create_name = excluded.pending_create_name,
+       pending_create_tele_id = excluded.pending_create_tele_id`,
+    [chatId, safeTitle, safeTitle, safeTele]
+  );
+
+  const teleLine = safeTele
+    ? `\n  • <b>Tele ID</b>: ${escapeHtml(safeTele)} <i>(extracted from group title)</i>`
+    : `\n  • <b>Tele ID</b>: <i>none — add "Tele NNN" to the group title or the client name on the dashboard to enable auto-linking</i>`;
+  const reply =
+    `🆕 No client in the dashboard matches this group. I can create a new one with:\n` +
+    `\n  • <b>Name</b>: ${escapeHtml(safeTitle)}` +
+    teleLine +
+    `\n  • <b>Status</b>: Inactive (no products yet — add them from the dashboard)\n` +
+    `\nClick <b>Create this client</b> to confirm, or <b>Cancel</b> to abort. ` +
+    `You can also type <code>/cancel</code> to clear the proposal.`;
+
+  return { reply, options: buildCreateClientKeyboard(chatId) };
 }
 
 // Link by explicit Tele ID — used by /link <number> when the seller
@@ -198,6 +218,104 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;');
 }
 
+// Handle inline-keyboard button clicks. Two actions are recognised:
+//   create_client:<chatId> → run clientCreator.createClient() with the
+//                            pending proposal and link the new client.
+//   cancel_create:<chatId> → discard the pending proposal.
+// Anything else: answer the callback query and ignore.
+async function handleCallbackQuery(query, TelegramBotInstance) {
+  const parsed = parseCallbackData(query.data || '');
+  if (!parsed.action) {
+    await TelegramBotInstance.answerCallbackQuery(query.id);
+    return;
+  }
+  const chatId = parsed.chatId;
+
+  const link = get(
+    `SELECT chat_id, pending_create_name, pending_create_tele_id
+       FROM bot_group_links WHERE chat_id = ?`,
+    [chatId]
+  );
+  // No pending proposal (already resolved, or never existed). The button is
+  // likely a stale click after the proposal was processed or cancelled.
+  if (!link || !link.pending_create_name) {
+    await TelegramBotInstance.answerCallbackQuery(query.id, {
+      text: 'No pending proposal — nothing to do.',
+      show_alert: false,
+    });
+    return;
+  }
+
+  if (parsed.action === 'cancel') {
+    run(
+      `UPDATE bot_group_links
+          SET pending_create_name = NULL, pending_create_tele_id = NULL
+        WHERE chat_id = ?`,
+      [chatId]
+    );
+    await TelegramBotInstance.editMessageText(
+      '❌ Cancelled. No client was created.',
+      {
+        chat_id: query.message.chat.id,
+        message_id: query.message.message_id,
+      }
+    );
+    await TelegramBotInstance.answerCallbackQuery(query.id);
+    return;
+  }
+
+  // action === 'create'
+  const result = await createClient({
+    name: link.pending_create_name,
+    telegramGroupId: chatId,
+    products: [],
+    source: 'bot-auto-create',
+  });
+
+  if (!result.ok) {
+    const errMsg =
+      result.code === 'SHEETS_OK_DB_FAIL'
+        ? `⚠️ Created in the Sheet (client ${result.client_id}) but the local DB write failed. A sync will reconcile.`
+        : `❌ Failed to create client: ${escapeHtml(result.error || 'unknown error')}`;
+    await TelegramBotInstance.editMessageText(errMsg, {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      parse_mode: 'HTML',
+    });
+    await TelegramBotInstance.answerCallbackQuery(query.id, {
+      text: 'Error',
+      show_alert: true,
+    });
+    return;
+  }
+
+  // Success: link the new client to the group and clear the pending columns.
+  const clientId = result.client_id;
+  run(
+    `UPDATE bot_group_links
+        SET client_id = ?, status = 'linked', linked_at = CURRENT_TIMESTAMP,
+            pending_create_name = NULL, pending_create_tele_id = NULL
+      WHERE chat_id = ?`,
+    [clientId, chatId]
+  );
+  // Update the legacy column if it's still empty (first link wins).
+  run(
+    `UPDATE clients SET telegram_group_id = ?
+      WHERE id = ? AND (telegram_group_id IS NULL OR telegram_group_id = '')`,
+    [chatId, clientId]
+  );
+  await TelegramBotInstance.editMessageText(
+    `✅ Created and linked to <b>${escapeHtml(link.pending_create_name)}</b>!\n\n` +
+    `Open the dashboard to add products to this client.`,
+    {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      parse_mode: 'HTML',
+    }
+  );
+  await TelegramBotInstance.answerCallbackQuery(query.id);
+}
+
 async function handleMessage(msg, TelegramBotInstance) {
   const text = msg.text || '';
   const chat = msg.chat;
@@ -228,7 +346,26 @@ async function handleMessage(msg, TelegramBotInstance) {
 
   if (text.match(/^\/start(?:@\w+)?\s*$/)) {
     const out = linkGroupByTitle(chatId, chat.title);
-    await TelegramBotInstance.sendMessage(chatId, out.reply, { parse_mode: 'HTML' });
+    await TelegramBotInstance.sendMessage(chatId, out.reply, {
+      parse_mode: 'HTML',
+      ...(out.options || {}),
+    });
+    return;
+  }
+
+  if (text.match(/^\/cancel(?:@\w+)?\s*$/)) {
+    const result = run(
+      `UPDATE bot_group_links
+          SET pending_create_name = NULL, pending_create_tele_id = NULL
+        WHERE chat_id = ?`,
+      [chatId]
+    );
+    await TelegramBotInstance.sendMessage(
+      chatId,
+      result.changes > 0
+        ? '❌ Cancelled the pending client creation.'
+        : 'Nothing to cancel.'
+    );
     return;
   }
 
@@ -289,10 +426,11 @@ async function handleMessage(msg, TelegramBotInstance) {
     await TelegramBotInstance.sendMessage(
       chatId,
       'Available commands:\n' +
-        '  /start — auto-link this group by Tele ID or group name\n' +
+        '  /start — auto-link this group by Tele ID or group name (or propose to create a new client if no match)\n' +
         '  /link <number> — link by Tele ID (e.g. /link 256)\n' +
         '  /link <name> — link by exact client name\n' +
         '  /unlink — detach this group from its client\n' +
+        '  /cancel — discard a pending "Create client" proposal\n' +
         '  /status — show the current link\n' +
         '  /help — this message'
     );
@@ -354,6 +492,9 @@ export async function startBot() {
 
   bot.on('message', (msg) => {
     handleMessage(msg, bot).catch((e) => console.error('[telegram] handler error', e));
+  });
+  bot.on('callback_query', (query) => {
+    handleCallbackQuery(query, bot).catch((e) => console.error('[telegram] callback error', e));
   });
   bot.on('polling_error', (err) => {
     console.error('[telegram] polling_error:', err?.code || '', err?.message || err);

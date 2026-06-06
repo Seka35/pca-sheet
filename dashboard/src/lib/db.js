@@ -207,6 +207,23 @@ function initDatabase() {
   // in SQLite UNIQUE indexes, and the WHERE clause excludes them entirely).
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_tele_id ON clients(tele_id) WHERE tele_id IS NOT NULL`);
 
+  // --- Bot auto-create proposal state ---
+  // When a seller /start in a group and no client matches, the bot stores a
+  // proposal in this row (pending_create_name + pending_create_tele_id).
+  // The seller clicks the inline button to confirm; the bot then calls
+  // clientCreator.createClient and clears these columns. NULL in both
+  // columns means "no pending proposal".
+  try {
+    db.exec(`ALTER TABLE bot_group_links ADD COLUMN pending_create_name TEXT`);
+  } catch (e) {
+    if (!/duplicate column/.test(e.message)) throw e;
+  }
+  try {
+    db.exec(`ALTER TABLE bot_group_links ADD COLUMN pending_create_tele_id TEXT`);
+  } catch (e) {
+    if (!/duplicate column/.test(e.message)) throw e;
+  }
+
   // Backfill: parse Tele ID from every existing client's name.
   // Idempotent — re-running just overwrites with the same value.
   try {

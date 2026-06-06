@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import { all, run } from '@/lib/db';
-import { extractTeleId } from '@/lib/teleIdParser';
-import { getSheetsClient, findNextClientId, appendClientBlock } from '@/lib/googleSheets';
+import { all } from '@/lib/db';
 import { validateAddClientPayload } from '@/lib/clientValidation';
-import { createBackup } from '@/lib/backup';
+import { createClient } from '@/lib/clientCreator';
 
 function parseAmount(val) {
   if (!val) return 0;
@@ -118,12 +116,7 @@ export async function GET(req) {
 // --- POST: create a new client (writes to Sheet first, then DB) ------------
 
 export async function POST(req) {
-  let clientId = null;
-  let sr_nos = [];
-  let backupFilename = null;
-
   try {
-    // 1. Parse + validate.
     const body = await req.json().catch(() => ({}));
     const validation = validateAddClientPayload(body);
     if (!validation.ok) {
@@ -131,122 +124,36 @@ export async function POST(req) {
     }
     const { name, telegram_group_id, products } = validation.cleaned;
 
-    // 2. Pre-write backup (best-effort — don't block the operation if it fails).
-    try {
-      const meta = await createBackup({ source: 'pre-add-client' });
-      backupFilename = meta.filename;
-      console.log(`[POST /api/clients] backup created: ${backupFilename}`);
-    } catch (e) {
-      console.warn('[POST /api/clients] backup failed (continuing):', e.message);
-    }
-
-    // 3. Pick the next client id from the Sheet (source of truth).
-    const sheets = await getSheetsClient();
-    clientId = await findNextClientId(sheets);
-    console.log(`[POST /api/clients] next client id from Sheet: ${clientId}`);
-
-    // 4. Write to the Sheet first. If this fails, we abort before touching the DB.
-    const sheetResult = await appendClientBlock({
+    const result = await createClient({
       name,
-      telegram_group_id,
+      telegramGroupId: telegram_group_id,
       products,
-      baseSrNo: clientId,
+      source: 'dashboard-add',
     });
-    if (!sheetResult.ok) {
-      console.error('[POST /api/clients] Sheet write failed:', sheetResult.error);
+
+    if (!result.ok) {
       return NextResponse.json(
-        { error: 'Failed to write to Google Sheet', details: sheetResult.error, code: 'SHEETS_FAIL' },
+        {
+          error: result.error || 'Internal Server Error',
+          code: result.code || 'INTERNAL',
+          client_id: result.client_id,
+          sr_nos: result.sr_nos || [],
+          backup: result.backup,
+        },
         { status: 500 }
       );
     }
-    sr_nos = sheetResult.sr_nos;
-    console.log(`[POST /api/clients] Sheet written: sr_nos=${sr_nos.join(',')}`);
-
-    // 5. Write to the DB in a transaction.
-    const tele_id = extractTeleId(name);
-    const hasActive = products.some((p) => p.active !== false);
-    const status = hasActive ? 'Actif' : 'inactif';
-
-    // Reused INSERT statement from src/app/api/sync/route.js:213-221.
-    const insertRenewal = `INSERT OR REPLACE INTO renewals (
-      sr_no, client_id, client_name, client_status_history, month, start_date,
-      client_ad_id_name, ad_id_number, ad_account_type, tier, ad_spend_limit,
-      setup_type, subscription_fee, setup_fee, discount, cl_amount,
-      referral_partner_name, referral_amount, valid_stopped_date,
-      payment_name, bank_name, amount_received, payment_received_date,
-      payment_received_month, reference_no, actual_balance_difference,
-      notes, visual_status
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
-
-    run('BEGIN');
-    try {
-      run(
-        'INSERT OR REPLACE INTO clients (id, name, telegram_group_id, status, tele_id) VALUES (?, ?, ?, ?, ?)',
-        [clientId, name, telegram_group_id || '', status, tele_id || null]
-      );
-
-      for (let i = 0; i < products.length; i++) {
-        const p = products[i];
-        const sr_no = `${clientId}.${i + 1}`;
-        run(insertRenewal, [
-          sr_no,
-          clientId,
-          name,
-          p.client_status_history || '',
-          p.month || '',
-          p.start_date || '',
-          p.client_ad_id_name || '',
-          p.ad_id_number || '',
-          p.ad_account_type || '',
-          p.tier || '',
-          p.ad_spend_limit || '',
-          p.setup_type || '',
-          p.subscription_fee || '',
-          p.setup_fee || '',
-          p.discount || '',
-          p.cl_amount || '',
-          p.referral_partner_name || '',
-          p.referral_amount || '',
-          p.valid_stopped_date || '',
-          p.payment_name || '',
-          p.bank_name || '',
-          p.amount_received || '',
-          p.payment_received_date || '',
-          p.payment_received_month || '',
-          p.reference_no || '',
-          p.actual_balance_difference || '',
-          p.notes || '',
-          p.active === false ? '' : 'Active',
-        ]);
-      }
-      run('COMMIT');
-    } catch (e) {
-      run('ROLLBACK');
-      throw e;
-    }
-
-    console.log(`[POST /api/clients] DB written: client ${clientId}, ${products.length} product(s)`);
 
     return NextResponse.json({
       ok: true,
-      client_id: clientId,
-      sr_nos,
-      backup: backupFilename,
+      client_id: result.client_id,
+      sr_nos: result.sr_nos,
+      backup: result.backup,
     });
   } catch (error) {
     console.error('[POST /api/clients] error:', error);
-
-    // If we wrote to the Sheet but the DB write failed, surface a specific
-    // code so the client can run /api/sync to reconcile.
-    const code = sr_nos.length > 0 ? 'SHEETS_OK_DB_FAIL' : 'INTERNAL';
     return NextResponse.json(
-      {
-        error: error.message || 'Internal Server Error',
-        code,
-        client_id: clientId,
-        sr_nos,
-        backup: backupFilename,
-      },
+      { error: error.message || 'Internal Server Error', code: 'INTERNAL' },
       { status: 500 }
     );
   }
