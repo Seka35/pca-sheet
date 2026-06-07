@@ -5,14 +5,14 @@ import 'server-only';
 import { all, get, run } from './db.js';
 import { startSweepTimer, stopSweepTimer, getConfig, upsertConfig } from './botScheduler.js';
 import { extractTeleId } from './teleIdParser.js';
-import { buildCreateClientKeyboard, parseCallbackData } from './telegramInlineButtons.js';
+import { buildCreateClientKeyboard, buildPaymentReminderKeyboard, buildPaymentMethodKeyboard, buildPaymentDetailsKeyboard, parseCallbackData } from './telegramInlineButtons.js';
 import { createClient } from './clientCreator.js';
 
 let bot = null;
 let isShuttingDown = false;
 
 export function getBot() {
-  return bot;
+  return bot || globalThis.__pcaBot || null;
 }
 
 export function isBotRunning() {
@@ -218,17 +218,199 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;');
 }
 
-// Handle inline-keyboard button clicks. Two actions are recognised:
-//   create_client:<chatId> → run clientCreator.createClient() with the
-//                            pending proposal and link the new client.
-//   cancel_create:<chatId> → discard the pending proposal.
-// Anything else: answer the callback query and ignore.
+// Handle inline-keyboard button clicks.
+//   pay_now → show payment method selection
+//   select_payment → show payment details with Already Paid button
+//   cancel_payment → cancel and acknowledge
+//   already_paid → initiate DM flow for TX ID + screenshot
+//   remind_later → snooze
+//   create_client / cancel_create → client creation flow
 async function handleCallbackQuery(query, TelegramBotInstance) {
   const parsed = parseCallbackData(query.data || '');
   if (!parsed.action) {
     await TelegramBotInstance.answerCallbackQuery(query.id);
     return;
   }
+
+  // ── Helper: get renewal + bank info ────────────────────────────────────────
+  async function sendDM(userId, renewal, msg) {
+    try {
+      await TelegramBotInstance.sendMessage(userId, msg, { parse_mode: 'HTML' });
+      await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'DM sent! Check your private messages.', show_alert: false });
+    } catch (e) {
+      const errMsg = e?.response?.body?.description || e?.message || '';
+      if (errMsg.includes('bot was blocked') || errMsg.includes('user not found')) {
+        await TelegramBotInstance.answerCallbackQuery(query.id, { text: '⚠️ Please start the bot first: find @hugoprime_bot and send /start', show_alert: true });
+      } else {
+        await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'DM sent! Check your private messages.', show_alert: false });
+      }
+    }
+  }
+
+  // ── Payment buttons ────────────────────────────────────────────────────────
+  if (parsed.action === 'pay_now') {
+    const { srNo, chatId } = parsed;
+    const renewal = get('SELECT r.*, c.tele_id FROM renewals r JOIN clients c ON c.id = r.client_id WHERE r.sr_no = ?', [srNo]);
+    if (!renewal) {
+      await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Renewal not found.', show_alert: true });
+      return;
+    }
+
+    const bankKey = (renewal.bank_name || '').toLowerCase().replace(/\s+/g, '_');
+    const bankNames = { crypto: 'Crypto', lhv: 'AS LHV Pank', slash: 'Slash Bank', whop: 'WHOP' };
+    const bankLabel = bankNames[bankKey] || renewal.bank_name || 'Payment';
+
+    const msg =
+      `💳 <b>${escapeHtml(renewal.client_name)}</b> — choose your payment method\n\n` +
+      `Amount: <b>${escapeHtml(renewal.subscription_fee || '$0')}</b>\n` +
+      `Bank: <b>${escapeHtml(bankLabel)}</b>\n\n` +
+      `Select how you want to pay:`;
+
+    const keyboard = buildPaymentMethodKeyboard(srNo, chatId, bankKey);
+    await TelegramBotInstance.editMessageText(msg, {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      parse_mode: 'HTML',
+      reply_markup: JSON.stringify(keyboard.reply_markup),
+    });
+    await TelegramBotInstance.answerCallbackQuery(query.id);
+    return;
+  }
+
+  if (parsed.action === 'select_payment') {
+    const { srNo, chatId, method } = parsed;
+    const renewal = get('SELECT r.*, c.tele_id FROM renewals r JOIN clients c ON c.id = r.client_id WHERE r.sr_no = ?', [srNo]);
+    if (!renewal) {
+      await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Renewal not found.', show_alert: true });
+      return;
+    }
+
+    // Get bank details from DB
+    const banks = all('SELECT bank_key, bank_name, data_json FROM bank_details');
+    const bankKey = (renewal.bank_name || '').toLowerCase().replace(/\s+/g, '_');
+    const bank = banks.find(b => b.bank_key === bankKey);
+    const bankData = bank ? JSON.parse(bank.data_json || '{}') : {};
+
+    // Store the selection
+    let address = '';
+    if (method === 'usdt_trc20') address = bankData.usdt_trc20 || '';
+    else if (method === 'usdt_erc20') address = bankData.usdt_erc20 || '';
+    else if (method === 'btc') address = bankData.btc || '';
+    else if (method === 'lhv') address = `IBAN: ${bankData.iban || ''}\nBIC: ${bankData.bic_swift || ''}\nAccount: ${bankData.account_title || ''}`;
+    else if (method === 'slash') address = `Account: ${bankData.account_number || ''}\nRouting: ${bankData.routing || ''}\nSWIFT: ${bankData.swift_bic || ''}`;
+    else if (method === 'whop') address = `WHOP subscription — link will be sent to your email`;
+
+    // Save selection
+    run(
+      `INSERT INTO payment_selections (sr_no, chat_id, method, address)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(sr_no, chat_id) DO UPDATE SET method = excluded.method, address = excluded.address, selected_at = CURRENT_TIMESTAMP`,
+      [srNo, chatId, method, address]
+    );
+
+    const methodLabels = {
+      usdt_trc20: '🟡 USDT (TRC20)',
+      usdt_erc20: '🔵 USDT (ERC20)',
+      btc: '🟠 Bitcoin (BTC)',
+      lhv: '🏦 Bank Transfer (SEPA/IBAN)',
+      slash: '🏦 Bank Transfer (US)',
+      whop: '🌐 WHOP Subscription',
+    };
+    const methodLabel = methodLabels[method] || method;
+
+    // Build QR code for crypto addresses
+    let qrLine = '';
+    if (['usdt_trc20', 'usdt_erc20', 'btc'].includes(method) && address) {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(address)}`;
+      qrLine = `\n\n📱 <a href="${qrUrl}">QR Code</a>`;
+    }
+
+    const feeNote = bankKey === 'crypto' && bankData.fee_note ? `\n\n⚠️ ${bankData.fee_note}` : '';
+
+    const msg =
+      `💳 <b>Payment Details</b>\n\n` +
+      `Method: <b>${methodLabel}</b>\n` +
+      `Amount: <b>${escapeHtml(renewal.subscription_fee || '$0')}</b>\n\n` +
+      `<pre>${escapeHtml(address)}</pre>${qrLine}${feeNote}`;
+
+    const keyboard = buildPaymentDetailsKeyboard(srNo, chatId);
+    await TelegramBotInstance.editMessageText(msg, {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      parse_mode: 'HTML',
+      reply_markup: JSON.stringify(keyboard.reply_markup),
+    });
+    await TelegramBotInstance.answerCallbackQuery(query.id);
+    return;
+  }
+
+  if (parsed.action === 'cancel_payment') {
+    const { srNo, chatId } = parsed;
+    const renewal = get('SELECT r.* FROM renewals r WHERE r.sr_no = ?', [srNo]);
+    await TelegramBotInstance.editMessageText(
+      `❌ <b>Payment cancelled.</b>\n\n` +
+      `<b>${escapeHtml(renewal?.client_name || '')}</b> — you can pay whenever you're ready. Use /status to check your balance.`,
+      { chat_id: query.message.chat.id, message_id: query.message.message_id, parse_mode: 'HTML' }
+    );
+    await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Cancelled.', show_alert: false });
+    return;
+  }
+
+  if (parsed.action === 'already_paid') {
+    const { srNo, chatId } = parsed;
+    const fromId = String(query.from.id);
+    const renewal = get('SELECT r.*, c.tele_id FROM renewals r JOIN clients c ON c.id = r.client_id WHERE r.sr_no = ?', [srNo]);
+    if (!renewal) {
+      await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Renewal not found.', show_alert: true });
+      return;
+    }
+
+    // Clean up old entries if resubmitting after a rejection
+    run(`DELETE FROM approval_queue WHERE sr_no = ?`, [srNo]);
+    run(`DELETE FROM payment_proofs WHERE sr_no = ?`, [srNo]);
+
+    // Store pending payment state — will be resolved when user replies with TX ID + screenshot
+    run(
+      `INSERT INTO pending_payments (sr_no, client_id, tele_id, chat_id, step, transaction_id)
+       VALUES (?, ?, ?, ?, 'AWAIT_TX', NULL)
+       ON CONFLICT(sr_no, chat_id) DO UPDATE SET step = 'AWAIT_TX', submitted_at = CURRENT_TIMESTAMP`,
+      [srNo, renewal.client_id, fromId, chatId]
+    );
+
+    // Edit the original message to show instructions
+    await TelegramBotInstance.editMessageText(
+      `💳 <b>${escapeHtml(renewal.client_name)}</b> — payment proof requested!\n\n` +
+      `To submit your proof of payment:\n\n` +
+      `1️⃣ <b>Reply to this message</b> with your <b>Transaction ID</b> (TX hash)\n` +
+      `2️⃣ Then <b>reply to the TX message</b> with your <b>screenshot</b>\n\n` +
+      `Your account will be renewed once approved.`,
+      {
+        chat_id: query.message.chat.id,
+        message_id: query.message.message_id,
+        parse_mode: 'HTML',
+        reply_markup: JSON.stringify({
+          inline_keyboard: [[
+            { text: '❌ Cancel', callback_data: `cancel_payment:${srNo}:${chatId}` },
+          ]],
+        }),
+      }
+    );
+    await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Reply with your TX ID and screenshot to this message!', show_alert: false });
+    return;
+  }
+
+  if (parsed.action === 'remind_later') {
+    const { srNo, chatId } = parsed;
+    const renewal = get('SELECT r.* FROM renewals r WHERE r.sr_no = ?', [srNo]);
+    await TelegramBotInstance.editMessageText(
+      `🔔 <b>${escapeHtml(renewal?.client_name || '')}</b> — I'll remind you again soon.`,
+      { chat_id: query.message.chat.id, message_id: query.message.message_id, parse_mode: 'HTML' }
+    );
+    await TelegramBotInstance.answerCallbackQuery(query.id, { text: '🔔 Okay, I\'ll remind you later.', show_alert: false });
+    return;
+  }
+
+  // ── Client creation buttons ─────────────────────────────────────────────────
   const chatId = parsed.chatId;
 
   const link = get(
@@ -322,8 +504,119 @@ async function handleMessage(msg, TelegramBotInstance) {
   const chatId = String(chat.id);
   const isGroup = chat.type === 'group' || chat.type === 'supergroup';
 
-  // Private chat instructions.
+  // Private chat: handle payment flow or generic help.
   if (!isGroup) {
+    const userId = String(msg.from.id);
+
+    // Check if user has a pending payment in AWAIT_TX step
+    const pending = get(
+      `SELECT pp.*, r.client_name, r.tier, r.bank_name, r.subscription_fee, r.valid_stopped_date
+       FROM pending_payments pp
+       JOIN renewals r ON r.sr_no = pp.sr_no AND r.client_id = pp.client_id
+       WHERE pp.tele_id = ? AND pp.step = 'AWAIT_TX'
+       ORDER BY pp.submitted_at DESC LIMIT 1`,
+      [userId]
+    );
+
+    if (pending) {
+      // ── Payment proof collection flow ───────────────────────────────────
+      if (msg.photo) {
+        // User sent a screenshot — get the best photo resolution
+        const photo = msg.photo[msg.photo.length - 1];
+        const file = await TelegramBotInstance.getFile(photo.file_id);
+        const photoUrl = `https://api.telegram.org/file/bot${TelegramBotInstance.token}/${file.file_path}`;
+
+        if (!pending.transaction_id) {
+          // No TX ID yet — ask for it first
+          await TelegramBotInstance.sendMessage(
+            chatId,
+            '📸 I received your screenshot, thanks! Before I can submit, please also send me your <b>Transaction ID (TX ID)</b> — the hash shown on your payment confirmation.',
+            { parse_mode: 'HTML' }
+          );
+          return;
+        }
+
+        // Both TX ID and screenshot collected — create payment_proofs + approval_queue
+        const client = get('SELECT name, tele_id FROM clients WHERE id = ?', [pending.client_id]);
+        await TelegramBotInstance.sendMessage(chatId,
+          '✅ Payment proof received!\n\nYour submission is now <b>under review</b>. You will be notified once approved. Thank you!',
+          { parse_mode: 'HTML' }
+        );
+
+        // Insert payment_proofs
+        run(
+          `INSERT INTO payment_proofs (sr_no, client_id, transaction_id, proof_image_url, status)
+           VALUES (?, ?, ?, ?, 'PENDING')`,
+          [pending.sr_no, pending.client_id, pending.transaction_id, photoUrl]
+        );
+
+        // Get the just-inserted proof id
+        const proofRow = get(
+          `SELECT id FROM payment_proofs WHERE sr_no = ? AND client_id = ? ORDER BY id DESC LIMIT 1`,
+          [pending.sr_no, pending.client_id]
+        );
+
+        // Get bank name from renewal
+        const renewalData = get('SELECT bank_name, valid_stopped_date, subscription_fee FROM renewals WHERE sr_no = ?', [pending.sr_no]);
+
+        // Insert into approval_queue
+        run(
+          `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, proof_image_url, submitted_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING')`,
+          [
+            proofRow.id,
+            pending.sr_no,
+            pending.client_id,
+            client?.name || '',
+            client?.tele_id || '',
+            renewalData?.tier || '',
+            renewalData?.subscription_fee || '',
+            renewalData?.valid_stopped_date || '',
+            renewalData?.bank_name || '',
+            pending.transaction_id,
+            photoUrl,
+          ]
+        );
+
+        // Clear pending_payment
+        run(`UPDATE pending_payments SET step = 'SUBMITTED' WHERE id = ?`, [pending.id]);
+        return;
+      }
+
+      if (text && text.trim()) {
+        if (!pending.transaction_id) {
+          // Store TX ID and ask for screenshot
+          run(`UPDATE pending_payments SET transaction_id = ? WHERE id = ?`, [text.trim(), pending.id]);
+          await TelegramBotInstance.sendMessage(
+            chatId,
+            `✅ Got it — <code>${escapeHtml(text.trim())}</code>\n\n` +
+            `Now please send me a <b>screenshot</b> of your payment confirmation (as a photo, not a file).`,
+            { parse_mode: 'HTML' }
+          );
+          return;
+        }
+      }
+
+      // No photo yet, TX ID already stored — prompt for screenshot
+      if (pending.transaction_id) {
+        await TelegramBotInstance.sendMessage(
+          chatId,
+          '📸 Please send your payment screenshot as a <b>photo</b> to complete your submission.',
+          { parse_mode: 'HTML' }
+        );
+        return;
+      }
+
+      // Fallback: general instruction
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        '💳 To submit your payment proof, please send your <b>Transaction ID</b> followed by the <b>screenshot</b> of payment.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    // No pending payment — generic help
     if (text.startsWith('/start') || text.startsWith('/help')) {
       await TelegramBotInstance.sendMessage(
         chatId,
@@ -331,6 +624,7 @@ async function handleMessage(msg, TelegramBotInstance) {
         'If the group title contains "Tele NNN" (recommended), the bot links automatically.\n' +
         'Otherwise use /link <client name> or /link <Tele ID number>.'
       );
+      return;
     }
     return;
   }
@@ -343,6 +637,81 @@ async function handleMessage(msg, TelegramBotInstance) {
       WHERE chat_id = ?`,
     [chat.title || '', chatId]
   );
+
+  // ── Group payment flow: reply to bot's message with TX ID or screenshot ─────
+  if (isGroup && msg.reply_to_message && String(msg.reply_to_message.from.id) === String(globalThis.__pcaBotId)) {
+    const userId = String(msg.from.id);
+    const pending = get(
+      `SELECT pp.*, r.client_name, r.tier, r.bank_name, r.subscription_fee, r.valid_stopped_date
+       FROM pending_payments pp
+       JOIN renewals r ON r.sr_no = pp.sr_no AND r.client_id = pp.client_id
+       WHERE pp.chat_id = ? AND pp.step = 'AWAIT_TX'
+       ORDER BY pp.submitted_at DESC LIMIT 1`,
+      [chatId]
+    );
+
+    if (pending) {
+      if (text && text.trim() && !pending.transaction_id) {
+        // TX ID submitted
+        run(`UPDATE pending_payments SET transaction_id = ? WHERE id = ?`, [text.trim(), pending.id]);
+        await TelegramBotInstance.sendMessage(
+          chatId,
+          `✅ <b>Transaction ID received:</b> <code>${escapeHtml(text.trim())}</code>\n\n` +
+          `Now reply to this message with your <b>payment screenshot</b> (as a photo).`,
+          { parse_mode: 'HTML', reply_to_message_id: msg.message_id }
+        );
+        return;
+      }
+
+      if (msg.photo && pending.transaction_id) {
+        // Screenshot received — download and create proof
+        const photo = msg.photo[msg.photo.length - 1];
+        const file = await TelegramBotInstance.getFile(photo.file_id);
+        const photoUrl = `https://api.telegram.org/file/bot${TelegramBotInstance.token}/${file.file_path}`;
+        const client = get('SELECT name, tele_id FROM clients WHERE id = ?', [pending.client_id]);
+        const renewalData = get('SELECT bank_name, valid_stopped_date, subscription_fee, tier FROM renewals WHERE sr_no = ?', [pending.sr_no]);
+
+        run(
+          `INSERT INTO payment_proofs (sr_no, client_id, transaction_id, proof_image_url, status)
+           VALUES (?, ?, ?, ?, 'PENDING')`,
+          [pending.sr_no, pending.client_id, pending.transaction_id, photoUrl]
+        );
+
+        const proofRow = get(`SELECT id FROM payment_proofs WHERE sr_no = ? AND client_id = ? ORDER BY id DESC LIMIT 1`, [pending.sr_no, pending.client_id]);
+
+        run(
+          `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, proof_image_url, submitted_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING')`,
+          [
+            proofRow.id, pending.sr_no, pending.client_id,
+            client?.name || '', client?.tele_id || '',
+            renewalData?.tier || '', renewalData?.subscription_fee || '',
+            renewalData?.valid_stopped_date || '', renewalData?.bank_name || '',
+            pending.transaction_id, photoUrl,
+          ]
+        );
+
+        run(`UPDATE pending_payments SET step = 'SUBMITTED' WHERE id = ?`, [pending.id]);
+
+        await TelegramBotInstance.sendMessage(
+          chatId,
+          `✅ <b>Payment proof received!</b>\n\n` +
+          `<b>${escapeHtml(client?.name || '')}</b> — your payment is <b>under review</b>. You'll be notified once approved.`,
+          { parse_mode: 'HTML', reply_to_message_id: msg.message_id }
+        );
+        return;
+      }
+
+      if (msg.photo && !pending.transaction_id) {
+        await TelegramBotInstance.sendMessage(
+          chatId,
+          `📸 Screenshot received! But first, please reply with your <b>Transaction ID</b> (TX hash).`,
+          { parse_mode: 'HTML', reply_to_message_id: msg.message_id }
+        );
+        return;
+      }
+    }
+  }
 
   if (text.match(/^\/start(?:@\w+)?\s*$/)) {
     const out = linkGroupByTitle(chatId, chat.title);
@@ -422,6 +791,46 @@ async function handleMessage(msg, TelegramBotInstance) {
     return;
   }
 
+  if (text.match(/^\/pay(?:@\w+)?\s*$/)) {
+    const row = get(
+      `SELECT g.client_id, c.name AS client_name
+         FROM bot_group_links g
+         LEFT JOIN clients c ON c.id = g.client_id
+        WHERE g.chat_id = ? AND g.status = 'linked'`,
+      [chatId]
+    );
+    if (!row || !row.client_id) {
+      await TelegramBotInstance.sendMessage(chatId, '❓ This group is not linked to any client. Use /start to link it.');
+      return;
+    }
+
+    // Find the latest unpaid renewal for this client
+    const renewal = get(
+      `SELECT r.*, c.tele_id FROM renewals r
+       JOIN clients c ON c.id = r.client_id
+       WHERE r.client_id = ? AND COALESCE(r.reference_no, '') = ''
+       ORDER BY r.valid_stopped_date DESC LIMIT 1`,
+      [row.client_id]
+    );
+
+    if (!renewal) {
+      await TelegramBotInstance.sendMessage(chatId, `✅ <b>${escapeHtml(row.client_name)}</b> — no pending payments found. You're all set!`, { parse_mode: 'HTML' });
+      return;
+    }
+
+    // Send payment reminder message with Pay Now button
+    const msg =
+      `💳 <b>${escapeHtml(renewal.client_name)}</b> — <b>${renewal.subscription_fee || '$0'}</b>\n\n` +
+      `Click <b>Pay Now</b> below to select your payment method.`;
+
+    const keyboard = buildPaymentReminderKeyboard(renewal.sr_no, chatId);
+    await TelegramBotInstance.sendMessage(chatId, msg, {
+      parse_mode: 'HTML',
+      reply_markup: JSON.stringify(keyboard.reply_markup),
+    });
+    return;
+  }
+
   if (text.match(/^\/help(?:@\w+)?\s*$/)) {
     await TelegramBotInstance.sendMessage(
       chatId,
@@ -432,6 +841,7 @@ async function handleMessage(msg, TelegramBotInstance) {
         '  /unlink — detach this group from its client\n' +
         '  /cancel — discard a pending "Create client" proposal\n' +
         '  /status — show the current link\n' +
+        '  /pay — submit payment proof\n' +
         '  /help — this message'
     );
   }
@@ -471,6 +881,7 @@ export async function startBot() {
     bot = new TelegramBot(token, {
       polling: { interval: 1500, autoStart: true, params: { timeout: 30 } },
     });
+    globalThis.__pcaBot = bot;
   } catch (e) {
     console.error('[telegram] failed to construct bot:', e.message);
     globalThis.__pcaTelegramBotStarted = false;
@@ -480,6 +891,7 @@ export async function startBot() {
   // Validate the token up front.
   try {
     const me = await bot.getMe();
+    globalThis.__pcaBotId = me.id;
     upsertConfig({ bot_username: me.username });
     console.log(`[telegram] started, bot=@${me.username}`);
   } catch (e) {
@@ -528,5 +940,6 @@ export async function stopBot() {
   if (!bot) return;
   try { await bot.stopPolling(); } catch {}
   bot = null;
+  globalThis.__pcaBot = null;
   globalThis.__pcaTelegramBotStarted = false;
 }

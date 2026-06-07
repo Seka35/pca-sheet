@@ -67,6 +67,30 @@ function TextArea({ value, onChange, placeholder, rows = 2, disabled }) {
   );
 }
 
+function Select({ value, onChange, options, placeholder = '—', disabled }) {
+  return (
+    <select
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      style={{
+        ...inputStyle,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        appearance: 'none',
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23718699' d='M2 4l4 4 4-4'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 10px center',
+        paddingRight: '30px',
+      }}
+    >
+      {placeholder && <option value="">{placeholder}</option>}
+      {options.map((opt) => (
+        <option key={opt} value={opt}>{opt}</option>
+      ))}
+    </select>
+  );
+}
+
 export default function ClientFormFields({
   product,
   onChange,
@@ -150,10 +174,22 @@ export default function ClientFormFields({
         }}
       >
         <Field label="Tier" required={isNew}>
-          <TextInput value={product.tier} onChange={set('tier')} placeholder="e.g. Tier 1" disabled={disabled} />
+          <Select
+            value={product.tier}
+            onChange={set('tier')}
+            options={['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6', 'Premium set up', 'Invincible set up']}
+            placeholder="—"
+            disabled={disabled}
+          />
         </Field>
         <Field label="Setup type" required={isNew}>
-          <TextInput value={product.setup_type} onChange={set('setup_type')} placeholder="e.g. Ad Account" disabled={disabled} />
+          <Select
+            value={product.setup_type}
+            onChange={set('setup_type')}
+            options={['Ad Account', 'Setup', 'Ad Account + Setup', 'Top-Up', 'Only profile', 'Only page']}
+            placeholder="—"
+            disabled={disabled}
+          />
         </Field>
         <Field label="Month">
           <TextInput value={product.month} onChange={set('month')} placeholder="e.g. Jun-2026" disabled={disabled} />
@@ -183,19 +219,37 @@ export default function ClientFormFields({
           <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} />
         </Field>
         <Field label="Ad account type">
-          <TextInput value={product.ad_account_type} onChange={set('ad_account_type')} placeholder="Personal / Business" disabled={disabled} />
+          <Select
+            value={product.ad_account_type}
+            onChange={set('ad_account_type')}
+            options={['CC', 'CL']}
+            placeholder="—"
+            disabled={disabled}
+          />
         </Field>
         <Field label="Ad spend limit">
           <TextInput value={product.ad_spend_limit} onChange={set('ad_spend_limit')} placeholder="—" disabled={disabled} />
         </Field>
         <Field label="Referral partner">
-          <TextInput value={product.referral_partner_name} onChange={set('referral_partner_name')} placeholder="—" disabled={disabled} />
+          <Select
+            value={product.referral_partner_name}
+            onChange={set('referral_partner_name')}
+            options={['Chris', 'Master', 'N.A.', 'No Limit', '8 Labs', 'Mathias']}
+            placeholder="—"
+            disabled={disabled}
+          />
         </Field>
         <Field label="Referral amount">
           <TextInput value={product.referral_amount} onChange={set('referral_amount')} placeholder="0" disabled={disabled} />
         </Field>
         <Field label="Bank name">
-          <TextInput value={product.bank_name} onChange={set('bank_name')} placeholder="Whop / Stripe / ..." disabled={disabled} />
+          <Select
+            value={product.bank_name}
+            onChange={set('bank_name')}
+            options={['Airxalex', 'Crypto', 'Slash Bank', 'Revolut', 'WHOP']}
+            placeholder="—"
+            disabled={disabled}
+          />
         </Field>
         <Field label="Payment name">
           <TextInput value={product.payment_name} onChange={set('payment_name')} placeholder="—" disabled={disabled} />
@@ -215,13 +269,24 @@ export default function ClientFormFields({
         <Field label="Balance diff">
           <TextInput value={product.actual_balance_difference} onChange={set('actual_balance_difference')} placeholder="0" disabled={disabled} />
         </Field>
-        <Field label="Status history">
-          <TextInput value={product.client_status_history} onChange={set('client_status_history')} placeholder="—" disabled={disabled} />
+        <Field label="Renewal Type">
+          <Select
+            value={product.client_status_history}
+            onChange={set('client_status_history')}
+            options={['Auto', 'Manual', 'N.A. Stopped']}
+            placeholder="—"
+            disabled={disabled}
+          />
         </Field>
-        <div style={{ ...fieldWrapStyle, gridColumn: '1 / -1' }}>
-          <label style={labelStyle}>Notes</label>
-          <TextArea value={product.notes} onChange={set('notes')} placeholder="—" rows={2} disabled={disabled} />
-        </div>
+        <Field label="Note">
+          <Select
+            value={product.notes}
+            onChange={set('notes')}
+            options={['Good to GO', 'Need to check', 'Trial']}
+            placeholder="—"
+            disabled={disabled}
+          />
+        </Field>
       </div>
     </div>
   );

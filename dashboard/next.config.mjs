@@ -25,7 +25,8 @@ const nextConfig = {
           /^bindings(\/|$)/.test(request) ||
           /^file-uri-to-path(\/|$)/.test(request) ||
           /^request-promise(\/|$)/.test(request) ||
-          /^(path|fs|os|crypto|stream|util|http|https|url|net|tls|child_process|events|querystring|buffer|zlib)$/.test(request)
+          /^node:/.test(request) ||
+          /^(path|fs|os|crypto|stream|util|http|https|url|net|tls|child_process|events|querystring|buffer|zlib|http2)$/.test(request)
         ) {
           return callback(null, 'commonjs ' + request);
         }

@@ -233,6 +233,183 @@ function initDatabase() {
     console.error(e.stack);
     throw e;
   }
+
+  // --- Bank Details ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bank_details (
+      id INTEGER PRIMARY KEY,
+      bank_key TEXT UNIQUE NOT NULL,
+      bank_name TEXT NOT NULL,
+      data_json TEXT NOT NULL DEFAULT '{}',
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // --- Payment Proofs (client payment submissions) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_proofs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sr_no TEXT NOT NULL,
+      client_id INTEGER NOT NULL,
+      transaction_id TEXT,
+      proof_image_url TEXT,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at DATETIME,
+      reviewed_by TEXT,
+      reject_reason TEXT,
+      FOREIGN KEY(client_id) REFERENCES clients(id),
+      UNIQUE(sr_no, client_id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_proofs_status ON payment_proofs(status)`);
+
+  // --- Approvals Sync (dashboard review queue) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS approval_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      proof_id INTEGER NOT NULL,
+      sr_no TEXT NOT NULL,
+      client_id INTEGER NOT NULL,
+      client_name TEXT,
+      tele_id TEXT,
+      product_type TEXT,
+      amount_due TEXT,
+      due_date TEXT,
+      bank_name TEXT,
+      transaction_id TEXT,
+      proof_image_url TEXT,
+      submitted_at DATETIME,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      reviewed_at DATETIME,
+      reviewed_by TEXT,
+      reject_reason TEXT,
+      FOREIGN KEY(proof_id) REFERENCES payment_proofs(id),
+      FOREIGN KEY(client_id) REFERENCES clients(id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_approval_queue_status ON approval_queue(status)`);
+
+  // --- Payment Selections (client chose a payment method from the group) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_selections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sr_no TEXT NOT NULL,
+      chat_id TEXT NOT NULL,
+      method TEXT NOT NULL,
+      address TEXT,
+      selected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(sr_no, chat_id)
+    )
+  `);
+
+  // --- Pending Payments (in-progress payment submissions) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pending_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sr_no TEXT NOT NULL,
+      client_id INTEGER NOT NULL,
+      tele_id TEXT,
+      chat_id TEXT NOT NULL,
+      step TEXT NOT NULL DEFAULT 'AWAIT_TX',
+      transaction_id TEXT,
+      submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(sr_no, chat_id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pending_payments_step ON pending_payments(step)`);
+
+  // Add payment columns to renewals if not exist
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN transaction_id TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN payment_proof_url TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN paid_at TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
+  // Seed default bank data if empty
+  const existingBanks = db.prepare('SELECT COUNT(*) as cnt FROM bank_details').get();
+  if (!existingBanks || existingBanks.cnt === 0) {
+    const defaultBanks = [
+      {
+        bank_key: 'crypto',
+        bank_name: 'Crypto',
+        data_json: JSON.stringify({
+          usdt_trc20: 'TUcZNfx81JEdoNjG6orJxGPMrEpqX5gSuW',
+          usdt_erc20: '0x49B4Dde3249D8Cc0Fb083247007E3C46a0135B09',
+          btc: 'bc1quc4c6rm055guetjmnqt9rvvrzs3qpuu293rj8z',
+          fee_note: 'There will be a transaction fee of 2% on the amount transferred'
+        })
+      },
+      {
+        bank_key: 'lhv',
+        bank_name: 'AS LHV Pank (Sokin)',
+        data_json: JSON.stringify({
+          account_title: 'WCATFM LLC',
+          bank_country: 'EE',
+          account_type: 'IBAN',
+          bic_swift: 'LHVBEE22',
+          iban: 'EE157777000160817218',
+          bank_address: 'Tartu mnt 2, 10145, Tallinn'
+        })
+      },
+      {
+        bank_key: 'slash',
+        bank_name: 'Slash Bank',
+        data_json: JSON.stringify({
+          account_name: 'WCATFM LLC',
+          account_number: '994768939333484',
+          routing: '121145307',
+          swift_bic: 'CLNOUS66XXX',
+          address_entity: '1507 Lampman Ct, Cheyenne, WY 82007-3341, US'
+        })
+      },
+      {
+        bank_key: 'whop',
+        bank_name: 'WHOP',
+        data_json: JSON.stringify({
+          tier1: 'https://whop.com/checkout/plan_vsgVy32aS6wEE',
+          tier2: 'https://whop.com/checkout/plan_acFXSJ5bVnNzs',
+          tier3: 'https://whop.com/checkout/plan_rOEka7oXYmOMU',
+          tier4: 'https://whop.com/checkout/plan_4eQs8tCjLIQR9',
+          tier5: 'https://whop.com/checkout/plan_jIUlPyX1f4FjR',
+          tier6: 'https://whop.com/checkout/plan_wP93g0lz9nETb',
+          tier1_7d_free: 'https://whop.com/checkout/plan_vZLv2nfs9FULn',
+          tier2_7d_free: 'https://whop.com/checkout/plan_2MvSTl0715cWS',
+          tier3_7d_free: 'https://whop.com/checkout/plan_g5Cm67QgfGXrN',
+          tier4_7d_free: 'https://whop.com/checkout/plan_0uqz2MuD6Y27J',
+          tier5_7d_free: 'https://whop.com/checkout/plan_wJjXJ9qhCqtv5',
+          tier6_7d_free: 'https://whop.com/checkout/plan_opAeK2mpPo6oL',
+          tier1_50_off: 'https://whop.com/checkout/plan_zFaL6KSREVUKQ',
+          tier2_50_off: 'https://whop.com/checkout/plan_hzG20DO2ZJm70',
+          tier3_50_off: 'https://whop.com/checkout/plan_6rXVn26Djhv16',
+          tier4_50_off: 'https://whop.com/checkout/plan_VuhNYrdI2qT0y',
+          tier5_50_off: 'https://whop.com/checkout/plan_L6bCf7daNhotp',
+          tier7d_free_15pct_meta: 'https://whop.com/checkout/plan_RqN7WiGvROWFw',
+          meta_setup: 'https://whop.com/checkout/plan_HMwsNS8d77DFh',
+          extra_fb_profile: 'https://whop.com/checkout/plan_UtvSvr7rpgiHe',
+          extra_fb_page: 'https://whop.com/checkout/plan_ydwVtGCa9SDdB',
+          extra_bm: 'https://whop.com/checkout/plan_B3eWNdQcc7XE5',
+          upgrade_t1_to_t2: 'https://whop.com/checkout/plan_Tzv7itek7ubC6',
+          upgrade_t1_to_t3: 'https://whop.com/checkout/plan_OH4qjhTS1SGZb',
+          upgrade_t1_to_t4: 'https://whop.com/checkout/plan_3lioNhSixcTHO',
+          upgrade_t1_to_t5: 'https://whop.com/checkout/plan_yvfKEVlGo8tCR',
+          upgrade_t1_to_t6: 'https://whop.com/checkout/plan_y9hxI0XDSgoGn',
+          upgrade_t2_to_t3: 'https://whop.com/checkout/plan_FJbnjaAu8WxWO',
+          upgrade_t2_to_t4: 'https://whop.com/checkout/plan_MQx8QlFHX0to7',
+          upgrade_t2_to_t5: 'https://whop.com/checkout/plan_MpIK280WxEurX',
+          upgrade_t2_to_t6: 'https://whop.com/checkout/plan_M1sa7PZAXmaje',
+          upgrade_t3_to_t4: 'https://whop.com/checkout/plan_Vr475tjp1OSSU',
+          upgrade_t3_to_t5: 'https://whop.com/checkout/plan_SZhKXtQEhiiRO',
+          upgrade_t3_to_t6: 'https://whop.com/checkout/plan_WTeLlWJ4sfUMk',
+          upgrade_t4_to_t5: 'https://whop.com/checkout/plan_GDV5cO2vo0njl',
+          upgrade_t4_to_t6: 'https://whop.com/checkout/plan_roXeaVsNrnDzL',
+          upgrade_t5_to_t6: 'https://whop.com/checkout/plan_Zmn2lqIYHeFvj'
+        })
+      }
+    ];
+    const insertBank = db.prepare('INSERT OR REPLACE INTO bank_details (bank_key, bank_name, data_json) VALUES (?, ?, ?)');
+    for (const bank of defaultBanks) {
+      insertBank.run(bank.bank_key, bank.bank_name, bank.data_json);
+    }
+  }
 }
 
 // Walk all clients and (re)compute tele_id from name. Safe to call repeatedly.

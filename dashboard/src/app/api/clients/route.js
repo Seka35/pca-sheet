@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { all } from '@/lib/db';
 import { validateAddClientPayload } from '@/lib/clientValidation';
 import { createClient } from '@/lib/clientCreator';
+import { extractTeleId } from '@/lib/teleIdParser';
 
 function parseAmount(val) {
   if (!val) return 0;

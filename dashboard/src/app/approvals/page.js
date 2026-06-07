@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export default function ApprovalsPage() {
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
 
   useEffect(() => {
     fetchUpdates();
@@ -29,19 +32,42 @@ export default function ApprovalsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action })
       });
-      // Remove from list
       setUpdates(updates.filter(u => u.id !== id));
     } catch (err) {
       console.error(err);
     }
   };
 
+  const pendingCount = updates.filter(u => u.status === 'PENDING').length;
+
   return (
     <div>
-      <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Approvals (Sync)</h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
-        Review modifications made on the Google Sheet before applying them to the local database.
+      <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Approvals</h1>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+        Review pending items before they are applied to the database.
       </p>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '32px', borderBottom: '1px solid var(--border-color)' }}>
+        <Link href="/approvals" style={{
+          padding: '10px 20px',
+          textDecoration: 'none',
+          color: pathname === '/approvals' ? 'var(--primary-accent)' : 'var(--text-secondary)',
+          borderBottom: pathname === '/approvals' ? '2px solid var(--primary-accent)' : '2px solid transparent',
+          fontWeight: pathname === '/approvals' ? '600' : '400',
+        }}>
+          📄 Sync
+        </Link>
+        <Link href="/approvals/payment" style={{
+          padding: '10px 20px',
+          textDecoration: 'none',
+          color: pathname === '/approvals/payment' ? 'var(--primary-accent)' : 'var(--text-secondary)',
+          borderBottom: pathname === '/approvals/payment' ? '2px solid var(--primary-accent)' : '2px solid transparent',
+          fontWeight: pathname === '/approvals/payment' ? '600' : '400',
+        }}>
+          💳 Payments {pendingCount > 0 && <span style={{ background: 'var(--primary-accent)', color: '#fff', borderRadius: '10px', padding: '2px 6px', fontSize: '11px', marginLeft: '6px' }}>{pendingCount}</span>}
+        </Link>
+      </div>
 
       {loading ? (
         <p>Loading...</p>
@@ -62,13 +88,13 @@ export default function ApprovalsPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
+                <button
                   onClick={() => handleAction(update.id, 'REJECT')}
-                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                  style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', cursor: 'pointer' }}
                 >
                   Reject
                 </button>
-                <button 
+                <button
                   onClick={() => handleAction(update.id, 'APPROVE')}
                   className="btn-primary"
                 >
