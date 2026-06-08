@@ -324,6 +324,15 @@ function initDatabase() {
   try { db.exec(`ALTER TABLE renewals ADD COLUMN payment_proof_url TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   try { db.exec(`ALTER TABLE renewals ADD COLUMN paid_at TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
+  // --- Invoice Settings ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS invoice_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      data_json TEXT NOT NULL DEFAULT '{}',
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Seed default bank data if empty
   const existingBanks = db.prepare('SELECT COUNT(*) as cnt FROM bank_details').get();
   if (!existingBanks || existingBanks.cnt === 0) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ClientModal from '@/components/ClientModal';
+import InvoiceTab from '@/components/InvoiceTab';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
@@ -15,7 +16,7 @@ export default function PaymentsPage() {
   const [search, setSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState('All Channels');
   const [selectedClient, setSelectedClient] = useState(null);
-  const [activeTab, setActiveTab] = useState('payments'); // 'payments' or 'banks'
+  const [activeTab, setActiveTab] = useState('payments'); // 'payments', 'banks', or 'invoice'
   const [banks, setBanks] = useState([]);
   const [editingBank, setEditingBank] = useState(null);
   const [bankFormData, setBankFormData] = useState({});
@@ -106,6 +107,20 @@ export default function PaymentsPage() {
     setSelectedClient(clientData);
   };
 
+  const downloadInvoice = (paymentRow) => {
+    const params = new URLSearchParams({
+      sr_no: paymentRow.sr_no || paymentRow.period || 'N/A',
+      client_id: paymentRow.client_id || '',
+      client_name: paymentRow.client_name || '',
+      bank_name: paymentRow.channel || 'crypto',  // channel is the bank_name in payments API
+      product_name: paymentRow.tier || 'Service',
+      amount: paymentRow.amount || 0,
+      invoice_date: paymentRow.date || new Date().toISOString().split('T')[0],
+      invoice_no: paymentRow.sr_no ? paymentRow.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001'
+    });
+    window.open('/api/invoice/generate?' + params.toString(), '_blank');
+  };
+
   const filteredPayments = payments.filter(p => {
     const matchesSearch = (p.client_name || '').toLowerCase().includes(search.toLowerCase()) || 
                           (p.period || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -123,7 +138,9 @@ export default function PaymentsPage() {
       <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px' }}>Payments</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{activeTab === 'payments' ? `${payments.length} total payments` : `${banks.length} payment methods`}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+            {activeTab === 'payments' ? `${payments.length} total payments` : activeTab === 'banks' ? `${banks.length} payment methods` : 'Invoice configuration'}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
@@ -155,6 +172,21 @@ export default function PaymentsPage() {
             }}
           >
             Bank Details
+          </button>
+          <button
+            onClick={() => setActiveTab('invoice')}
+            style={{
+              padding: '8px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '13px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              backgroundColor: activeTab === 'invoice' ? 'var(--primary-accent)' : 'var(--bg-card)',
+              color: activeTab === 'invoice' ? '#fff' : 'var(--text-secondary)'
+            }}
+          >
+            Invoice
           </button>
         </div>
       </div>
@@ -245,6 +277,7 @@ export default function PaymentsPage() {
                       <th style={{ padding: '16px 24px', fontWeight: '500' }}>Amount</th>
                       <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
                       <th style={{ padding: '16px 24px', fontWeight: '500' }}>Status</th>
+                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Invoice</th>
                       <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Reference</th>
                     </tr>
                   </thead>
@@ -267,6 +300,18 @@ export default function PaymentsPage() {
                         <td style={{ padding: '16px 24px' }}>{getChannelBadge(row.channel)}</td>
                         <td style={{ padding: '16px 24px' }}>
                           <span className="badge" style={{ backgroundColor: row.status === 'Paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: row.status === 'Paid' ? '#34D399' : '#F87171' }}>{row.status}</span>
+                        </td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); downloadInvoice(row); }}
+                            style={{
+                              padding: '6px 12px', borderRadius: '6px', border: 'none',
+                              backgroundColor: 'var(--primary-accent)', color: '#fff',
+                              fontSize: '11px', fontWeight: '500', cursor: 'pointer'
+                            }}
+                          >
+                            📥 PDF
+                          </button>
                         </td>
                         <td style={{ padding: '16px 24px', textAlign: 'right', color: 'var(--text-secondary)', fontSize: '11px' }}>
                           {row.link || '—'}
@@ -558,6 +603,10 @@ export default function PaymentsPage() {
             );
           })}
         </div>
+      )}
+
+      {activeTab === 'invoice' && (
+        <InvoiceTab />
       )}
 
       <ClientModal selectedClient={selectedClient} onClose={() => setSelectedClient(null)} />

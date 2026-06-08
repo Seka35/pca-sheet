@@ -513,6 +513,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 <th style={{ padding: '8px' }}>Valid Until</th>
                 <th style={{ padding: '8px' }}>Amount Received</th>
                 <th style={{ padding: '8px' }}>Ref.</th>
+                <th style={{ padding: '8px' }}>Invoice</th>
               </tr>
             </thead>
             <tbody>
@@ -528,6 +529,22 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                   <td style={{ padding: '12px 8px' }}>{row.valid_stopped_date}</td>
                   <td style={{ padding: '12px 8px', color: 'var(--primary-accent)', fontWeight: '500' }}>{row.amount_received}</td>
                   <td style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>{row.reference_no || '—'}</td>
+                  <td style={{ padding: '12px 8px' }}>
+                    <a
+                      href={`/api/invoice/generate?sr_no=${encodeURIComponent(row.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(row.bank_name || 'crypto')}&product_name=${encodeURIComponent(row.tier ? row.tier + (row.setup_type ? ' - ' + row.setup_type : '') : 'Service')}&amount=${encodeURIComponent(row.amount_received || row.subscription_fee || 0)}&invoice_date=${encodeURIComponent(row.payment_received_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-block',
+                        padding: '4px 10px', borderRadius: '4px', border: 'none',
+                        backgroundColor: 'var(--primary-accent)', color: '#fff',
+                        fontSize: '11px', fontWeight: '500', textDecoration: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📥 PDF
+                    </a>
+                  </td>
                 </tr>
               ))}
             </tbody>
