@@ -9,7 +9,7 @@ export async function GET(req) {
     const client_name = searchParams.get('client_name') || '';
     const bank_name = searchParams.get('bank_name') || '';
     const product_name = searchParams.get('product_name') || 'Service';
-    const subtotal = searchParams.get('subtotal') || 0;
+    const subtotal = searchParams.get('subtotal') || searchParams.get('amount') || 0;
     const discount = searchParams.get('discount') || 0;
     const invoice_date = searchParams.get('invoice_date') || new Date().toISOString().split('T')[0];
     const invoice_no = searchParams.get('invoice_no') || '001';
