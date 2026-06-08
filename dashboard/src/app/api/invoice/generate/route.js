@@ -9,11 +9,12 @@ export async function GET(req) {
     const client_name = searchParams.get('client_name') || '';
     const bank_name = searchParams.get('bank_name') || '';
     const product_name = searchParams.get('product_name') || 'Service';
-    const amount = searchParams.get('amount') || 0;
+    const subtotal = searchParams.get('subtotal') || 0;
+    const discount = searchParams.get('discount') || 0;
     const invoice_date = searchParams.get('invoice_date') || new Date().toISOString().split('T')[0];
     const invoice_no = searchParams.get('invoice_no') || '001';
 
-    return generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, amount, invoice_date, invoice_no });
+    return generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no });
   } catch (error) {
     console.error('Error generating invoice:', error);
     return new NextResponse('Error generating invoice', { status: 500 });
@@ -30,7 +31,7 @@ export async function POST(req) {
   }
 }
 
-function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, amount, invoice_date, invoice_no }) {
+function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no }) {
   // Get invoice template
   const templateRow = get('SELECT data_json FROM invoice_settings WHERE id = 1');
   const template = templateRow ? JSON.parse(templateRow.data_json) : {};
@@ -91,9 +92,16 @@ function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, pro
 Full payment must be made upon receipt of this invoice and prior to the start of services.
 
 Beneficiary: WCATFM LLC
-SWIFT Code: CLNOUS66
-Type of payment: Crypto (USDT TRC20)
-Wallet Address: ${bankData.usdt_trc20 || 'N/A'}
+
+USDT TRC20:
+${bankData.usdt_trc20 || 'N/A'}
+
+USDT ERC20:
+${bankData.usdt_erc20 || 'N/A'}
+
+BTC:
+${bankData.btc || 'N/A'}
+
 ${bankData.fee_note ? `Note: ${bankData.fee_note}` : ''}`;
   } else if (bankKey === 'lhv') {
     paymentInstructions = `Payment Instructions:
@@ -150,7 +158,8 @@ Please contact us for payment details.`;
   const fmt = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const escapeHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  const subtotal = Number(amount) || 0;
+  const parsedSubtotal = Number(subtotal) || 0;
+  const parsedDiscount = Number(discount) || 0;
 
   const metaRows = meta.map(row =>
     `<div class="meta-row">
@@ -159,7 +168,7 @@ Please contact us for payment details.`;
     </div>`
   ).join('');
 
-  const itemTotal = Number(amount) || 0;
+  const itemTotal = parsedSubtotal;
   const itemsHtml = `
     <tr>
       <td class="desc">${escapeHtml(product_name || 'Service')}</td>
@@ -172,8 +181,8 @@ Please contact us for payment details.`;
     `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`
   ).join('');
 
-  // Logo handling - use absolute URL for the logo
-  const logoHtml = `<div class="logo-box"><img src="https://pca.primecircle.pro/PCA.png" alt="Prime Circle Agency" onerror="this.parentElement.innerHTML='<div style=\'width:280px;padding:10px 0 6px;text-align:center;margin-bottom:10px;\'><div style=\'font-size:32px;font-style:italic;color:#111;\'>Prime Circle</div><div style=\'font-size:8px;letter-spacing:5px;color:#444;margin-top:2px;\'>AGENCY</div></div>'"></div>`;
+  // Logo handling - use local URL for the logo
+  const logoHtml = `<div class="logo-box"><img src="/PCA.png" alt="Prime Circle Agency" onerror="this.parentElement.innerHTML='<div style=\'width:280px;padding:10px 0 6px;text-align:center;margin-bottom:10px;\'><div style=\'font-size:32px;font-style:italic;color:#111;\'>Prime Circle</div><div style=\'font-size:8px;letter-spacing:5px;color:#444;margin-top:2px;\'>AGENCY</div></div>'"></div>`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -266,8 +275,12 @@ Please contact us for payment details.`;
           ${payInstParagraphs}
         </div>
         <div class="totals">
-          <div class="t-row"><div class="t-label">SUBTOTAL</div><div class="t-value">${fmt(subtotal)}</div></div>
-          <div class="t-row balance"><div class="t-label">Balance Due</div><div class="t-value">${template.currency || '$'}${fmt(subtotal)}</div></div>
+          <div class="t-row"><div class="t-label">SUBTOTAL</div><div class="t-value">${template.currency || '$'}${fmt(parsedSubtotal)}</div></div>
+          <div class="t-row"><div class="t-label">DISCOUNT</div><div class="t-value">-${template.currency || '$'}${fmt(parsedDiscount)}</div></div>
+          <div class="t-row"><div class="t-label">TAX RATE</div><div class="t-value">0%</div></div>
+          <div class="t-row"><div class="t-label">TOTAL TAX</div><div class="t-value">${template.currency || '$'}0.00</div></div>
+          <div class="t-row"><div class="t-label">SHIPPING</div><div class="t-value">${template.currency || '$'}0.00</div></div>
+          <div class="t-row balance"><div class="t-label">Balance Due</div><div class="t-value">${template.currency || '$'}${fmt(parsedSubtotal - parsedDiscount)}</div></div>
         </div>
       </div>
     </div>

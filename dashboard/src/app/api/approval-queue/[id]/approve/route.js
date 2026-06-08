@@ -68,6 +68,26 @@ export async function POST(req) {
       );
     }
 
+    // Send Telegram notification to the client
+    try {
+      const link = get(`SELECT chat_id FROM bot_group_links WHERE client_id = ? AND status = 'linked' LIMIT 1`, [entry.client_id]);
+      if (link) {
+        const bot = globalThis.__pcaBot;
+        if (bot) {
+          await bot.sendMessage(
+            link.chat_id,
+            `✅ <b>Payment Approved!</b>\n\n` +
+            `<b>${entry.client_name}</b>, your payment of <b>${entry.amount_due}</b> has been<b>approved</b>!\n\n` +
+            `Transaction ID: <code>${entry.transaction_id || 'N/A'}</code>\n\n` +
+            `Your account is now active. Thank you for your payment!`,
+            { parse_mode: 'HTML' }
+          );
+        }
+      }
+    } catch (e) {
+      console.error('[APPROVE] Telegram notification failed:', e.message);
+    }
+
     console.log('[APPROVE] success for sr_no:', entry.sr_no);
     return NextResponse.json({ ok: true });
   } catch (e) {

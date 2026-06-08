@@ -181,6 +181,16 @@ export default function BotPage() {
     }
   };
 
+  const clearLogs = async () => {
+    if (!confirm('Delete all reminder logs? This cannot be undone.')) return;
+    try {
+      await fetch('/api/bot/log?all=true', { method: 'DELETE' });
+      setLogs([]);
+ } catch (e) {
+      alert('Failed to clear logs: ' + e.message);
+    }
+  };
+
   const sendTest = async () => {
     setTestResult(null);
     try {
@@ -589,8 +599,13 @@ export default function BotPage() {
 
           {/* Section D — Recent reminders */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Recent reminders</h2>
+              <button onClick={clearLogs} style={{
+                backgroundColor: 'transparent', color: '#F87171',
+                padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.3)',
+                fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+              }}>Clear logs</button>
             </div>
             <div className="table-responsive">
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '800px' }}>
