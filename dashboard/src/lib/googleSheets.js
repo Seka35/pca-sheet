@@ -234,9 +234,12 @@ export async function appendClientBlock({ name, telegram_group_id, products, bas
   if (!Number.isInteger(baseSrNo) || baseSrNo < 1) {
     return { ok: false, error: `Invalid baseSrNo: ${baseSrNo}` };
   }
-  if (!Array.isArray(products) || products.length === 0) {
-    return { ok: false, error: 'products must be a non-empty array' };
+  if (!Array.isArray(products)) {
+    return { ok: false, error: 'products must be an array' };
   }
+  // products may be `[]` (header-only client) — the bot uses this path for
+  // auto-create on /start. The Sheet still gets a single blue header row;
+  // the human adds products from the dashboard later.
 
   try {
     const sheets = await getSheetsClient();
@@ -282,14 +285,16 @@ export async function appendClientBlock({ name, telegram_group_id, products, bas
       else allInactive = false;
     }
 
-    if (allActive) {
-      requests.push(paintRows(insertAt0 + 1, products.length, GREEN_BG));
-    } else if (allInactive) {
-      requests.push(paintRows(insertAt0 + 1, products.length, inactiveColor));
-    } else {
-      // Mixed: one repeatCell per row.
-      for (let i = 0; i < products.length; i++) {
-        requests.push(paintRows(insertAt0 + 1 + i, 1, colors[i]));
+    if (products.length > 0) {
+      if (allActive) {
+        requests.push(paintRows(insertAt0 + 1, products.length, GREEN_BG));
+      } else if (allInactive) {
+        requests.push(paintRows(insertAt0 + 1, products.length, inactiveColor));
+      } else {
+        // Mixed: one repeatCell per row.
+        for (let i = 0; i < products.length; i++) {
+          requests.push(paintRows(insertAt0 + 1 + i, 1, colors[i]));
+        }
       }
     }
 

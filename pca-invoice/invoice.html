@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice</title>
+    <style>
+        :root {
+            --navy-bar: #1f3864;
+            /* top & bottom bars */
+            --navy-header: #2f5496;
+            /* table header + bill-to label */
+            --label-navy: #1f3864;
+            /* totals labels / meta labels */
+            --balance-bg: #9dc3e6;
+            /* balance due highlight */
+            --rule: #c9c9c9;
+            --row-border: #000000;
+            --text: #1a1a1a;
+            --grey-band: #f0f0f0;
+            /* header section background */
+            --invoice-grey: #7f7f7f;
+            /* big INVOICE word */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            background: #d9d9d9;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ---- Paper ---- */
+        .page {
+            width: 985px;
+            min-height: 1271px;
+            margin: 24px auto;
+            background: #fff;
+            border: 1px solid #b0b0b0;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bar {
+            height: 26px;
+            background: var(--navy-bar);
+            flex: none;
+        }
+
+        .content {
+            padding: 0 38px;
+            flex: 1;
+        }
+
+        /* ---- Header zone ---- */
+        .header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: var(--grey-band);
+            margin: 50px -38px;
+            padding: 22px 38px 30px;
+        }
+
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .logo-box {
+            background: transparent;
+            width: 360px;
+            padding: 14px 0 8px;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+
+        .logo-box img {
+            max-width: 360px;
+            max-height: 135px;
+        }
+
+        .logo-fallback {
+            line-height: 1;
+        }
+
+        .logo-fallback .ring {
+            width: 120px;
+            height: 34px;
+            border: 2px solid #7ea6d8;
+            border-radius: 50%;
+            margin: 0 auto -22px;
+            transform: rotate(-8deg);
+        }
+
+        .logo-fallback .pc {
+            font-family: "Brush Script MT", "Segoe Script", cursive;
+            font-size: 38px;
+            font-style: italic;
+            color: #111;
+            position: relative;
+        }
+
+        .logo-fallback .agency {
+            font-size: 9px;
+            letter-spacing: 6px;
+            color: #444;
+            margin-top: 2px;
+        }
+
+        .company-name {
+            font-size: 19px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .company-addr {
+            font-size: 17px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .header-right {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .invoice-word {
+            font-size: 48px;
+            font-weight: 300;
+            color: var(--invoice-grey);
+            text-align: center;
+            letter-spacing: 1px;
+            margin: 4px 0 26px;
+        }
+
+        .meta-table {
+            margin-top: auto;
+        }
+
+        .meta-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: baseline;
+            border-bottom: 1px solid var(--rule);
+            padding: 7px 4px;
+            font-size: 14px;
+        }
+
+        .meta-row .m-label {
+            color: var(--label-navy);
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .meta-row .m-value {
+            color: var(--label-navy);
+            font-weight: 700;
+            margin-left: 6px;
+        }
+
+        /* ---- Bill to ---- */
+        .billto-wrap {
+            margin-top: 100px;
+        }
+
+        .billto-head {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .billto-label {
+            color: var(--navy-header);
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: .5px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .billto-spacer {
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .billto-name {
+            font-weight: 700;
+            font-size: 16px;
+            margin-top: 22px;
+        }
+
+        .billto-lines {
+            font-size: 16px;
+            margin-top: 26px;
+            line-height: 1.4;
+        }
+
+        /* ---- Line items table ---- */
+        .items {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            margin-bottom: 50px;
+        }
+
+        .items thead th {
+            background: var(--navy-header);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 9px 10px;
+            text-align: center;
+            border: 1px solid var(--navy-header);
+        }
+
+        .items thead th.desc {
+            text-align: center;
+        }
+
+        .items tbody td {
+            border: 1px solid var(--row-border);
+            padding: 8px 10px;
+            font-size: 14px;
+            height: 30px;
+        }
+
+        .items td.desc {
+            text-align: left;
+        }
+
+        .items td.qty {
+            text-align: center;
+        }
+
+        .items td.num {
+            text-align: right;
+        }
+
+        /* ---- Lower section ---- */
+        .lower {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            margin-top: 4px;
+        }
+
+        .pay-instructions {
+            font-size: 13px;
+            line-height: 1.45;
+            padding-top: 6px;
+        }
+
+        .pay-instructions .pi-title {
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .pay-instructions p {
+            margin-bottom: 12px;
+        }
+
+        .totals {
+            align-self: start;
+        }
+
+        .totals .t-row {
+            display: grid;
+            grid-template-columns: 1fr 150px;
+            align-items: center;
+        }
+
+        .totals .t-label {
+            text-align: right;
+            padding: 9px 14px 9px 0;
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--label-navy);
+            letter-spacing: .3px;
+        }
+
+        .totals .t-value {
+            text-align: right;
+            padding: 9px 6px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .totals .subtotal-main .t-value {
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .totals .balance {
+            grid-template-columns: 1fr 150px;
+            background: transparent;
+            margin-top: 30px;
+        }
+
+        .totals .balance .t-label {
+            font-size: 19px;
+            font-weight: 700;
+            color: #000;
+        }
+
+        .totals .balance .t-value {
+            background: var(--balance-bg);
+            font-size: 22px;
+            font-weight: 800;
+            color: #000;
+            border: none;
+            padding: 12px 6px;
+        }
+
+        /* ---- Print ---- */
+        @media print {
+
+            html,
+            body {
+                background: #fff;
+            }
+
+            .page {
+                margin: 0;
+                border: none;
+                width: 100%;
+                min-height: 100vh;
+            }
+
+            @page {
+                size: letter;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page" id="invoice-root">
+        <div class="bar"></div>
+
+        <div class="content">
+            <!-- HEADER -->
+            <div class="header">
+                <div class="header-left">
+                    <div class="logo-box" id="logo-box"></div>
+                    <div class="company-name" id="company-name"></div>
+                    <div class="company-addr" id="company-addr"></div>
+                </div>
+                <div class="header-right">
+                    <div class="invoice-word">INVOICE</div>
+                    <div class="meta-table" id="meta-table"></div>
+                </div>
+            </div>
+
+            <!-- BILL TO -->
+            <div class="billto-wrap">
+                <div class="billto-head">
+                    <div class="billto-label">BILL TO</div>
+                    <div class="billto-spacer"></div>
+                </div>
+                <div class="billto-name" id="billto-name"></div>
+                <div class="billto-lines" id="billto-lines"></div>
+            </div>
+
+            <!-- ITEMS -->
+            <table class="items">
+                <thead>
+                    <tr>
+                        <th class="desc">DESCRIPTION</th>
+                        <th>QTY</th>
+                        <th>UNIT PRICE</th>
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody id="items-body"></tbody>
+            </table>
+
+            <!-- LOWER -->
+            <div class="lower">
+                <div class="pay-instructions" id="pay-instructions"></div>
+                <div class="totals" id="totals"></div>
+            </div>
+        </div>
+
+        <div class="bar" style="margin-top:auto;"></div>
+    </div>
+
+    <script>
+        /* =====================================================================
+           INVOICE DATA  —  this is the ONLY thing you edit / generate.
+           No values are hardcoded in the markup; everything renders from here.
+           ===================================================================== */
+        const invoiceData = {
+            // logo.src = image URL or base64. Leave null to use the CSS/text fallback.
+            logo: { src: "PCA.png", alt: "Prime Circle Agency" },
+
+            company: {
+                name: "Prime Circle Agency",
+                addressLines: [
+                    "1507 Lampman Ct ,",
+                    "Cheyenne, WY 82007-3341, USA"
+                ]
+            },
+
+            // Right-hand meta rows. Add/remove freely — they render in order.
+            meta: [
+                { label: "", value: "WCATFM- LLC" },
+                { label: "Tax Identification Number :", value: "39-2440278" },
+                { label: "INVOICE NO #", value: "051" },
+                { label: "INVOICE DATE:", value: "2026-04-01" }
+            ],
+
+            billTo: {
+                name: "DigitalScaler Sàrl",
+                lines: [
+                    "Chemin de Maillefer 115, 1018 Lausanne, Switzerland" +
+                    "Ref: Ahmed X Prime Circle (Master): Tele 65"
+                ]
+            },
+
+            // Line items. total auto-computed as qty * unitPrice.
+            items: [
+                { description: "Invincible Setup (Masters: 15% off)", qty: 1, unitPrice: 254.00 }
+            ],
+
+            // Empty filler rows to match the original layout (set to 0 for none).
+            padRows: 1,
+
+            currency: "$",
+            locale: "en-US",
+
+            // Adjustments applied to the computed subtotal.
+            adjustments: {
+                discount: 0.00,   // absolute amount
+                taxRate: 0.00,   // percentage
+                shipping: 0.00    // absolute amount
+            },
+
+            paymentInstructions: {
+                title: "Payment Instructions:",
+                paragraphs: [
+                    "Full payment must be made upon receipt of this invoice and prior to the start of services.",
+                    [
+                        "Beneficiary:",
+                        "SWIFT Code: CLNOUS66",
+                        "Type of payment: Airwallex USD (ACH / LOCAL WIRE)",
+                        "Account Name: WCATFM LLC",
+                        "Routing Number: 121145307",
+                        "Fedwire Routing Number: 026073008",
+                        "Account Number: 994768939333484",
+                        "Beneficiary Address: 1507 Lampman Court, Cheyenne, WY, 82007",
+                        "Bank Name: Column N.A., Member FDIC",
+                        "Bank Address: 1 Letterman Drive, Suite A4-700, San Francisco, CA 94129, US",
+                        "Zip Code: 11421"
+                    ].join("\n")
+                ]
+            }
+        };
+
+        /* =====================================================================
+           RENDER ENGINE  —  generic; no business data lives here.
+           ===================================================================== */
+        (function render(d) {
+            const fmt = (n) =>
+                Number(n).toLocaleString(d.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const money = (n) => fmt(n);                 // plain numbers in table + totals
+            const moneyCur = (n) => d.currency + fmt(n); // currency only on balance due
+
+            // --- Logo ---
+            const logoBox = document.getElementById("logo-box");
+            if (d.logo && d.logo.src) {
+                const img = document.createElement("img");
+                img.src = d.logo.src;
+                img.alt = d.logo.alt || "";
+                logoBox.appendChild(img);
+            } else {
+                logoBox.innerHTML =
+                    '<div class="logo-fallback">' +
+                    '<div class="ring"></div>' +
+                    '<div class="pc">Prime Circle</div>' +
+                    '<div class="agency">AGENCY</div>' +
+                    '</div>';
+            }
+
+            // --- Company ---
+            document.getElementById("company-name").textContent = d.company.name;
+            document.getElementById("company-addr").innerHTML =
+                d.company.addressLines.map(escapeHtml).join("<br>");
+
+            // --- Meta rows ---
+            const metaWrap = document.getElementById("meta-table");
+            d.meta.forEach(row => {
+                const el = document.createElement("div");
+                el.className = "meta-row";
+                el.innerHTML =
+                    (row.label ? '<span class="m-label">' + escapeHtml(row.label) + '</span>' : '') +
+                    '<span class="m-value">' + escapeHtml(row.value) + '</span>';
+                metaWrap.appendChild(el);
+            });
+
+            // --- Bill to ---
+            document.getElementById("billto-name").textContent = d.billTo.name;
+            document.getElementById("billto-lines").innerHTML =
+                d.billTo.lines.map(escapeHtml).join("<br>");
+
+            // --- Items + subtotal ---
+            const body = document.getElementById("items-body");
+            let subtotal = 0;
+            d.items.forEach(item => {
+                const lineTotal = (Number(item.qty) || 0) * (Number(item.unitPrice) || 0);
+                subtotal += lineTotal;
+                body.appendChild(itemRow(
+                    item.description, item.qty, money(item.unitPrice), money(lineTotal)
+                ));
+            });
+            for (let i = 0; i < (d.padRows || 0); i++) {
+                body.appendChild(itemRow("", "", "", money(0)));
+            }
+
+            function itemRow(desc, qty, unit, total) {
+                const tr = document.createElement("tr");
+                tr.innerHTML =
+                    '<td class="desc">' + escapeHtml(desc) + '</td>' +
+                    '<td class="qty">' + escapeHtml(qty) + '</td>' +
+                    '<td class="num">' + escapeHtml(unit) + '</td>' +
+                    '<td class="num">' + escapeHtml(total) + '</td>';
+                return tr;
+            }
+
+            // --- Totals ---
+            const a = d.adjustments;
+            const discount = Number(a.discount) || 0;
+            const lessDisc = subtotal - discount;
+            const totalTax = lessDisc * (Number(a.taxRate) || 0) / 100;
+            const shipping = Number(a.shipping) || 0;
+            const balanceDue = lessDisc + totalTax + shipping;
+
+            const totals = document.getElementById("totals");
+            totals.appendChild(totalRow("SUBTOTAL", money(subtotal), "subtotal-main"));
+            totals.appendChild(totalRow("DISCOUNT", money(discount)));
+            totals.appendChild(totalRow("SUBTOTAL LESS DISCOUNT", money(lessDisc)));
+            totals.appendChild(totalRow("TAX RATE", fmt(a.taxRate) + "%"));
+            totals.appendChild(totalRow("TOTAL TAX", money(totalTax)));
+            totals.appendChild(totalRow("SHIPPING/HANDLING", money(shipping)));
+
+            const bal = document.createElement("div");
+            bal.className = "t-row balance";
+            bal.innerHTML =
+                '<div class="t-label">Balance Due</div>' +
+                '<div class="t-value">' + escapeHtml(moneyCur(balanceDue)) + '</div>';
+            totals.appendChild(bal);
+
+            function totalRow(label, value, extra) {
+                const el = document.createElement("div");
+                el.className = "t-row" + (extra ? " " + extra : "");
+                el.innerHTML =
+                    '<div class="t-label">' + escapeHtml(label) + '</div>' +
+                    '<div class="t-value">' + escapeHtml(value) + '</div>';
+                return el;
+            }
+
+            // --- Payment instructions ---
+            const pi = document.getElementById("pay-instructions");
+            pi.innerHTML = '<div class="pi-title">' + escapeHtml(d.paymentInstructions.title) + '</div>';
+            d.paymentInstructions.paragraphs.forEach(p => {
+                const el = document.createElement("p");
+                el.innerHTML = escapeHtml(p).replace(/\n/g, "<br>");
+                pi.appendChild(el);
+            });
+
+            function escapeHtml(s) {
+                return String(s ?? "")
+                    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+            }
+        })(invoiceData);
+    </script>
+</body>
+
+</html>

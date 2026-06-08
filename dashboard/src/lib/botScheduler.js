@@ -3,6 +3,7 @@
 
 import { all, get, run, db } from './db.js';
 import { renderTemplate, buildVars, parseDate } from './botTemplates.js';
+import { buildPaymentReminderKeyboard } from './telegramInlineButtons.js';
 
 const MIN_INTERVAL_MIN = 1;
 const DEFAULT_INTERVAL_MIN = 15;
@@ -92,10 +93,14 @@ export async function runReminderSweepOnce(bot) {
   if (inQuietHours(cfg)) return { skipped: 'quiet_hours' };
 
   const templates = cfg.templates || {};
-  const offsets = Object.keys(templates)
-    .map((k) => Number(k))
-    .filter((n) => Number.isFinite(n) && templates[String(n)] && templates[String(n)].enabled !== false);
-  if (offsets.length === 0) return { skipped: 'no_templates' };
+  // Build list of { key: '+1', offset: 1 } from actual template keys
+  const templateOffsets = Object.keys(templates)
+    .map((k) => {
+      const n = Number(String(k).replace(/^[+-]/, ''));
+      return { key: k, offset: n, enabled: templates[k].enabled !== false };
+    })
+    .filter((t) => Number.isFinite(t.offset) && t.enabled);
+  if (templateOffsets.length === 0) return { skipped: 'no_templates' };
 
   // Pull candidates: real renewals, active clients, valid date, unpaid, has a linked group.
   const candidates = all(
@@ -120,12 +125,17 @@ export async function runReminderSweepOnce(bot) {
     if (!dueDate) continue;
     const diffDays = Math.floor((dueDate.getTime() - today.getTime()) / 86400000);
 
-    for (const dayOffset of offsets) {
-      // dayOffset = -7 means "send 7 days BEFORE the due date" -> diffDays must equal 7.
-      const targetDiff = -dayOffset;
+    for (const { key: tplKey, offset: dayOffset } of templateOffsets) {
+      // dayOffset = 7 means "7 days before due date" (negative diffDays = -7)
+      // dayOffset = 1 means "1 day after due date" (diffDays = +1 or -1 for already expired)
+      // For negative offsets (before expiry): targetDiff = -dayOffset (e.g. -7 → diffDays must be 7)
+      // For positive offsets (after expiry): targetDiff = -dayOffset (e.g. +1 → diffDays must be -1)
+      // But for after-expiry, diffDays is already negative, so we match abs: |diffDays| === dayOffset
+      const isBefore = dayOffset < 0;
+      const targetDiff = isBefore ? -dayOffset : -dayOffset;
       if (diffDays !== targetDiff) continue;
 
-      // Fast cache check.
+      // Fast cache check (store the numeric offset).
       let cache = [];
       try { cache = JSON.parse(row.reminders_sent_json || '[]'); } catch { cache = []; }
       if (cache.includes(dayOffset)) { result.skipped_existing++; continue; }
@@ -137,7 +147,7 @@ export async function runReminderSweepOnce(bot) {
       );
       if (existing) { result.skipped_existing++; continue; }
 
-      const tpl = templates[String(dayOffset)];
+      const tpl = templates[tplKey];
       const vars = buildVars(row, diffDays);
       const text = renderTemplate(tpl.message, vars);
 
@@ -148,9 +158,11 @@ export async function runReminderSweepOnce(bot) {
       }
 
       try {
+        const keyboard = buildPaymentReminderKeyboard(row.sr_no, row.chat_id);
         const msg = await bot.sendMessage(row.chat_id, text, {
           parse_mode: 'HTML',
           disable_web_page_preview: true,
+          reply_markup: JSON.stringify(keyboard.reply_markup),
         });
         run(
           `INSERT INTO reminder_logs

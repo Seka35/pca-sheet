@@ -70,7 +70,7 @@ export default function RenewalsPage() {
                   />
                 </td>
                 <td style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {row.products && row.products.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map((p, i) => (
+                  {Array.isArray(row.products) && row.products.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map((p, i) => (
                     <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} />
                   ))}
                 </td>
