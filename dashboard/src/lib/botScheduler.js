@@ -4,6 +4,10 @@
 import { all, get, run, db } from './db.js';
 import { renderTemplate, buildVars, parseDate } from './botTemplates.js';
 import { buildPaymentReminderKeyboard } from './telegramInlineButtons.js';
+import { generateInvoicePdfBuffer } from './invoicePdf.js';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 const MIN_INTERVAL_MIN = 1;
 const DEFAULT_INTERVAL_MIN = 15;
@@ -118,6 +122,13 @@ export async function runReminderSweepOnce(bot) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Fetch all bank details once for PDF generation
+  const allBanks = all('SELECT bank_key, data_json FROM bank_details');
+  const bankDataMap = {};
+  for (const bank of allBanks) {
+    bankDataMap[bank.bank_key.toLowerCase()] = JSON.parse(bank.data_json || '{}');
+  }
+
   const result = { scheduled: 0, sent: 0, failed: 0, skipped_existing: 0, errors: [] };
 
   for (const row of candidates) {
@@ -159,11 +170,58 @@ export async function runReminderSweepOnce(bot) {
 
       try {
         const keyboard = buildPaymentReminderKeyboard(row.sr_no, row.chat_id);
+
+        // Generate PDF invoice using Puppeteer (renders the exact HTML invoice)
+        let pdfPath = null;
+        try {
+          const bankKey = (row.bank_name || '').toLowerCase().trim();
+          const bankData = bankDataMap[bankKey] || {};
+
+          // Parse amounts correctly (subscription_fee is "$199.00", discount is "$29.85")
+          const parseMoney = (s) => parseFloat(String(s || '0').replace(/[^0-9.]/g, '')) || 0;
+          const subscriptionFee = parseMoney(row.subscription_fee);
+          const discountAmount = parseMoney(row.discount);
+
+          const pdfBuffer = await generateInvoicePdfBuffer({
+            sr_no: row.sr_no,
+            client_name: row.client_name,
+            bank_name: row.bank_name,
+            product_name: row.tier || 'Service',
+            subtotal: subscriptionFee.toFixed(2),
+            discount: discountAmount.toFixed(2),
+            invoice_date: row.valid_stopped_date || new Date().toISOString().split('T')[0],
+            invoice_no: row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
+            bankData,
+          });
+          // Write to temp file for Telegram sending
+          pdfPath = path.join(os.tmpdir(), `invoice-${row.sr_no}-${Date.now()}.pdf`);
+          fs.writeFileSync(pdfPath, pdfBuffer);
+        } catch (pdfErr) {
+          console.error('[sweep] PDF generation failed:', pdfErr.message);
+          // Continue without PDF if generation fails
+        }
+
         const msg = await bot.sendMessage(row.chat_id, text, {
           parse_mode: 'HTML',
           disable_web_page_preview: true,
           reply_markup: JSON.stringify(keyboard.reply_markup),
         });
+
+        // Send PDF as document if available
+        if (pdfPath && fs.existsSync(pdfPath)) {
+          try {
+            await bot.sendDocument(row.chat_id, pdfPath, {
+              parse_mode: 'HTML',
+              caption: `📄 <b>Invoice</b> for ${row.client_name} — ${row.subscription_fee || '$0'}`,
+            });
+          } catch (docErr) {
+            console.error('[sweep] PDF send failed:', docErr.message);
+          } finally {
+            // Clean up temp file
+            try { fs.unlinkSync(pdfPath); } catch {}
+          }
+        }
+
         run(
           `INSERT INTO reminder_logs
              (chat_id, client_id, renewal_sr_no, reminder_type, message, status, telegram_message_id)

@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server';
 export function middleware(request) {
   const path = request.nextUrl.pathname;
 
-  // Protect all paths except login and api/auth
-  const isPublicPath = path === '/login' || path.startsWith('/api/auth');
+  // Protect all paths except login, api/auth, and invoice APIs (for PDF generation)
+  const isPublicPath = path === '/login' || path.startsWith('/api/auth') || path.startsWith('/api/invoice') || path === '/PCA.png' || path.startsWith('/_next') || path === '/favicon.ico';
   
   const token = request.cookies.get('pca_auth_session')?.value || '';
 
