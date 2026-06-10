@@ -122,7 +122,7 @@ export default function RenewalsPage() {
 
       {/* Cards */}
       <div className="grid-metrics" style={{ marginBottom: '32px' }}>
-        
+
         {/* LATE */}
         <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -156,6 +156,24 @@ export default function RenewalsPage() {
           </div>
           <div style={{ fontSize: '28px', fontWeight: '700', color: '#FBBF24', marginTop: '16px' }}>
             {formatCurrency(data.today.reduce((acc, row) => acc + (row.total_due || 0), 0))}
+          </div>
+        </div>
+
+        {/* THIS WEEK */}
+        <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(59, 130, 246, 0.08)', color: '#60A5FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              </div>
+              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Week</h3>
+            </div>
+            <span style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#60A5FA', padding: '2px 8px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+              {data.thisWeek.length}
+            </span>
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: '700', color: '#60A5FA', marginTop: '16px' }}>
+            {formatCurrency(data.thisWeek.reduce((acc, row) => acc + (row.total_due || 0), 0))}
           </div>
         </div>
 

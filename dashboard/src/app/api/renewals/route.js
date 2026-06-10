@@ -82,9 +82,10 @@ export async function GET(req) {
     const thisWeekRenewals = [];
     const thisMonthRenewals = [];
 
-    // --- LOGIQUE 1 : TRAITEMENT DES DETTES EXISTANTES (Lignes dans le sheet) ---
+    // --- LOGIQUE 1 : TRAITEMENT DES RENOUVELLEMENTS EXISTANTS (Lignes dans le sheet) ---
     Object.values(clientMonthlyMap).forEach(group => {
       let totalAmount = 0;
+      let hasUnpaid = false;
       group.records.forEach(r => {
         const isPaid = r.reference_no && r.reference_no.trim() !== "";
         if (!isPaid) {
@@ -93,11 +94,15 @@ export async function GET(req) {
           const disc = parseAmount(r.discount);
           const received = parseAmount(r.amount_received);
           const due = (sub + setup) - disc - received;
-          if (due > 0) totalAmount += due;
+          if (due > 0) {
+            totalAmount += due;
+            hasUnpaid = true;
+          }
         }
       });
-      
-      if (totalAmount <= 0) return;
+
+      // Skip groups with no unpaid products
+      if (!hasUnpaid) return;
 
       const computedRow = {
         ...group.records[0],
@@ -162,6 +167,7 @@ export async function GET(req) {
           diff_days: diffDays,
           valid_stopped_date: predictedDue.toISOString().split('T')[0],
           month: monthStr,
+          products: [{ tier: lastRecord.tier, setup_type: lastRecord.setup_type, reference_no: lastRecord.reference_no || '' }],
           telegram_chats: groupsByClient[lastRecord.client_id] || [],
           telegram_chat_id: groupsByClient[lastRecord.client_id]?.[0]?.chat_id || null,
           tele_id: lastRecord.c_tele_id || null,
