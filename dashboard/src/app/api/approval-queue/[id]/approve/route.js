@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { get, run } from '@/lib/db';
+import { getBot } from '@/lib/telegramBot';
 
 export async function POST(req) {
   // Extract ID from URL since params can be empty in Next.js 16
@@ -72,7 +73,7 @@ export async function POST(req) {
     try {
       const link = get(`SELECT chat_id FROM bot_group_links WHERE client_id = ? AND status = 'linked' LIMIT 1`, [entry.client_id]);
       if (link) {
-        const bot = globalThis.__pcaBot;
+        const bot = getBot();
         if (bot) {
           await bot.sendMessage(
             link.chat_id,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { get, all } from '@/lib/db';
+import { getWhopLink, WHOP_REFERRAL_PARTNERS, WHOP_SETUP_LINKS } from '@/lib/whopLinks';
 
 export async function GET(req) {
   try {
@@ -13,8 +14,16 @@ export async function GET(req) {
     const discount = searchParams.get('discount') || 0;
     const invoice_date = searchParams.get('invoice_date') || new Date().toISOString().split('T')[0];
     const invoice_no = searchParams.get('invoice_no') || '001';
+    // New billing info parameters
+    const first_name = searchParams.get('first_name') || '';
+    const last_name = searchParams.get('last_name') || '';
+    const email = searchParams.get('email') || '';
+    const address = searchParams.get('address') || '';
+    // WHOP-specific parameters
+    const referral_partner_name = searchParams.get('referral_partner_name') || 'N.A.';
+    const whop_link_type = searchParams.get('whop_link_type') || 'tier';
 
-    return generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no });
+    return generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type });
   } catch (error) {
     console.error('Error generating invoice:', error);
     return new NextResponse('Error generating invoice', { status: 500 });
@@ -31,7 +40,18 @@ export async function POST(req) {
   }
 }
 
-function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no }) {
+function getWhopPaymentLink(referralPartner, tier, linkType = 'tier') {
+  // Normalize tier: "TIER 1" -> "tier1", "tier1" -> "tier1"
+  // linkType is the full key like "tier1", "tier1_7d_free", "tier1_50_off"
+  const normalizedTier = tier ? tier.toUpperCase().replace(/\s+/g, '').replace(/^TIER/, 'tier') : 'tier1';
+  // If linkType is provided and different from 'tier', use it directly as the key
+  if (linkType && linkType !== 'tier') {
+    return getWhopLink({ referralPartner, tier: linkType });
+  }
+  return getWhopLink({ referralPartner, tier: normalizedTier });
+}
+
+function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type }) {
   // Get invoice template
   const templateRow = get('SELECT data_json FROM invoice_settings WHERE id = 1');
   const template = templateRow ? JSON.parse(templateRow.data_json) : {};
@@ -122,24 +142,24 @@ Routing: ${bankData.routing || 'N/A'}
 SWIFT/BIC: ${bankData.swift_bic || 'CLNOUS66XXX'}
 Address: ${bankData.address_entity || 'N/A'}`;
   } else if (bankKey === 'whop') {
-    // Get WHOP links from bank data
-    const whopLinks = [];
-    if (bankData.tier1) whopLinks.push(`Tier 1: ${bankData.tier1}`);
-    if (bankData.tier2) whopLinks.push(`Tier 2: ${bankData.tier2}`);
-    if (bankData.tier3) whopLinks.push(`Tier 3: ${bankData.tier3}`);
-    if (bankData.tier4) whopLinks.push(`Tier 4: ${bankData.tier4}`);
-    if (bankData.tier5) whopLinks.push(`Tier 5: ${bankData.tier5}`);
-    if (bankData.tier6) whopLinks.push(`Tier 6: ${bankData.tier6}`);
+    // Get the specific WHOP link based on referral partner and tier
+    const partner = referral_partner_name || 'N.A.';
+    const tier = product_name || 'TIER 1';
+    const linkType = whop_link_type || 'tier';
+    const paymentLink = getWhopPaymentLink(partner, tier, linkType);
 
     paymentInstructions = `Payment Instructions:
 Full payment must be made upon receipt of this invoice and prior to the start of services.
 
 Payment via WHOP platform.
 
-For the correct payment link, please check your WHOP membership portal or contact us.
+Your specific payment link:
+${paymentLink || 'Please contact us for your payment link.'}
 
-Available WHOP payment tiers:
-${whopLinks.join('\n')}`;
+Referral Partner: ${partner}
+Product: ${tier}
+
+If you have any questions about your payment link, please contact us.`;
   } else {
     paymentInstructions = `Payment Instructions:
 Full payment must be made upon receipt of this invoice and prior to the start of services.
@@ -156,7 +176,7 @@ Please contact us for payment details.`;
   ];
 
   const fmt = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const escapeHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const escapeHtml = (s) => String(s ?? '').replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"');
 
   const parsedSubtotal = Number(subtotal) || 0;
   const parsedDiscount = Number(discount) || 0;
@@ -184,11 +204,21 @@ Please contact us for payment details.`;
   // Logo handling - use local URL for the logo
   const logoHtml = `<div class="logo-box"><img src="/PCA.png" alt="Prime Circle Agency" onerror="this.parentElement.innerHTML='<div style=\'width:280px;padding:10px 0 6px;text-align:center;margin-bottom:10px;\'><div style=\'font-size:32px;font-style:italic;color:#111;\'>Prime Circle</div><div style=\'font-size:8px;letter-spacing:5px;color:#444;margin-top:2px;\'>AGENCY</div></div>'"></div>`;
 
+  // Build billing info - use personal info if provided, otherwise fall back to client_name
+  const billingName = (first_name || last_name) ? `${first_name} ${last_name}`.trim() : (client_name || '');
+  const billingEmail = email || '';
+  const billingAddress = address || '';
+
+  const billtoLines = [];
+  if (billingEmail) billtoLines.push(escapeHtml(billingEmail));
+  if (billingAddress) billtoLines.push(escapeHtml(billingAddress));
+  if (!billingEmail && !billingAddress) billtoLines.push(`Ref: ${sr_no || 'N/A'}`);
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Invoice - ${escapeHtml(client_name)}</title>
+  <title>Invoice - ${escapeHtml(billingName || client_name)}</title>
   <style>
     :root {
       --navy-bar: #1f3864;
@@ -263,8 +293,8 @@ Please contact us for payment details.`;
           <div class="billto-label">BILL TO</div>
           <div class="billto-spacer"></div>
         </div>
-        <div class="billto-name">${escapeHtml(client_name || '')}</div>
-        <div class="billto-lines">Ref: ${sr_no || 'N/A'}</div>
+        <div class="billto-name">${escapeHtml(billingName)}</div>
+        <div class="billto-lines">${billtoLines.join('<br>')}</div>
       </div>
       <table class="items">
         <thead><tr><th class="desc">DESCRIPTION</th><th>QTY</th><th>UNIT PRICE</th><th>TOTAL</th></tr></thead>

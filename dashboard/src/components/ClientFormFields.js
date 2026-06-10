@@ -5,6 +5,24 @@
 // (existing product). All updates flow through onChange; this component
 // holds no state of its own.
 
+// Tier pricing - auto-fills subscription_fee and ad_spend_limit
+const TIER_PRICING = {
+  'TIER 1': { subscription_fee: '199', ad_spend_limit: '2500' },
+  'TIER 2': { subscription_fee: '299', ad_spend_limit: '5000' },
+  'TIER 3': { subscription_fee: '499', ad_spend_limit: '10000' },
+  'TIER 4': { subscription_fee: '799', ad_spend_limit: '20000' },
+  'TIER 5': { subscription_fee: '1399', ad_spend_limit: '40000' },
+  'TIER 6': { subscription_fee: '1999', ad_spend_limit: 'Unlimited' },
+};
+
+// Setup pricing - auto-fills setup_fee
+const SETUP_PRICING = {
+  'Invincible set up': { setup_fee: '299' },
+  'Starter': { setup_fee: '399' },
+  'Premium': { setup_fee: '499' },
+  'VIP': { setup_fee: '699' },
+};
+
 const inputStyle = {
   width: '100%',
   backgroundColor: 'transparent',
@@ -105,6 +123,25 @@ export default function ClientFormFields({
 }) {
   const set = (key) => (val) => onChange({ ...product, [key]: val });
 
+  // Handle tier change - auto-fill subscription_fee and ad_spend_limit
+  const handleTierChange = (val) => {
+    const updates = { tier: val };
+    if (TIER_PRICING[val]) {
+      updates.subscription_fee = TIER_PRICING[val].subscription_fee;
+      updates.ad_spend_limit = TIER_PRICING[val].ad_spend_limit;
+    }
+    onChange({ ...product, ...updates });
+  };
+
+  // Handle setup_type change - auto-fill setup_fee
+  const handleSetupTypeChange = (val) => {
+    const updates = { setup_type: val };
+    if (SETUP_PRICING[val]) {
+      updates.setup_fee = SETUP_PRICING[val].setup_fee;
+    }
+    onChange({ ...product, ...updates });
+  };
+
   return (
     <div
       style={{
@@ -176,8 +213,8 @@ export default function ClientFormFields({
         <Field label="Tier" required={isNew}>
           <Select
             value={product.tier}
-            onChange={set('tier')}
-            options={['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6', 'Premium set up', 'Invincible set up']}
+            onChange={handleTierChange}
+            options={['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6']}
             placeholder="—"
             disabled={disabled}
           />
@@ -185,8 +222,8 @@ export default function ClientFormFields({
         <Field label="Setup type" required={isNew}>
           <Select
             value={product.setup_type}
-            onChange={set('setup_type')}
-            options={['Ad Account', 'Setup', 'Ad Account + Setup', 'Top-Up', 'Only profile', 'Only page']}
+            onChange={handleSetupTypeChange}
+            options={['Ad Account', 'Setup', 'Ad Account + Setup', 'Top-Up', 'Only profile', 'Only page', 'Invincible set up', 'Starter', 'Premium', 'VIP']}
             placeholder="—"
             disabled={disabled}
           />
@@ -211,9 +248,6 @@ export default function ClientFormFields({
         </Field>
         <Field label="Valid until">
           <TextInput value={product.valid_stopped_date} onChange={set('valid_stopped_date')} type="date" disabled={disabled} />
-        </Field>
-        <Field label="Ad ID name">
-          <TextInput value={product.client_ad_id_name} onChange={set('client_ad_id_name')} placeholder="—" disabled={disabled} />
         </Field>
         <Field label="Ad ID number">
           <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} />
@@ -268,24 +302,6 @@ export default function ClientFormFields({
         </Field>
         <Field label="Balance diff">
           <TextInput value={product.actual_balance_difference} onChange={set('actual_balance_difference')} placeholder="0" disabled={disabled} />
-        </Field>
-        <Field label="Renewal Type">
-          <Select
-            value={product.client_status_history}
-            onChange={set('client_status_history')}
-            options={['Auto', 'Manual', 'N.A. Stopped']}
-            placeholder="—"
-            disabled={disabled}
-          />
-        </Field>
-        <Field label="Note">
-          <Select
-            value={product.notes}
-            onChange={set('notes')}
-            options={['Good to GO', 'Need to check', 'Trial']}
-            placeholder="—"
-            disabled={disabled}
-          />
         </Field>
       </div>
     </div>

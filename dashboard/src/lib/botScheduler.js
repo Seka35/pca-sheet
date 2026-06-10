@@ -111,6 +111,7 @@ export async function runReminderSweepOnce(bot) {
     `SELECT r.sr_no, r.client_id, r.client_name, r.tier, r.setup_type,
             r.subscription_fee, r.setup_fee, r.discount, r.amount_received,
             r.valid_stopped_date, r.reminders_sent_json, r.bank_name,
+            r.referral_partner_name,
             g.chat_id, g.chat_title
        FROM renewals r
        JOIN clients c ON c.id = r.client_id AND c.status = 'Actif'
@@ -192,6 +193,8 @@ export async function runReminderSweepOnce(bot) {
             invoice_date: row.valid_stopped_date || new Date().toISOString().split('T')[0],
             invoice_no: row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
             bankData,
+            referral_partner_name: row.referral_partner_name || 'N.A.',
+            whop_link_type: 'tier',
           });
           // Write to temp file for Telegram sending
           pdfPath = path.join(os.tmpdir(), `invoice-${row.sr_no}-${Date.now()}.pdf`);

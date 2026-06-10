@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import ClientModal from '@/components/ClientModal';
 import InvoiceTab from '@/components/InvoiceTab';
+import { WHOP_REFERRAL_PARTNERS, WHOP_TIER_LINKS, WHOP_DISCOUNT_BY_PARTNER, WHOP_SETUP_LINKS } from '@/lib/whopLinks';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
@@ -327,8 +328,10 @@ export default function PaymentsPage() {
       )}
 
       {activeTab === 'banks' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))', gap: '24px' }}>
-          {banks.map((bank) => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Crypto, LHV, Slash - grid side by side */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+          {banks.filter(b => b.bank_key !== 'whop').map((bank) => {
             const bankColors = {
               crypto: { bg: 'rgba(245, 158, 11, 0.08)', border: 'rgba(245, 158, 11, 0.3)', icon: '₿' },
               lhv: { bg: 'rgba(59, 130, 246, 0.08)', border: 'rgba(59, 130, 246, 0.3)', icon: '🏦' },
@@ -362,7 +365,7 @@ export default function PaymentsPage() {
                       <button onClick={() => saveBank(bank.bank_key)} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', backgroundColor: '#10B981', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: 'pointer' }}>Save</button>
                       <button onClick={cancelEditBank} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
                     </div>
-                  ) : (
+                  ) : bank.bank_key !== 'whop' && (
                     <button onClick={() => startEditBank(bank)} style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', cursor: 'pointer' }}>Edit</button>
                   )}
                 </div>
@@ -447,146 +450,114 @@ export default function PaymentsPage() {
                   )}
 
                   {bank.bank_key === 'whop' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {/* Tiers */}
-                      <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Full Tiers</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {[
-                            { label: 'Tier 1', field: 'tier1' },
-                            { label: 'Tier 2', field: 'tier2' },
-                            { label: 'Tier 3', field: 'tier3' },
-                            { label: 'Tier 4', field: 'tier4' },
-                            { label: 'Tier 5', field: 'tier5' },
-                            { label: 'Tier 6', field: 'tier6' }
-                          ].map(({ label, field }) => (
-                            <div key={field} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '8px', padding: '10px 12px', gap: '12px' }}>
-                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500', minWidth: '60px' }}>{label}</span>
-                              {editingBank === 'whop' ? (
-                                <input type="text" value={bankFormData[field] || ''} onChange={(e) => updateBankField(field, e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: '10px', fontFamily: 'monospace' }} />
-                              ) : (
-                                <span style={{ fontSize: '10px', color: 'var(--primary-accent)', flex: 1, wordBreak: 'break-all' }}>{bank.data[field] || '—'}</span>
-                              )}
-                              {bank.data[field] && editingBank !== 'whop' && (
-                                <button onClick={() => { navigator.clipboard.writeText(bank.data[field]); alert('Copied!'); }} style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '10px', border: 'none', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* Info Banner */}
+                      <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '10px', padding: '12px 16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                        <div style={{ fontSize: '12px', color: '#10B981', fontWeight: '500', marginBottom: '4px' }}>💡 WHOP Payment Links by Referral Partner</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Links are organized by referral partner. Each partner has different pricing tiers and discounts. These links are used automatically for invoices and Telegram reminders.</div>
                       </div>
 
-                      {/* 7 Days Free */}
-                      <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>7 Days Free</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {[
-                            { label: 'Tier 1 - 7D Free', field: 'tier1_7d_free' },
-                            { label: 'Tier 2 - 7D Free', field: 'tier2_7d_free' },
-                            { label: 'Tier 3 - 7D Free', field: 'tier3_7d_free' },
-                            { label: 'Tier 4 - 7D Free', field: 'tier4_7d_free' },
-                            { label: 'Tier 5 - 7D Free', field: 'tier5_7d_free' },
-                            { label: 'Tier 6 - 7D Free', field: 'tier6_7d_free' }
-                          ].map(({ label, field }) => (
-                            <div key={field} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '8px', padding: '10px 12px', gap: '12px' }}>
-                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500', minWidth: '100px' }}>{label}</span>
-                              {editingBank === 'whop' ? (
-                                <input type="text" value={bankFormData[field] || ''} onChange={(e) => updateBankField(field, e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: '10px', fontFamily: 'monospace' }} />
-                              ) : (
-                                <span style={{ fontSize: '10px', color: 'var(--primary-accent)', flex: 1, wordBreak: 'break-all' }}>{bank.data[field] || '—'}</span>
-                              )}
-                              {bank.data[field] && editingBank !== 'whop' && (
-                                <button onClick={() => { navigator.clipboard.writeText(bank.data[field]); alert('Copied!'); }} style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '10px', border: 'none', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
+                      {/* Partner Grid - 5 columns for partners */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                        {[
+                          { partner: 'N.A.', discount: '0%', color: 'rgba(139, 92, 246, 0.15)', borderColor: 'rgba(139, 92, 246, 0.3)' },
+                          { partner: 'Chris', discount: '0%', color: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.3)' },
+                          { partner: 'No Limit', discount: '-15%', color: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)' },
+                          { partner: '8 Labs', discount: '-15%', color: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' },
+                          { partner: 'Master', discount: '-15%', color: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }
+                        ].map(({ partner, discount, color, borderColor }) => {
+                          const partnerLinks = WHOP_TIER_LINKS[partner] || {};
+                          return (
+                            <div key={partner} style={{ backgroundColor: color, borderRadius: '10px', border: `1px solid ${borderColor}`, padding: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)' }}>{partner}</span>
+                                <span style={{ fontSize: '8px', padding: '1px 4px', borderRadius: '50px', backgroundColor: discount === '0%' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: discount === '0%' ? '#A78BFA' : '#34D399' }}>{discount}</span>
+                              </div>
+                              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>Full Tiers</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                                {['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6'].map((tierKey) => (
+                                  <div key={tierKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
+                                    <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}</span>
+                                    {partnerLinks[tierKey] ? (
+                                      <button onClick={() => { navigator.clipboard.writeText(partnerLinks[tierKey]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                    ) : (
+                                      <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>7 Days Free</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                                {['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6'].map((tierKey) => (
+                                  <div key={`${tierKey}_7d`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
+                                    <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}F</span>
+                                    {partnerLinks[`${tierKey}_7d_free`] ? (
+                                      <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_7d_free`]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                    ) : (
+                                      <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                              {discount === '-15%' && (
+                                <>
+                                  <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>50% Off</div>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px' }}>
+                                    {['tier1', 'tier2', 'tier3', 'tier4', 'tier5'].map((tierKey) => (
+                                      <div key={`${tierKey}_50`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
+                                        <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}H</span>
+                                        {partnerLinks[`${tierKey}_50_off`] ? (
+                                          <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_50_off`]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                        ) : (
+                                          <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
                               )}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
 
-                      {/* 50% Off */}
-                      <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>50% Off</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {[
-                            { label: 'Tier 1 - 50% Off', field: 'tier1_50_off' },
-                            { label: 'Tier 2 - 50% Off', field: 'tier2_50_off' },
-                            { label: 'Tier 3 - 50% Off', field: 'tier3_50_off' },
-                            { label: 'Tier 4 - 50% Off', field: 'tier4_50_off' },
-                            { label: 'Tier 5 - 50% Off', field: 'tier5_50_off' }
-                          ].map(({ label, field }) => (
-                            <div key={field} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '8px', padding: '10px 12px', gap: '12px' }}>
-                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500', minWidth: '110px' }}>{label}</span>
-                              {editingBank === 'whop' ? (
-                                <input type="text" value={bankFormData[field] || ''} onChange={(e) => updateBankField(field, e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: '10px', fontFamily: 'monospace' }} />
-                              ) : (
-                                <span style={{ fontSize: '10px', color: 'var(--primary-accent)', flex: 1, wordBreak: 'break-all' }}>{bank.data[field] || '—'}</span>
-                              )}
-                              {bank.data[field] && editingBank !== 'whop' && (
-                                <button onClick={() => { navigator.clipboard.writeText(bank.data[field]); alert('Copied!'); }} style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '10px', border: 'none', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
-                              )}
-                            </div>
-                          ))}
+                      {/* Setup Links & Other Products */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>Setup Price</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                            {[
+                              { label: 'OLD Setup', link: WHOP_SETUP_LINKS.oldSetup },
+                              { label: 'Starter', link: WHOP_SETUP_LINKS.newClient.starter },
+                              { label: 'Premium', link: WHOP_SETUP_LINKS.newClient.premium },
+                              { label: 'VIP', link: WHOP_SETUP_LINKS.newClient.vip }
+                            ].map(({ label, link }) => (
+                              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '6px', padding: '8px' }}>
+                                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '500' }}>{label}</span>
+                                {link && (
+                                  <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '8px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Other Products */}
-                      <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Other Products</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {[
-                            { label: '7D Free + 15% Meta', field: 'tier7d_free_15pct_meta' },
-                            { label: 'Meta Setup', field: 'meta_setup' },
-                            { label: 'Extra FB Profile', field: 'extra_fb_profile' },
-                            { label: 'Extra FB Page', field: 'extra_fb_page' },
-                            { label: 'Extra BM', field: 'extra_bm' }
-                          ].map(({ label, field }) => (
-                            <div key={field} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '8px', padding: '10px 12px', gap: '12px' }}>
-                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500', minWidth: '130px' }}>{label}</span>
-                              {editingBank === 'whop' ? (
-                                <input type="text" value={bankFormData[field] || ''} onChange={(e) => updateBankField(field, e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 8px', color: 'var(--text-primary)', fontSize: '10px', fontFamily: 'monospace' }} />
-                              ) : (
-                                <span style={{ fontSize: '10px', color: 'var(--primary-accent)', flex: 1, wordBreak: 'break-all' }}>{bank.data[field] || '—'}</span>
-                              )}
-                              {bank.data[field] && editingBank !== 'whop' && (
-                                <button onClick={() => { navigator.clipboard.writeText(bank.data[field]); alert('Copied!'); }} style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '10px', border: 'none', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Upgrades */}
-                      <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>Upgrades</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          {[
-                            { label: 'T1 → T2', field: 'upgrade_t1_to_t2' },
-                            { label: 'T1 → T3', field: 'upgrade_t1_to_t3' },
-                            { label: 'T1 → T4', field: 'upgrade_t1_to_t4' },
-                            { label: 'T1 → T5', field: 'upgrade_t1_to_t5' },
-                            { label: 'T1 → T6', field: 'upgrade_t1_to_t6' },
-                            { label: 'T2 → T3', field: 'upgrade_t2_to_t3' },
-                            { label: 'T2 → T4', field: 'upgrade_t2_to_t4' },
-                            { label: 'T2 → T5', field: 'upgrade_t2_to_t5' },
-                            { label: 'T2 → T6', field: 'upgrade_t2_to_t6' },
-                            { label: 'T3 → T4', field: 'upgrade_t3_to_t4' },
-                            { label: 'T3 → T5', field: 'upgrade_t3_to_t5' },
-                            { label: 'T3 → T6', field: 'upgrade_t3_to_t6' },
-                            { label: 'T4 → T5', field: 'upgrade_t4_to_t5' },
-                            { label: 'T4 → T6', field: 'upgrade_t4_to_t6' },
-                            { label: 'T5 → T6', field: 'upgrade_t5_to_t6' }
-                          ].map(({ label, field }) => (
-                            <div key={field} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '8px', padding: '10px 12px', gap: '8px' }}>
-                              <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '500' }}>{label}</span>
-                              {editingBank === 'whop' ? (
-                                <input type="text" value={bankFormData[field] || ''} onChange={(e) => updateBankField(field, e.target.value)} style={{ flex: 1, backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 6px', color: 'var(--text-primary)', fontSize: '9px', fontFamily: 'monospace' }} />
-                              ) : (
-                                <span style={{ fontSize: '9px', color: 'var(--primary-accent)', flex: 1, wordBreak: 'break-all' }}>{bank.data[field] ? '✓' : '—'}</span>
-                              )}
-                              {bank.data[field] && editingBank !== 'whop' && (
-                                <button onClick={() => { navigator.clipboard.writeText(bank.data[field]); alert('Copied!'); }} style={{ padding: '3px 6px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '9px', border: 'none', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
-                              )}
-                            </div>
-                          ))}
+                        <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>Other Products</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                            {[
+                              { label: 'Only Profile', link: WHOP_SETUP_LINKS.otherProducts.onlyProfile },
+                              { label: 'Only Page', link: WHOP_SETUP_LINKS.otherProducts.onlyPage },
+                              { label: 'Extra BM', link: WHOP_SETUP_LINKS.otherProducts.extraBM }
+                            ].map(({ label, link }) => (
+                              <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-card)', borderRadius: '6px', padding: '8px' }}>
+                                <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '500' }}>{label}</span>
+                                {link && (
+                                  <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '8px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -597,6 +568,151 @@ export default function PaymentsPage() {
                     {bank.data.usdt_trc20 && (
                       <button onClick={() => navigator.clipboard.writeText(bank.data.usdt_trc20)} style={{ padding: '6px 12px', borderRadius: '6px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '11px', border: 'none', cursor: 'pointer' }}>Copy USDT TRC20</button>
                     )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          </div>
+
+          {/* WHOP Bank - Full Width */}
+          {banks.filter(b => b.bank_key === 'whop').map((bank) => {
+            const colors = { bg: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.3)', icon: '🎫' };
+            return (
+              <div key={bank.bank_key} style={{
+                backgroundColor: 'var(--bg-card)',
+                borderRadius: '16px',
+                border: `1px solid ${colors.border}`,
+                overflow: 'hidden',
+                width: '100%'
+              }}>
+                {/* Header */}
+                <div style={{
+                  backgroundColor: colors.bg,
+                  padding: '20px 24px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderBottom: `1px solid ${colors.border}`
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '24px' }}>{colors.icon}</span>
+                    <h3 style={{ fontSize: '18px', fontWeight: '600', margin: 0, color: 'var(--text-primary)' }}>{bank.bank_name}</h3>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Info Banner */}
+                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '10px', padding: '12px 16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                      <div style={{ fontSize: '12px', color: '#10B981', fontWeight: '500', marginBottom: '4px' }}>💡 WHOP Payment Links by Referral Partner</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Links are organized by referral partner. Each partner has different pricing tiers and discounts. These links are used automatically for invoices and Telegram reminders.</div>
+                    </div>
+
+                    {/* Partner Grid - 5 columns for partners */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                      {[
+                        { partner: 'N.A.', discount: '0%', color: 'rgba(139, 92, 246, 0.15)', borderColor: 'rgba(139, 92, 246, 0.3)' },
+                        { partner: 'Chris', discount: '0%', color: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.3)' },
+                        { partner: 'No Limit', discount: '-15%', color: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)' },
+                        { partner: '8 Labs', discount: '-15%', color: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' },
+                        { partner: 'Master', discount: '-15%', color: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }
+                      ].map(({ partner, discount, color, borderColor }) => {
+                        const partnerLinks = WHOP_TIER_LINKS[partner] || {};
+                        return (
+                          <div key={partner} style={{ backgroundColor: color, borderRadius: '10px', border: `1px solid ${borderColor}`, padding: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)' }}>{partner}</span>
+                              <span style={{ fontSize: '8px', padding: '1px 4px', borderRadius: '50px', backgroundColor: discount === '0%' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: discount === '0%' ? '#A78BFA' : '#34D399' }}>{discount}</span>
+                            </div>
+                            <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>Full Tiers</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                              {['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6'].map((tierKey) => (
+                                <div key={tierKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
+                                  <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}</span>
+                                  {partnerLinks[tierKey] ? (
+                                    <button onClick={() => { navigator.clipboard.writeText(partnerLinks[tierKey]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                  ) : (
+                                    <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>7 Days Free</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                              {['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6'].map((tierKey) => (
+                                <div key={`${tierKey}_7d`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
+                                  <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}F</span>
+                                  {partnerLinks[`${tierKey}_7d_free`] ? (
+                                    <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_7d_free`]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                  ) : (
+                                    <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {discount === '-15%' && (
+                              <>
+                                <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>50% Off</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px' }}>
+                                  {['tier1', 'tier2', 'tier3', 'tier4', 'tier5'].map((tierKey) => (
+                                    <div key={`${tierKey}_50`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
+                                      <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}H</span>
+                                      {partnerLinks[`${tierKey}_50_off`] ? (
+                                        <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_50_off`]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                      ) : (
+                                        <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Setup Links & Other Products */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>Setup Price</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                          {[
+                            { label: 'OLD Setup', link: WHOP_SETUP_LINKS.oldSetup },
+                            { label: 'Starter', link: WHOP_SETUP_LINKS.newClient.starter },
+                            { label: 'Premium', link: WHOP_SETUP_LINKS.newClient.premium },
+                            { label: 'VIP', link: WHOP_SETUP_LINKS.newClient.vip }
+                          ].map(({ label, link }) => (
+                            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '6px', padding: '8px' }}>
+                              <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '500' }}>{label}</span>
+                              {link && (
+                                <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '8px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
+                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>Other Products</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                          {[
+                            { label: 'Only Profile', link: WHOP_SETUP_LINKS.otherProducts.onlyProfile },
+                            { label: 'Only Page', link: WHOP_SETUP_LINKS.otherProducts.onlyPage },
+                            { label: 'Extra BM', link: WHOP_SETUP_LINKS.otherProducts.extraBM }
+                          ].map(({ label, link }) => (
+                            <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-card)', borderRadius: '6px', padding: '8px' }}>
+                              <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '500' }}>{label}</span>
+                              {link && (
+                                <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '8px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

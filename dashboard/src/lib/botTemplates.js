@@ -2,6 +2,8 @@
 // Variables are written as {{variable_name}} in the template string.
 // All output is HTML-escaped (Telegram parse_mode: 'HTML').
 
+import { getWhopLink } from './whopLinks.js';
+
 const availableVars = [
   { key: 'client_name', desc: 'Client name (from renewals.client_name)' },
   { key: 'product', desc: 'Product label (setup_type if set, else tier)' },
@@ -15,6 +17,8 @@ const availableVars = [
   { key: 'due_date_long', desc: 'Long English format (June 15, 2026)' },
   { key: 'sr_no', desc: 'Renewal sr_no' },
   { key: 'bank', desc: 'Bank name' },
+  { key: 'whop_payment_link', desc: 'WHOP payment link based on referral partner and tier' },
+  { key: 'referral_partner', desc: 'Referral partner name' },
 ];
 
 function htmlEscape(str) {
@@ -79,6 +83,16 @@ function buildVars(renewal, diffDays) {
   const daysUntil = diffDays > 0 ? diffDays : 0;
   const daysAbsolute = Math.abs(diffDays);
 
+  // Get WHOP payment link if bank is WHOP
+  const referralPartner = renewal.referral_partner_name || 'N.A.';
+  const tier = renewal.tier || 'TIER 1';
+  const bankName = (renewal.bank_name || '').toLowerCase();
+  let whopPaymentLink = '';
+  if (bankName === 'whop') {
+    const normalizedTier = tier.toUpperCase().replace(/\s+/g, '').replace(/^TIER/, 'tier');
+    whopPaymentLink = getWhopLink({ referralPartner, tier: normalizedTier, linkType: 'tier' }) || '';
+  }
+
   return {
     client_name: renewal.client_name || '',
     product,
@@ -92,6 +106,8 @@ function buildVars(renewal, diffDays) {
     due_date_long: formatDateLong(dueDate),
     sr_no: renewal.sr_no || '',
     bank: renewal.bank_name || '',
+    whop_payment_link: whopPaymentLink,
+    referral_partner: referralPartner,
   };
 }
 

@@ -848,7 +848,7 @@ async function handleMessage(msg, TelegramBotInstance) {
 }
 
 export async function startBot() {
-  if (bot) return { started: true, reason: 'already_running' };
+  if (bot || globalThis.__pcaBot) return { started: true, reason: 'already_running' };
   // Reset the boot lock so a previous failure (invalid token, import error,
   // etc.) doesn't permanently wedge us. The next call will re-attempt.
   globalThis.__pcaTelegramBotStarted = true;
@@ -910,6 +910,12 @@ export async function startBot() {
   });
   bot.on('polling_error', (err) => {
     console.error('[telegram] polling_error:', err?.code || '', err?.message || err);
+    if (err?.code === 409) {
+      console.error('[telegram] 409 Conflict — stopping duplicate bot instance');
+      bot.stopPolling().catch(() => {});
+      bot = null;
+      globalThis.__pcaBot = null;
+    }
   });
 
   // Sweep timer.

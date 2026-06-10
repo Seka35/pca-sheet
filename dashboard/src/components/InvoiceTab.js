@@ -419,6 +419,111 @@ export default function InvoiceTab() {
             </div>
           </div>
 
+          {/* Generate Personalized Invoice */}
+          <div style={{ marginBottom: '28px' }}>
+            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Generate Personalized Invoice</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '10px', padding: '12px 16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+ 💡 Generate a personalized invoice with specific payment link. Select a payment method below and click "Generate PDF" to open a new invoice.
+                </div>
+              </div>
+
+              {/* Payment Method Selection */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Payment Method</label>
+                  <select
+                    id="paymentMethodSelect"
+                    value={invoiceData.genPaymentMethod || 'crypto'}
+                    onChange={(e) => handleChange('genPaymentMethod', e.target.value)}
+                    style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer' }}
+                  >
+                    <option value="crypto">Crypto (USDT/TRC20)</option>
+                    <option value="lhv">LHV Bank (SEPA/IBAN)</option>
+                    <option value="slash">Slash Bank (US)</option>
+                    <option value="whop">WHOP</option>
+                  </select>
+                </div>
+
+                {/* WHOP-specific options */}
+                {invoiceData.genPaymentMethod === 'whop' && (
+                  <>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Referral Partner</label>
+                      <select
+                        value={invoiceData.genReferralPartner || 'N.A.'}
+                        onChange={(e) => handleChange('genReferralPartner', e.target.value)}
+                        style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer' }}
+                      >
+                        <option value="N.A.">N.A. (0% discount)</option>
+                        <option value="Chris">Chris (0% discount)</option>
+                        <option value="No Limit">No Limit (-15% discount)</option>
+                        <option value="8 Labs">8 Labs (-15% discount)</option>
+                        <option value="Master">Master (-15% discount)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Product / Tier</label>
+                      <select
+                        value={invoiceData.genProduct || 'tier1'}
+                        onChange={(e) => handleChange('genProduct', e.target.value)}
+                        style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer' }}
+                      >
+                        <option value="tier1">Tier 1</option>
+                        <option value="tier2">Tier 2</option>
+                        <option value="tier3">Tier 3</option>
+                        <option value="tier4">Tier 4</option>
+                        <option value="tier5">Tier 5</option>
+                        <option value="tier6">Tier 6</option>
+                        <option value="tier1_7d_free">Tier 1 - 7 Days Free</option>
+                        <option value="tier2_7d_free">Tier 2 - 7 Days Free</option>
+                        <option value="tier3_7d_free">Tier 3 - 7 Days Free</option>
+                        <option value="tier4_7d_free">Tier 4 - 7 Days Free</option>
+                        <option value="tier5_7d_free">Tier 5 - 7 Days Free</option>
+                        <option value="tier6_7d_free">Tier 6 - 7 Days Free</option>
+                        <option value="tier1_50_off">Tier 1 - 50% Off</option>
+                        <option value="tier2_50_off">Tier 2 - 50% Off</option>
+                        <option value="tier3_50_off">Tier 3 - 50% Off</option>
+                        <option value="tier4_50_off">Tier 4 - 50% Off</option>
+                        <option value="tier5_50_off">Tier 5 - 50% Off</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Generate Button */}
+              <button
+                onClick={() => {
+                  const method = invoiceData.genPaymentMethod || 'crypto';
+                  const params = new URLSearchParams({
+                    client_name: invoiceData.billTo?.name || 'Client',
+                    bank_name: method,
+                    product_name: invoiceData.items?.[0]?.description || 'Service',
+                    subtotal: String(invoiceData.items?.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.unitPrice) || 0), 0) || '0'),
+                    discount: String(invoiceData.adjustments?.discount || 0),
+                    invoice_date: new Date().toISOString().split('T')[0],
+                    invoice_no: '001'
+                  });
+
+                  if (method === 'whop') {
+                    params.set('referral_partner_name', invoiceData.genReferralPartner || 'N.A.');
+                    params.set('whop_link_type', invoiceData.genProduct || 'tier');
+                  }
+
+                  window.open('/api/invoice/generate?' + params.toString(), '_blank');
+                }}
+                style={{
+                  padding: '12px 20px', borderRadius: '8px', border: 'none',
+                  backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: 'pointer'
+                }}
+              >
+ 📥 Generate Personalized PDF
+              </button>
+            </div>
+          </div>
+
           {/* Currency */}
           <div>
             <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Currency</h4>

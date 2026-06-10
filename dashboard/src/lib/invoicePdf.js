@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import os from 'os';
 
-export function generateInvoicePdfBuffer({ sr_no, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no }) {
+export function generateInvoicePdfBuffer({ sr_no, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, referral_partner_name, whop_link_type }) {
   return new Promise((resolve, reject) => {
     const scriptPath = path.join(process.cwd(), 'scripts', 'generateInvoicePdf.js');
 
@@ -18,7 +18,9 @@ export function generateInvoicePdfBuffer({ sr_no, client_name, bank_name, produc
       String(subtotal || '0'),
       String(discount || '0'),
       invoice_date || new Date().toISOString().split('T')[0],
-      invoice_no || '001'
+      invoice_no || '001',
+      referral_partner_name || 'N.A.',
+      whop_link_type || 'tier'
     ], {
       cwd: process.cwd()
     });

@@ -55,11 +55,21 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY,
       name TEXT,
+      first_name TEXT,
+      last_name TEXT,
+      email TEXT,
+      address TEXT,
       telegram_group_id TEXT,
       status TEXT,
       tele_id TEXT
     )
   `);
+
+  // Add new columns if they don't exist (for existing databases)
+  db.exec(`ALTER TABLE clients ADD COLUMN first_name TEXT`);
+  db.exec(`ALTER TABLE clients ADD COLUMN last_name TEXT`);
+  db.exec(`ALTER TABLE clients ADD COLUMN email TEXT`);
+  db.exec(`ALTER TABLE clients ADD COLUMN address TEXT`);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS renewals (

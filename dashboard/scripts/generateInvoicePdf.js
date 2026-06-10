@@ -5,7 +5,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
-async function generatePdf(sr_no, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no) {
+async function generatePdf(sr_no, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, referral_partner_name, whop_link_type) {
   const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
 
   const browser = await puppeteer.launch({
@@ -29,7 +29,9 @@ async function generatePdf(sr_no, client_name, bank_name, product_name, subtotal
       subtotal: subtotal || '0',
       discount: discount || '0',
       invoice_date: invoice_date || new Date().toISOString().split('T')[0],
-      invoice_no: invoice_no || '001'
+      invoice_no: invoice_no || '001',
+      referral_partner_name: referral_partner_name || 'N.A.',
+      whop_link_type: whop_link_type || 'tier'
     });
 
     const invoiceUrl = `http://localhost:3000/api/invoice/generate?${params.toString()}`;
@@ -55,8 +57,8 @@ async function generatePdf(sr_no, client_name, bank_name, product_name, subtotal
 // CLI interface
 const args = process.argv.slice(2);
 if (args.length >= 7) {
-  const [sr_no, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no] = args;
-  generatePdf(sr_no, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no)
+  const [sr_no, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, referral_partner_name, whop_link_type] = args;
+  generatePdf(sr_no, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, referral_partner_name, whop_link_type)
     .then(buf => {
       process.stdout.write(buf.toString('base64'));
       process.exit(0);
@@ -66,6 +68,6 @@ if (args.length >= 7) {
       process.exit(1);
     });
 } else {
-  console.error('Usage: generateInvoicePdf.js <sr_no> <client_name> <bank_name> <product_name> <subtotal> <discount> <invoice_date> <invoice_no>');
+  console.error('Usage: generateInvoicePdf.js <sr_no> <client_name> <bank_name> <product_name> <subtotal> <discount> <invoice_date> <invoice_no> [referral_partner_name] [whop_link_type]');
   process.exit(1);
 }
