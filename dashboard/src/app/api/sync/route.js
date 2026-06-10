@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { run, all, initDatabase } from '@/lib/db';
-import { extractTeleId, extractAllTeleIds } from '@/lib/teleIdParser';
+import { run, all, initDatabase, backfillTeleIds } from '@/lib/db';
+import { extractTeleId } from '@/lib/teleIdParser';
 
 const SHEET_ID = '140xAk8mQz1MRbG-X7THPTsVNorw14SnbMVbP2FXhhFY';
 
@@ -138,66 +138,12 @@ async function performSync() {
     run('DELETE FROM renewals');
     run('DELETE FROM clients');
 
-    // Apply the same dedup logic as the boot-time backfill. For each
-    // client, try ALL "Tele NNN" patterns in their name (left to right).
-    // The first one that's either free, or already owned by a lower-id
-    // client, wins. If all candidates conflict, tele_id stays NULL. This
-    // is the same logic the backfill uses, so post-sync state matches
-    // post-backfill state for the same data.
-    {
-      // Recompute tele_id from the FULL set of patterns in each name,
-      // not just the first one, so multi-pattern clients (e.g. "Tele 99
-      // (Tele - 184)") can recover their real ID via the 2nd pattern.
-      const candidateMap = new Map(); // client id → ordered list of candidates
-      for (const [id, c] of clientsToInsert) {
-        const cands = extractAllTeleIds(c.name);
-        candidateMap.set(id, cands);
-      }
-
-      const takenTeleIds = new Set(); // tele_ids already assigned
-      const claimed = new Map();      // tele_id → client id (the winner)
-      const unresolvable = [];        // clients that can't be assigned
-
-      // Process in id ASC so the lowest id wins ties on equal candidates.
-      const sortedIds = Array.from(candidateMap.keys()).sort((a, b) => a - b);
-      for (const id of sortedIds) {
-        const candidates = candidateMap.get(id);
-        let assigned = null;
-        for (const tele of candidates) {
-          if (!claimed.has(tele)) {
-            // Free slot
-            claimed.set(tele, id);
-            takenTeleIds.add(tele);
-            assigned = tele;
-            break;
-          }
-          const owner = claimed.get(tele);
-          if (owner < id) {
-            // Owner has lower id, they keep it. Try next candidate.
-            continue;
-          }
-          // We have a lower id than the current owner — take it from them.
-          claimed.set(tele, id);
-          // The previous owner will need to retry on a later iteration,
-          // but since we iterate once, we just leave their tele_id NULL.
-          assigned = tele;
-          break;
-        }
-        clientsToInsert.get(id).tele_id = assigned;
-        if (!assigned && candidates.length > 0) {
-          unresolvable.push({ id, name: clientsToInsert.get(id).name, tried: candidates });
-        }
-      }
-
-      const nulled = sortedIds.filter(id => !clientsToInsert.get(id).tele_id).length
-                   - Array.from(clientsToInsert.values()).filter(c => !c._origHadTele).length;
-      const trueNulled = unresolvable.length;
-      if (trueNulled > 0) {
-        console.warn(`[sync] dedup: ${trueNulled} client(s) could not get a unique Tele ID (will rely on name fallback):`);
-        for (const u of unresolvable) {
-          console.warn(`  id=${u.id} name="${u.name}" tried: ${u.tried.join(', ')}`);
-        }
-      }
+    // Simply extract tele_id from each client's name. Multiple clients
+    // can share the same tele_id — this is allowed since they may belong
+    // to the same Telegram group and should ALL receive reminders.
+    for (const [id, c] of clientsToInsert) {
+      const teleId = extractTeleId(c.name);
+      c.tele_id = teleId;
     }
 
     let clientInserts = 0;
@@ -236,6 +182,14 @@ async function performSync() {
   } catch (e) {
     run('ROLLBACK');
     throw e;
+  }
+
+  // Resolve tele_id conflicts properly (backfillTeleIds uses "lower id wins" logic)
+  try {
+    backfillTeleIds();
+  } catch (e) {
+    console.error('[sync] backfillTeleIds failed:', e.message);
+    // Non-fatal: sync is already committed
   }
 
   return {

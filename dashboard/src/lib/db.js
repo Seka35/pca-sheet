@@ -212,10 +212,11 @@ function initDatabase() {
   } catch (e) {
     if (!/duplicate column/.test(e.message)) throw e;
   }
-  // Partial UNIQUE index: two clients can't share the same Tele ID,
-  // but a client with no Tele ID is fine (NULL doesn't conflict with NULL
-  // in SQLite UNIQUE indexes, and the WHERE clause excludes them entirely).
-  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_tele_id ON clients(tele_id) WHERE tele_id IS NOT NULL`);
+  // UNIQUE index on tele_id — REMOVED: multiple clients can share the same tele_id
+  // if they belong to the same Telegram group. Clients with the same tele_id
+  // will ALL receive reminders sent to that group.
+  try { db.exec('DROP INDEX IF EXISTS idx_clients_tele_id'); } catch (e) {}
+  // db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_tele_id ON clients(tele_id) WHERE tele_id IS NOT NULL`);
 
   // --- Bot auto-create proposal state ---
   // When a seller /start in a group and no client matches, the bot stores a
@@ -432,68 +433,24 @@ function initDatabase() {
 }
 
 // Walk all clients and (re)compute tele_id from name. Safe to call repeatedly.
-//
-// Resolution order for each client:
-//   1. Parse ALL "Tele NNN" tokens in the name (left to right).
-//   2. Try each in order. The first one that is either free, or already
-//      owned by a lower-id client, wins.
-//   3. If the first pattern is taken by a HIGHER-id client, that client
-//      is NULLed and we take its slot (lower id always wins ties).
-//   4. If no pattern yields a free slot, the client is left with tele_id=NULL
-//      and logged as a "data quality" issue (the Sheet probably has a
-//      duplicate row or a wrong Tele ID for this client).
+// Multiple clients can share the same tele_id — this is allowed because they
+// may belong to the same Telegram group and should ALL receive reminders.
 function backfillTeleIds() {
+  // Ensure the old UNIQUE index is dropped (may exist from before the change)
+  try { db.exec('DROP INDEX IF EXISTS idx_clients_tele_id'); } catch (e) {}
+
   const rows = db.prepare('SELECT id, name FROM clients ORDER BY id ASC').all();
-  const findOwner = db.prepare('SELECT id FROM clients WHERE tele_id = ? AND id != ? LIMIT 1');
-  const update    = db.prepare('UPDATE clients SET tele_id = ? WHERE id = ?');
-  const nullIt    = db.prepare('UPDATE clients SET tele_id = NULL WHERE id = ?');
-  const conflicts = [];
-  const unresolved = [];
+  const update = db.prepare('UPDATE clients SET tele_id = ? WHERE id = ?');
 
+  let assigned = 0;
   for (const r of rows) {
-    const candidates = extractAllTeleIds(r.name);
-    if (candidates.length === 0) continue;
-
-    let assigned = false;
-    for (const teleId of candidates) {
-      // .get() returns the row object { id }, or undefined. Extract the id.
-      const owner = findOwner.get(teleId, r.id);
-      const ownerId = owner ? owner.id : null;
-      if (!ownerId) {
-        // Free slot — just take it.
-        update.run(teleId, r.id);
-        assigned = true;
-        break;
-      }
-      if (ownerId < r.id) {
-        // Already owned by an older client. Try the next candidate.
-        continue;
-      }
-      // Owned by a NEWER client — they lose, we win.
-      nullIt.run(ownerId);
+    const teleId = extractTeleId(r.name);
+    if (teleId) {
       update.run(teleId, r.id);
-      conflicts.push({ teleId, kept: r.id, dropped: ownerId });
-      assigned = true;
-      break;
-    }
-
-    if (!assigned) {
-      unresolved.push({ id: r.id, name: r.name, tried: candidates });
+      assigned++;
     }
   }
-
-  if (conflicts.length > 0) {
-    console.warn(`[tele_id backfill] resolved ${conflicts.length} duplicate Tele ID(s) (lower id wins):`);
-    for (const c of conflicts) {
-      console.warn(`  Tele ${c.teleId}: kept client id=${c.kept}, dropped id=${c.dropped}`);
-    }
-  }
-  if (unresolved.length > 0) {
-    console.warn(`[tele_id backfill] ${unresolved.length} client(s) could not be assigned a unique Tele ID — likely duplicate rows or wrong IDs in the Sheet:`);
-    for (const c of unresolved) {
-      console.warn(`  id=${c.id} | name="${c.name}" | tried: ${c.tried.join(', ')}`);
-    }
-  }
+  console.log(`[tele_id backfill] assigned tele_id to ${assigned} client(s)`);
 }
 
 export {

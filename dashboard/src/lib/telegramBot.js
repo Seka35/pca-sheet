@@ -46,12 +46,18 @@ function linkGroupByTitle(chatId, chatTitle) {
   // 1) Tele ID match — primary path.
   const teleId = extractTeleId(title);
   if (teleId) {
-    const teleMatch = get(
+    const teleMatches = all(
       `SELECT id, name, telegram_group_id FROM clients
-        WHERE tele_id = ? AND status = 'Actif' LIMIT 1`,
+        WHERE tele_id = ? AND status = 'Actif'`,
       [teleId]
     );
-    if (teleMatch) return finalizeLink(chatId, teleMatch);
+    if (teleMatches.length > 0) {
+      // Link the group to ALL clients with this tele_id (they share the same group)
+      for (const m of teleMatches) {
+        finalizeLink(chatId, m);
+      }
+      return; // All clients linked
+    }
     // Tele ID found in title but no client in DB has it. The seller has
     // explicitly tagged the group, so propose to create a new client
     // (header-only — they add products from the dashboard later).
