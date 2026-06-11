@@ -260,6 +260,19 @@ export default function BotPage() {
     });
   };
 
+  const renameTemplateOffset = (oldOffset, newOffset) => {
+    const newOffsetStr = String(newOffset);
+    if (templates[newOffsetStr] !== undefined && oldOffset !== newOffsetStr) {
+      alert(`Template for offset ${newOffset} already exists.`);
+      return;
+    }
+    const next = { ...templates };
+    const data = next[String(oldOffset)];
+    delete next[String(oldOffset)];
+    next[newOffsetStr] = data;
+    setTemplates(next);
+  };
+
   const formatTypeChip = (type) => {
     const colors = {
       'T-7': 'rgba(56, 189, 248, 0.15)',
@@ -441,7 +454,9 @@ export default function BotPage() {
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
                         <div style={{ flex: '0 0 100px' }}>
                           <label style={labelStyle}>Day offset</label>
-                          <input type="number" value={offset} disabled style={inputStyle} />
+                          <input type="number" value={offset}
+                            onChange={(e) => renameTemplateOffset(offset, parseInt(e.target.value) || 0)}
+                            style={inputStyle} />
                         </div>
                         <div style={{ flex: 1 }}>
                           <label style={labelStyle}>Label</label>
@@ -468,8 +483,11 @@ export default function BotPage() {
                         rows={3}
                         style={{ ...inputStyle, fontFamily: 'monospace', resize: 'vertical' }}
                       />
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        Negative = before due date. 0 = day of. Positive = after. Telegram HTML supported.
+                      <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                        <span style={{ color: 'var(--primary-accent)' }}>Negative = before due date.</span>
+                        <span style={{ color: '#FBBF24' }}> 0 = day of.</span>
+                        <span style={{ color: '#F87171' }}> Positive = after.</span>
+                        <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>Telegram HTML supported.</span>
                       </div>
                     </div>
                   );
