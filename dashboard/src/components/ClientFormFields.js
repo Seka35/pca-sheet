@@ -5,7 +5,7 @@
 // (existing product). All updates flow through onChange; this component
 // holds no state of its own.
 
-// Tier pricing - auto-fills subscription_fee and ad_spend_limit
+// Tier pricing - auto-fills subscription_fee and ad_spend_limit for TIER 1-6
 const TIER_PRICING = {
   'TIER 1': { subscription_fee: '199', ad_spend_limit: '2500' },
   'TIER 2': { subscription_fee: '299', ad_spend_limit: '5000' },
@@ -15,9 +15,10 @@ const TIER_PRICING = {
   'TIER 6': { subscription_fee: '1999', ad_spend_limit: 'Unlimited' },
 };
 
-// Setup pricing - auto-fills setup_fee
+// Setup pricing - auto-fills setup_fee for the 5 products
 const SETUP_PRICING = {
-  'Invincible set up': { setup_fee: '299' },
+  'Top-up': { setup_fee: '0' },
+  'Invincible set up (old)': { setup_fee: '299' },
   'Starter': { setup_fee: '399' },
   'Premium': { setup_fee: '499' },
   'VIP': { setup_fee: '699' },
@@ -142,6 +143,12 @@ export default function ClientFormFields({
     onChange({ ...product, ...updates });
   };
 
+  // Tier options
+  const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
+
+  // Setup type options - the 5 products
+  const SETUP_OPTIONS = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
+
   return (
     <div
       style={{
@@ -214,7 +221,7 @@ export default function ClientFormFields({
           <Select
             value={product.tier}
             onChange={handleTierChange}
-            options={['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6']}
+            options={TIER_OPTIONS}
             placeholder="—"
             disabled={disabled}
           />
@@ -223,7 +230,7 @@ export default function ClientFormFields({
           <Select
             value={product.setup_type}
             onChange={handleSetupTypeChange}
-            options={['Ad Account', 'Setup', 'Ad Account + Setup', 'Top-Up', 'Only profile', 'Only page', 'Invincible set up', 'Starter', 'Premium', 'VIP']}
+            options={SETUP_OPTIONS}
             placeholder="—"
             disabled={disabled}
           />

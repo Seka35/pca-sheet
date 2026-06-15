@@ -1,6 +1,12 @@
 // Server-side validation for the Add Client and Edit Client endpoints.
 // Keep this strict — we are the second line of defense after the UI.
 
+// Valid tier values (TIER 1-6)
+const VALID_TIERS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
+
+// Valid setup_type values (the 5 products)
+const VALID_SETUP_TYPES = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
+
 const PRODUCT_FIELDS = [
   'tier', 'setup_type', 'subscription_fee', 'setup_fee', 'discount', 'cl_amount',
   'month', 'start_date', 'valid_stopped_date',
@@ -82,6 +88,12 @@ export function validateAddClientPayload(body) {
     if (!p.tier && !p.setup_type) {
       return { ok: false, error: `Product #${i + 1}: tier or setup_type is required` };
     }
+    if (p.tier && !VALID_TIERS.includes(p.tier)) {
+      return { ok: false, error: `Product #${i + 1}: invalid tier value "${p.tier}"` };
+    }
+    if (p.setup_type && !VALID_SETUP_TYPES.includes(p.setup_type)) {
+      return { ok: false, error: `Product #${i + 1}: invalid setup_type value "${p.setup_type}"` };
+    }
     for (const dateField of ['start_date', 'valid_stopped_date', 'payment_received_date']) {
       if (p[dateField] && !isValidDate(p[dateField])) {
         return { ok: false, error: `Product #${i + 1}: ${dateField} is not a valid date` };
@@ -144,6 +156,12 @@ export function validateUpdateClientPayload(body, clientIdNum) {
     // For new products, tier or setup_type is required.
     if (!p.sr_no && !p.tier && !p.setup_type) {
       return { ok: false, error: `New product #${i + 1}: tier or setup_type is required` };
+    }
+    if (p.tier && !VALID_TIERS.includes(p.tier)) {
+      return { ok: false, error: `Product #${i + 1}: invalid tier value "${p.tier}"` };
+    }
+    if (p.setup_type && !VALID_SETUP_TYPES.includes(p.setup_type)) {
+      return { ok: false, error: `Product #${i + 1}: invalid setup_type value "${p.setup_type}"` };
     }
     for (const dateField of ['start_date', 'valid_stopped_date', 'payment_received_date']) {
       if (p[dateField] && !isValidDate(p[dateField])) {

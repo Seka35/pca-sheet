@@ -62,6 +62,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   // Active products from history for dropdown selection
   const activeProducts = (history || []).filter(p => p.visual_status === 'Active' || p.active !== false);
 
+  // Selected product filter for payment history view
+  const [selectedPaymentProduct, setSelectedPaymentProduct] = useState(null); // null = all products
+
   // Unpaid products - for linking payments
   const unpaidProducts = (history || []).filter(p => {
     const isPaid = p.reference_no && p.reference_no.trim() !== '';
@@ -100,6 +103,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setMode('view');
     setError(null);
     setRemovedSrNos([]);
+    setSelectedPaymentProduct(null);
     setFormName(client.name || '');
     setFormFirstName(client.first_name || '');
     setFormLastName(client.last_name || '');
@@ -175,18 +179,17 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     return Math.max(0, due);
   };
 
-  const outstandingProducts = (history || []).filter((p) => calculateProductDue(p) > 0);
-  const latestMonth = history && history.length > 0 ? history[0].month : null;
-  const latestProducts = (history || []).filter((row) => row.month === latestMonth);
-
-  const displayProducts = [...outstandingProducts];
-  latestProducts.forEach((lp) => {
-    if (!displayProducts.find((dp) => dp.sr_no === lp.sr_no)) {
-      displayProducts.push(lp);
+  // Deduplicate products by tier + setup_type combination (one card per unique product)
+  const uniqueProductsMap = {};
+  (history || []).forEach(p => {
+    const key = `${p.tier || ''}|${p.setup_type || ''}`;
+    if (key !== '|' && !uniqueProductsMap[key]) {
+      uniqueProductsMap[key] = p;
     }
   });
+  const displayProducts = Object.values(uniqueProductsMap);
 
-  const totalDue = outstandingProducts.reduce((acc, p) => acc + calculateProductDue(p), 0);
+  const totalDue = displayProducts.reduce((acc, p) => acc + calculateProductDue(p), 0);
 
   // Tele ID derived from the (possibly edited) name.
   const parsedTeleId = useMemo(() => extractTeleId(mode === 'edit' ? formName : client?.name), [mode, formName, client?.name]);
@@ -796,11 +799,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {displayProducts.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).length > 0 ? displayProducts.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map(product => {
+                {displayProducts.length > 0 ? displayProducts.map((product, idx) => {
                   const productDue = calculateProductDue(product);
                   const isPaid = product.reference_no && product.reference_no.trim() !== '';
+                  const productKey = `${product.tier || ''}-${product.setup_type || ''}-${idx}`;
                   return (
-                    <div key={product.sr_no} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', position: 'relative', border: isPaid ? 'none' : '1px solid var(--status-cut)' }}>
+                    <div key={productKey} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', position: 'relative', border: isPaid ? 'none' : '1px solid var(--status-cut)' }}>
                       <div>
                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Product Type ({product.month})</div>
                         <ProductBadge tier={product.tier} setup_type={product.setup_type} />
@@ -932,6 +936,51 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 + Add Manual Payment
               </button>
             )}
+          </div>
+
+          {/* Product filter buttons for payment history */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedPaymentProduct(null)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: '1px solid',
+                borderColor: selectedPaymentProduct === null ? 'var(--primary-accent)' : 'var(--border-color)',
+                backgroundColor: selectedPaymentProduct === null ? 'var(--primary-accent)' : 'transparent',
+                color: selectedPaymentProduct === null ? '#fff' : 'var(--text-secondary)',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+              }}
+            >
+              All Products
+            </button>
+            {displayProducts.map((product, idx) => {
+              const key = `${product.tier || ''}|${product.setup_type || ''}`;
+              const isSelected = selectedPaymentProduct === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSelectedPaymentProduct(isSelected ? null : key)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid',
+                    borderColor: isSelected ? 'var(--primary-accent)' : 'var(--border-color)',
+                    backgroundColor: isSelected ? 'var(--primary-accent)' : 'transparent',
+                    color: isSelected ? '#fff' : 'var(--text-secondary)',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {product.tier || 'Unknown'} {product.setup_type || ''}
+                </button>
+              );
+            })}
           </div>
 
           {/* Inline payment edit form */}
@@ -1246,7 +1295,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               </tr>
             </thead>
             <tbody>
-              {(history || []).map((row) => {
+              {(selectedPaymentProduct ? (history || []).filter(row => `${row.tier || ''}|${row.setup_type || ''}` === selectedPaymentProduct) : (history || [])).map((row) => {
                 const billing = getBillingInfo(row);
                 return (
                   <tr key={row.sr_no} style={{ borderBottom: '1px solid var(--border-color)' }}>
