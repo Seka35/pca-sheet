@@ -66,10 +66,10 @@ function initDatabase() {
   `);
 
   // Add new columns if they don't exist (for existing databases)
-  db.exec(`ALTER TABLE clients ADD COLUMN first_name TEXT`);
-  db.exec(`ALTER TABLE clients ADD COLUMN last_name TEXT`);
-  db.exec(`ALTER TABLE clients ADD COLUMN email TEXT`);
-  db.exec(`ALTER TABLE clients ADD COLUMN address TEXT`);
+  try { db.exec(`ALTER TABLE clients ADD COLUMN first_name TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE clients ADD COLUMN last_name TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE clients ADD COLUMN email TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE clients ADD COLUMN address TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS renewals (
@@ -241,8 +241,7 @@ function initDatabase() {
     backfillTeleIds();
   } catch (e) {
     console.error('[tele_id backfill] FAILED:', e.message);
-    console.error(e.stack);
-    throw e;
+    // Don't throw - let other tables be created
   }
 
   // --- Bank Details ---
