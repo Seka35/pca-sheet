@@ -193,7 +193,7 @@ function finalizeLink(chatId, client) {
     [chatId, client.id]
   );
   return {
-    reply: `✅ Linked this group to <b>${escapeHtml(client.name)}</b>. Renewal reminders will be sent here.`,
+    reply: '',
   };
 }
 
@@ -214,7 +214,7 @@ function unlinkGroup(chatId) {
       run('UPDATE clients SET telegram_group_id = NULL WHERE id = ?', [row.client_id]);
     }
   }
-  return { reply: '🔌 This group is no longer linked to any client.' };
+  return { reply: '' };
 }
 
 function escapeHtml(s) {
