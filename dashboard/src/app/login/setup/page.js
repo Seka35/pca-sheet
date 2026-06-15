@@ -1,34 +1,39 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function LoginPage() {
+export default function SetupPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    // Check if setup is needed
-    fetch('/api/auth/setup')
-      .then(res => res.json())
-      .then(data => {
-        if (data.needsSetup) {
-          router.replace('/login/setup');
-        }
-      })
-      .catch(() => {});
-  }, [router]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
+    if (!username.trim()) {
+      setError('Username is required');
+      return;
+    }
+
+    if (password.length < 4) {
+      setError('Password must be at least 4 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password })
@@ -39,7 +44,7 @@ export default function LoginPage() {
         router.refresh();
       } else {
         const data = await res.json();
-        setError(data.error || 'Invalid credentials');
+        setError(data.error || 'Failed to create admin');
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -70,8 +75,11 @@ export default function LoginPage() {
           <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px', letterSpacing: '0.5px' }}>
             PCA <span style={{ color: 'var(--primary-accent)' }}>TRACKING</span>
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-            Please enter your credentials to continue.
+          <p style={{ color: 'var(--primary-accent)', fontSize: '14px', fontWeight: '600' }}>
+            Initial Setup
+          </p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+            Create your super admin account to get started.
           </p>
         </div>
 
@@ -126,6 +134,31 @@ export default function LoginPage() {
             />
           </div>
 
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              CONFIRM PASSWORD
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                backgroundColor: 'rgba(255,255,255,0.03)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+            />
+          </div>
+
           {error && (
             <div style={{ color: '#EF4444', fontSize: '13px', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '8px 12px', borderRadius: '6px' }}>
               {error}
@@ -149,7 +182,7 @@ export default function LoginPage() {
               marginTop: '8px'
             }}
           >
-            {loading ? 'Authenticating...' : 'Sign In'}
+            {loading ? 'Creating Admin...' : 'Create Admin Account'}
           </button>
         </form>
 

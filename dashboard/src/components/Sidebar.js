@@ -2,10 +2,23 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [canManageUsers, setCanManageUsers] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated && data.user.permissions.includes('manage_users')) {
+          setCanManageUsers(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLinkClick = () => {
     if (onClose) onClose();
@@ -13,13 +26,13 @@ export default function Sidebar({ onClose }) {
 
   const getLinkStyle = (path) => {
     const isActive = pathname === path || (path !== '/' && pathname.startsWith(path));
-    
+
     return {
-      padding: '10px 12px', 
-      borderRadius: '8px', 
-      display: 'flex', 
-      gap: '12px', 
-      alignItems: 'center', 
+      padding: '10px 12px',
+      borderRadius: '8px',
+      display: 'flex',
+      gap: '12px',
+      alignItems: 'center',
       color: isActive ? 'var(--primary-accent)' : 'var(--text-secondary)',
       backgroundColor: isActive ? 'var(--status-active-bg)' : 'transparent',
       transition: 'background-color 0.2s, color 0.2s',
@@ -91,6 +104,12 @@ export default function Sidebar({ onClose }) {
           <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H6a2 2 0 00-2 2zM12 11v6m-3-3h6" /></svg>
           <span>Backup</span>
         </Link>
+        {canManageUsers && (
+          <Link href="/admin" style={getLinkStyle('/admin')} onClick={handleLinkClick}>
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+            <span>Admin</span>
+          </Link>
+        )}
       </nav>
 
       <div style={{ marginTop: 'auto', paddingTop: '32px' }}>

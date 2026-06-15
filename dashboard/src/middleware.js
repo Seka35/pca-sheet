@@ -3,16 +3,23 @@ import { NextResponse } from 'next/server';
 export function middleware(request) {
   const path = request.nextUrl.pathname;
 
-  // Protect all paths except login, api/auth, and invoice APIs (for PDF generation)
-  const isPublicPath = path === '/login' || path.startsWith('/api/auth') || path.startsWith('/api/invoice') || path === '/PCA.png' || path.startsWith('/_next') || path === '/favicon.ico';
-  
-  const token = request.cookies.get('pca_auth_session')?.value || '';
+  // Public paths that don't need authentication
+  const isPublicPath =
+    path === '/login' ||
+    path === '/login/setup' ||
+    path.startsWith('/api/auth/') ||
+    path.startsWith('/api/invoice') ||
+    path === '/PCA.png' ||
+    path.startsWith('/_next') ||
+    path === '/favicon.ico';
 
-  if (!isPublicPath && !token) {
+  const userId = request.cookies.get('pca_user_id')?.value;
+
+  if (!isPublicPath && !userId) {
     return NextResponse.redirect(new URL('/login', request.nextUrl));
   }
 
-  if (isPublicPath && token && path === '/login') {
+  if (isPublicPath && userId && (path === '/login' || path === '/login/setup')) {
     return NextResponse.redirect(new URL('/', request.nextUrl));
   }
 

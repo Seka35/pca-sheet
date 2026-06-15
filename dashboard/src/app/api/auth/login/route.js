@@ -1,28 +1,36 @@
 import { NextResponse } from 'next/server';
+import { getUserByUsername, verifyPassword } from '@/lib/auth';
 
 export async function POST(req) {
   try {
-    const { password } = await req.json();
+    const { username, password } = await req.json();
 
-    if (password === process.env.PASSWORD) {
-      const response = NextResponse.json({ success: true });
-      
-      // Set HTTP-only cookie
-      response.cookies.set({
-        name: 'pca_auth_session',
-        value: 'authenticated',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7 // 1 week
-      });
-      
-      return response;
+    if (!username || !password) {
+      return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
     }
 
-    return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+    const user = getUserByUsername(username.trim());
+
+    if (!user || !verifyPassword(password, user.password_hash)) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    const response = NextResponse.json({ ok: true, userId: user.id, username: user.username });
+
+    // Set HTTP-only cookie with user ID
+    response.cookies.set({
+      name: 'pca_user_id',
+      value: String(user.id),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7 // 1 week
+    });
+
+    return response;
   } catch (error) {
+    console.error('[POST /api/auth/login]', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

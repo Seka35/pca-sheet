@@ -1,0 +1,71 @@
+import { NextResponse } from 'next/server';
+import { getAllUsers, createUser, hasPermission, getUserById } from '@/lib/auth';
+
+function checkManageUsers(req) {
+  const userId = req.cookies.get('pca_user_id')?.value;
+  if (!userId) return { ok: false, status: 401 };
+  const user = getUserById(parseInt(userId, 10));
+  if (!user || !hasPermission(user, 'manage_users')) {
+    return { ok: false, status: 403 };
+  }
+  return { ok: true, user };
+}
+
+// GET /api/admin/users - List all users
+export async function GET(req) {
+  const auth = checkManageUsers(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: auth.status });
+  }
+
+  try {
+    const users = getAllUsers();
+    return NextResponse.json(users);
+  } catch (error) {
+    console.error('[GET /api/admin/users]', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// POST /api/admin/users - Create new user
+export async function POST(req) {
+  const auth = checkManageUsers(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: auth.status });
+  }
+
+  try {
+    const { username, password, role, permissions } = await req.json();
+
+    if (!username || !password) {
+      return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
+    }
+
+    if (username.trim().length < 2) {
+      return NextResponse.json({ error: 'Username must be at least 2 characters' }, { status: 400 });
+    }
+
+    if (password.length < 4) {
+      return NextResponse.json({ error: 'Password must be at least 4 characters' }, { status: 400 });
+    }
+
+    const validRoles = ['super_admin', 'admin', 'read_only', 'invoice_only', 'custom'];
+    if (!validRoles.includes(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+
+    // Only super_admin can create super_admin
+    if (role === 'super_admin' && auth.user.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Only super admin can create super admin users' }, { status: 403 });
+    }
+
+    const result = createUser(username.trim(), password, role, permissions || []);
+    return NextResponse.json({ ok: true, id: result?.id });
+  } catch (error) {
+    console.error('[POST /api/admin/users]', error);
+    if (error.message && error.message.includes('UNIQUE constraint')) {
+      return NextResponse.json({ error: 'Username already exists' }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
