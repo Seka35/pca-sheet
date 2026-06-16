@@ -713,6 +713,38 @@ export default function PaymentsPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Upgrade Links */}
+                    <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>🔄 Tier Upgrades</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                        {[
+                          { from: 'T1', to: ['T2','T3','T4','T5','T6'], key: 't1' },
+                          { from: 'T2', to: ['T3','T4','T5','T6'], key: 't2' },
+                          { from: 'T3', to: ['T4','T5','T6'], key: 't3' },
+                          { from: 'T4', to: ['T5','T6'], key: 't4' },
+                          { from: 'T5', to: ['T6'], key: 't5' }
+                        ].map(({ from, to }) => (
+                          <div key={from} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div style={{ fontSize: '9px', color: 'var(--text-primary)', fontWeight: '600', textAlign: 'center' }}>{from} →</div>
+                            {to.map((t) => {
+                              const upgradeKey = `upgrade_${from.toLowerCase()}_to_${t.toLowerCase()}`;
+                              const link = bank.data[upgradeKey];
+                              return (
+                                <div key={t} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '4px', padding: '4px 6px' }}>
+                                  <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{t}</span>
+                                  {link ? (
+                                    <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '1px 4px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                  ) : (
+                                    <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

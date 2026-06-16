@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getConfig, upsertConfig, getBot, startBot, stopBot } from '@/lib/telegramBot';
 import { startSweepTimer, stopSweepTimer } from '@/lib/botScheduler';
+import { requirePermission } from '@/lib/apiAuth';
+import { logActivity } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -27,6 +29,11 @@ export async function GET() {
 }
 
 export async function PUT(req) {
+  const auth = requirePermission(req, 'update_bot');
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const body = await req.json();
     const patch = {};
@@ -72,6 +79,9 @@ export async function PUT(req) {
     } else if (token) {
       token_preview = '•'.repeat(token.length);
     }
+
+    logActivity(auth.user?.id, auth.user?.username || 'system', 'UPDATE', 'bot', 1, 'bot_config', patch);
+
     return NextResponse.json({ ...safe, has_token: !!token, token_preview });
   } catch (e) {
     console.error('PUT /api/bot/config', e);

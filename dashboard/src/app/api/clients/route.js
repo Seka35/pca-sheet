@@ -3,6 +3,9 @@ import { all } from '@/lib/db';
 import { validateAddClientPayload } from '@/lib/clientValidation';
 import { createClient } from '@/lib/clientCreator';
 import { extractTeleId } from '@/lib/teleIdParser';
+import { requirePermission } from '@/lib/apiAuth';
+import { getUserFromRequest } from '@/lib/auth';
+import { logActivity } from '@/lib/db';
 
 function parseAmount(val) {
   if (!val) return 0;
@@ -117,6 +120,11 @@ export async function GET(req) {
 // --- POST: create a new client (writes to Sheet first, then DB) ------------
 
 export async function POST(req) {
+  const auth = requirePermission(req, 'create_clients');
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const validation = validateAddClientPayload(body);
@@ -144,6 +152,8 @@ export async function POST(req) {
         { status: 500 }
       );
     }
+
+    logActivity(auth.user?.id, auth.user?.username || 'system', 'CREATE', 'clients', result.client_id, name, null);
 
     return NextResponse.json({
       ok: true,

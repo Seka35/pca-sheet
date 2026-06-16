@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getUserById, updateUser, deleteUser, hasPermission, getUserById as getUser } from '@/lib/auth';
+import { logActivity } from '@/lib/db';
 
 function checkManageUsers(req) {
   const userId = req.cookies.get('pca_user_id')?.value;
   if (!userId) return { ok: false, status: 401 };
   const user = getUser(parseInt(userId, 10));
-  if (!user || !hasPermission(user, 'manage_users')) {
-    return { ok: false, status: 403 };
-  }
+  if (!user) return { ok: false, status: 401 };
+  // super_admin bypasses all permission checks
+  if (user.role === 'super_admin') return { ok: true, user };
+  if (!hasPermission(user, 'read_users')) return { ok: false, status: 403 };
   return { ok: true, user };
 }
 
@@ -61,6 +63,7 @@ export async function PUT(req, { params }) {
 
     if (Object.keys(updates).length > 0) {
       updateUser(id, updates);
+      logActivity(auth.user.id, auth.user.username, 'UPDATE', 'users', id, existingUser.username, updates);
     }
 
     return NextResponse.json({ ok: true });
@@ -88,10 +91,13 @@ export async function DELETE(req, { params }) {
       return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 });
     }
 
+    const existingUser = getUserById(id);
     const result = deleteUser(id);
     if (!result) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    logActivity(auth.user.id, auth.user.username, 'DELETE', 'users', id, existingUser?.username, null);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

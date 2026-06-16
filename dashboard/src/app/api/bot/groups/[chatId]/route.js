@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { all, get, run } from '@/lib/db';
+import { requirePermission } from '@/lib/apiAuth';
+import { logActivity } from '@/lib/db';
 
 export async function PATCH(req, { params }) {
+  const auth = requirePermission(req, 'update_bot');
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { chatId } = await params;
     const body = await req.json();
@@ -35,6 +42,8 @@ export async function PATCH(req, { params }) {
       [chatId, clientId]
     );
 
+    logActivity(auth.user?.id, auth.user?.username || 'system', 'UPDATE', 'bot', chatId, client.name, { action: 'link_group', client_id: clientId });
+
     return NextResponse.json({ ok: true, client_id: clientId, client_name: client.name });
   } catch (e) {
     console.error('PATCH /api/bot/groups/[chatId]', e);
@@ -43,6 +52,11 @@ export async function PATCH(req, { params }) {
 }
 
 export async function DELETE(req, { params }) {
+  const auth = requirePermission(req, 'update_bot');
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { chatId } = await params;
     const row = get('SELECT client_id FROM bot_group_links WHERE chat_id = ?', [chatId]);
@@ -57,6 +71,7 @@ export async function DELETE(req, { params }) {
         run('UPDATE clients SET telegram_group_id = NULL WHERE id = ?', [row.client_id]);
       }
     }
+    logActivity(auth.user?.id, auth.user?.username || 'system', 'DELETE', 'bot', chatId, row?.client_id, { action: 'unlink_group' });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('DELETE /api/bot/groups/[chatId]', e);

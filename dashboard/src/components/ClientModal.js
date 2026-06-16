@@ -6,6 +6,34 @@ import TelegramBadge from './TelegramBadge';
 import TeleIdBadge from './TeleIdBadge';
 import ClientFormFields from './ClientFormFields';
 import { extractTeleId } from '@/lib/teleIdParser';
+import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
+
+// Constants for dropdowns
+const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
+const SETUP_OPTIONS = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
+const BANK_OPTIONS = ['Airxalex', 'Crypto', 'Slash Bank', 'Revolut', 'WHOP'];
+const MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const YEAR_OPTIONS = ['2024', '2025', '2026', '2027', '2028', '2029', '2030'];
+const REFERRAL_OPTIONS = ['N.A.', 'Chris', 'No Limit', '8 Labs', 'Master', 'Mathias'];
+
+// Tier pricing - auto-fills subscription_fee
+const TIER_PRICING = {
+  'TIER 1': '199',
+  'TIER 2': '299',
+  'TIER 3': '499',
+  'TIER 4': '799',
+  'TIER 5': '1399',
+  'TIER 6': '1999',
+};
+
+// Setup pricing - auto-fills setup_fee
+const SETUP_PRICING = {
+  'Top-up': '0',
+  'Invincible set up (old)': '299',
+  'Starter': '399',
+  'Premium': '499',
+  'VIP': '699',
+};
 
 function emptyProduct() {
   return {
@@ -56,6 +84,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     tier: '',
     setup_type: '',
     subscription_fee: '',
+    setup_fee: '',
+    discount: '',
     valid_stopped_date: '',
   });
 
@@ -258,8 +288,50 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       tier: '',
       setup_type: '',
       subscription_fee: '',
+      setup_fee: '',
+      discount: '',
+      referral_partner_name: '',
       valid_stopped_date: '',
     });
+  };
+
+  // Handle tier change - auto-fill subscription_fee
+  const handlePaymentTierChange = (val) => {
+    const updates = { tier: val };
+    if (TIER_PRICING[val]) {
+      updates.subscription_fee = TIER_PRICING[val];
+    }
+    // Recalculate discount if referral partner is set
+    const currentForm = manualPaymentForm;
+    const newSub = TIER_PRICING[val] || currentForm.subscription_fee;
+    if (currentForm.referral_partner_name && WHOP_DISCOUNT_BY_PARTNER[currentForm.referral_partner_name]) {
+      const discountPct = Math.abs(WHOP_DISCOUNT_BY_PARTNER[currentForm.referral_partner_name]);
+      updates.discount = String(Math.round(newSub * discountPct / 100));
+    }
+    setManualPaymentForm(prev => ({ ...prev, ...updates }));
+  };
+
+  // Handle setup type change - auto-fill setup_fee
+  const handlePaymentSetupTypeChange = (val) => {
+    const updates = { setup_type: val };
+    if (SETUP_PRICING[val]) {
+      updates.setup_fee = SETUP_PRICING[val];
+    }
+    setManualPaymentForm(prev => ({ ...prev, ...updates }));
+  };
+
+  // Handle referral partner change - auto-fill discount as percentage of subscription
+  const handlePaymentReferralPartnerChange = (val) => {
+    const updates = { referral_partner_name: val };
+    if (val && manualPaymentForm.subscription_fee) {
+      const discountPct = Math.abs(WHOP_DISCOUNT_BY_PARTNER[val] || 0);
+      if (discountPct > 0) {
+        updates.discount = String(Math.round(parseFloat(manualPaymentForm.subscription_fee) * discountPct / 100));
+      } else {
+        updates.discount = '0';
+      }
+    }
+    setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
 
   // When user selects an existing product from dropdown, auto-fill the form
@@ -276,6 +348,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         tier: '',
         setup_type: '',
         subscription_fee: '',
+        setup_fee: '',
+        discount: '',
         valid_stopped_date: '',
       });
     } else {
@@ -291,6 +365,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           tier: product.tier || '',
           setup_type: product.setup_type || '',
           subscription_fee: product.subscription_fee || '',
+          setup_fee: product.setup_fee || '',
+          discount: product.discount || '',
           valid_stopped_date: product.valid_stopped_date || '',
         });
       }
@@ -309,6 +385,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       tier: row.tier || '',
       setup_type: row.setup_type || '',
       subscription_fee: row.subscription_fee || '',
+      setup_fee: row.setup_fee || '',
+      discount: row.discount || '',
       valid_stopped_date: row.valid_stopped_date || '',
     });
   };
@@ -325,6 +403,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       tier: '',
       setup_type: '',
       subscription_fee: '',
+      setup_fee: '',
+      discount: '',
       valid_stopped_date: '',
     });
   };
@@ -343,8 +423,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           setup_type: manualPaymentForm.setup_type || 'Monthly',
           month: manualPaymentForm.month,
           subscription_fee: manualPaymentForm.subscription_fee || '0',
-          setup_fee: '0',
-          discount: '0',
+          setup_fee: manualPaymentForm.setup_fee || '0',
+          discount: manualPaymentForm.discount || '0',
           cl_amount: '',
           start_date: '',
           valid_stopped_date: manualPaymentForm.valid_stopped_date || '',
@@ -381,6 +461,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               tier: manualPaymentForm.tier || p.tier,
               setup_type: manualPaymentForm.setup_type || p.setup_type,
               subscription_fee: manualPaymentForm.subscription_fee || p.subscription_fee,
+              setup_fee: manualPaymentForm.setup_fee || p.setup_fee,
+              discount: manualPaymentForm.discount || p.discount,
               valid_stopped_date: manualPaymentForm.valid_stopped_date || p.valid_stopped_date,
             };
           }
@@ -806,7 +888,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                   return (
                     <div key={productKey} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', position: 'relative', border: isPaid ? 'none' : '1px solid var(--status-cut)' }}>
                       <div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Product Type ({product.month})</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Product Type ({product.month})</div>
+                          <span className="badge" style={{ backgroundColor: product.visual_status === 'Active' || product.active !== false ? 'var(--status-active-bg)' : 'var(--status-cut-bg)', color: product.visual_status === 'Active' || product.active !== false ? 'var(--status-active)' : 'var(--status-cut)', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
+                            {product.visual_status === 'Active' || product.active !== false ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
                         <ProductBadge tier={product.tier} setup_type={product.setup_type} />
                       </div>
                       <div>
@@ -833,14 +920,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <div>
                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Ad Spend Limit</div>
                         <div style={{ fontWeight: '500' }}>{product.ad_spend_limit || '—'}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Bank Name</div>
-                        <div style={{ fontWeight: '500' }}>{product.bank_name || '—'}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Reference no.</div>
-                        <div style={{ fontWeight: '500' }}>{product.reference_no || '—'}</div>
                       </div>
                     </div>
                   );
@@ -1034,45 +1113,48 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Period *</label>
-                  <select
-                    value={manualPaymentForm.month}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: e.target.value }))}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <option value="">— Select period —</option>
-                    {uniqueMonths.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                    <option value="__custom__">+ Custom...</option>
-                  </select>
-                  {manualPaymentForm.month === '__custom__' && (
-                    <input
-                      type="text"
-                      value={manualPaymentForm.month}
-                      onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: e.target.value }))}
-                      placeholder="e.g. June 2026"
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <select
+                      value={manualPaymentForm.month?.split('-')[0] || ''}
+                      onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: `${e.target.value}-${prev.month?.split('-')[1] || '2026'}` }))}
                       disabled={saving}
                       style={{
-                        width: '100%', backgroundColor: 'transparent',
+                        flex: 1, backgroundColor: 'transparent',
                         border: '1px solid var(--border-color)', borderRadius: '6px',
                         padding: '8px 10px', color: 'var(--text-primary)',
-                        outline: 'none', fontSize: '13px', marginTop: '4px',
+                        outline: 'none', fontSize: '13px',
+                        cursor: saving ? 'not-allowed' : 'pointer',
                       }}
-                    />
-                  )}
+                    >
+                      <option value="">Month</option>
+                      {MONTH_OPTIONS.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={manualPaymentForm.month?.split('-')[1] || ''}
+                      onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: `${prev.month?.split('-')[0] || 'Jun'}-${e.target.value}` }))}
+                      disabled={saving}
+                      style={{
+                        flex: 1, backgroundColor: 'transparent',
+                        border: '1px solid var(--border-color)', borderRadius: '6px',
+                        padding: '8px 10px', color: 'var(--text-primary)',
+                        outline: 'none', fontSize: '13px',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      <option value="">Year</option>
+                      {YEAR_OPTIONS.map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Product Tier</label>
                   <select
                     value={manualPaymentForm.tier}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, tier: e.target.value }))}
+                    onChange={handlePaymentTierChange}
                     disabled={saving}
                     style={{
                       width: '100%', backgroundColor: 'transparent',
@@ -1083,32 +1165,16 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     }}
                   >
                     <option value="">— Select tier —</option>
-                    {uniqueTiers.map(t => (
+                    {TIER_OPTIONS.map(t => (
                       <option key={t} value={t}>{t}</option>
                     ))}
-                    <option value="__custom__">+ Custom...</option>
                   </select>
-                  {manualPaymentForm.tier === '__custom__' && (
-                    <input
-                      type="text"
-                      value={manualPaymentForm.tier}
-                      onChange={(e) => setManualPaymentForm(prev => ({ ...prev, tier: e.target.value }))}
-                      placeholder="e.g. Standard"
-                      disabled={saving}
-                      style={{
-                        width: '100%', backgroundColor: 'transparent',
-                        border: '1px solid var(--border-color)', borderRadius: '6px',
-                        padding: '8px 10px', color: 'var(--text-primary)',
-                        outline: 'none', fontSize: '13px', marginTop: '4px',
-                      }}
-                    />
-                  )}
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Setup Type</label>
                   <select
                     value={manualPaymentForm.setup_type}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, setup_type: e.target.value }))}
+                    onChange={handlePaymentSetupTypeChange}
                     disabled={saving}
                     style={{
                       width: '100%', backgroundColor: 'transparent',
@@ -1119,10 +1185,29 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     }}
                   >
                     <option value="">— Select type —</option>
-                    {uniqueSetupTypes.map(s => (
+                    {SETUP_OPTIONS.map(s => (
                       <option key={s} value={s}>{s}</option>
                     ))}
-                    <option value="__custom__">+ Custom...</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Referral Partner</label>
+                  <select
+                    value={manualPaymentForm.referral_partner_name || ''}
+                    onChange={handlePaymentReferralPartnerChange}
+                    disabled={saving}
+                    style={{
+                      width: '100%', backgroundColor: 'transparent',
+                      border: '1px solid var(--border-color)', borderRadius: '6px',
+                      padding: '8px 10px', color: 'var(--text-primary)',
+                      outline: 'none', fontSize: '13px',
+                      cursor: saving ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <option value="">— Select partner —</option>
+                    {REFERRAL_OPTIONS.map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1130,8 +1215,51 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                   <input
                     type="text"
                     value={manualPaymentForm.subscription_fee}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, subscription_fee: e.target.value }))}
+                    onChange={(e) => {
+                      const newSub = e.target.value;
+                      const updates = { subscription_fee: newSub };
+                      // Recalculate discount if referral partner is set
+                      if (manualPaymentForm.referral_partner_name && newSub) {
+                        const discountPct = Math.abs(WHOP_DISCOUNT_BY_PARTNER[manualPaymentForm.referral_partner_name] || 0);
+                        if (discountPct > 0) {
+                          updates.discount = String(Math.round(parseFloat(newSub) * discountPct / 100));
+                        }
+                      }
+                      setManualPaymentForm(prev => ({ ...prev, ...updates }));
+                    }}
                     placeholder="e.g. 100"
+                    disabled={saving}
+                    style={{
+                      width: '100%', backgroundColor: 'transparent',
+                      border: '1px solid var(--border-color)', borderRadius: '6px',
+                      padding: '8px 10px', color: 'var(--text-primary)',
+                      outline: 'none', fontSize: '13px',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Setup Fee</label>
+                  <input
+                    type="text"
+                    value={manualPaymentForm.setup_fee || ''}
+                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, setup_fee: e.target.value }))}
+                    placeholder="e.g. 0"
+                    disabled={saving}
+                    style={{
+                      width: '100%', backgroundColor: 'transparent',
+                      border: '1px solid var(--border-color)', borderRadius: '6px',
+                      padding: '8px 10px', color: 'var(--text-primary)',
+                      outline: 'none', fontSize: '13px',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Discount</label>
+                  <input
+                    type="text"
+                    value={manualPaymentForm.discount || ''}
+                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, discount: e.target.value }))}
+                    placeholder="e.g. 0"
                     disabled={saving}
                     style={{
                       width: '100%', backgroundColor: 'transparent',
@@ -1156,26 +1284,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     }}
                   >
                     <option value="">— Select bank —</option>
-                    {uniqueBanks.map(b => (
+                    {BANK_OPTIONS.map(b => (
                       <option key={b} value={b}>{b}</option>
                     ))}
-                    <option value="__custom__">+ Custom...</option>
                   </select>
-                  {manualPaymentForm.bank_name === '__custom__' && (
-                    <input
-                      type="text"
-                      value={manualPaymentForm.bank_name}
-                      onChange={(e) => setManualPaymentForm(prev => ({ ...prev, bank_name: e.target.value }))}
-                      placeholder="e.g. Revolut"
-                      disabled={saving}
-                      style={{
-                        width: '100%', backgroundColor: 'transparent',
-                        border: '1px solid var(--border-color)', borderRadius: '6px',
-                        padding: '8px 10px', color: 'var(--text-primary)',
-                        outline: 'none', fontSize: '13px', marginTop: '4px',
-                      }}
-                    />
-                  )}
                 </div>
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Amount Received</label>
@@ -1227,10 +1339,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Valid Until</label>
                   <input
-                    type="text"
+                    type="date"
                     value={manualPaymentForm.valid_stopped_date}
                     onChange={(e) => setManualPaymentForm(prev => ({ ...prev, valid_stopped_date: e.target.value }))}
-                    placeholder="e.g. 2026-06-30"
                     disabled={saving}
                     style={{
                       width: '100%', backgroundColor: 'transparent',

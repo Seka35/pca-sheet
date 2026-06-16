@@ -1,5 +1,7 @@
 "use client";
 
+import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
+
 // A single product's editable form fields. Renders inside a card and is
 // reused by AddClientModal (new product) and ClientModal in edit mode
 // (existing product). All updates flow through onChange; this component
@@ -143,6 +145,16 @@ export default function ClientFormFields({
     onChange({ ...product, ...updates });
   };
 
+  // Handle referral partner change - auto-fill discount based on partner
+  const handleReferralPartnerChange = (val) => {
+    const updates = { referral_partner_name: val };
+    // Auto-fill discount based on partner (can be overridden manually)
+    if (val && WHOP_DISCOUNT_BY_PARTNER[val] !== undefined) {
+      updates.discount = String(WHOP_DISCOUNT_BY_PARTNER[val]);
+    }
+    onChange({ ...product, ...updates });
+  };
+
   // Tier options
   const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
 
@@ -235,9 +247,6 @@ export default function ClientFormFields({
             disabled={disabled}
           />
         </Field>
-        <Field label="Month">
-          <TextInput value={product.month} onChange={set('month')} placeholder="e.g. Jun-2026" disabled={disabled} />
-        </Field>
         <Field label="Subscription fee">
           <TextInput value={product.subscription_fee} onChange={set('subscription_fee')} placeholder="0" disabled={disabled} />
         </Field>
@@ -252,9 +261,6 @@ export default function ClientFormFields({
         </Field>
         <Field label="Start date">
           <TextInput value={product.start_date} onChange={set('start_date')} type="date" disabled={disabled} />
-        </Field>
-        <Field label="Valid until">
-          <TextInput value={product.valid_stopped_date} onChange={set('valid_stopped_date')} type="date" disabled={disabled} />
         </Field>
         <Field label="Ad ID number">
           <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} />
@@ -274,7 +280,7 @@ export default function ClientFormFields({
         <Field label="Referral partner">
           <Select
             value={product.referral_partner_name}
-            onChange={set('referral_partner_name')}
+            onChange={handleReferralPartnerChange}
             options={['Chris', 'Master', 'N.A.', 'No Limit', '8 Labs', 'Mathias']}
             placeholder="—"
             disabled={disabled}
@@ -282,30 +288,6 @@ export default function ClientFormFields({
         </Field>
         <Field label="Referral amount">
           <TextInput value={product.referral_amount} onChange={set('referral_amount')} placeholder="0" disabled={disabled} />
-        </Field>
-        <Field label="Bank name">
-          <Select
-            value={product.bank_name}
-            onChange={set('bank_name')}
-            options={['Airxalex', 'Crypto', 'Slash Bank', 'Revolut', 'WHOP']}
-            placeholder="—"
-            disabled={disabled}
-          />
-        </Field>
-        <Field label="Payment name">
-          <TextInput value={product.payment_name} onChange={set('payment_name')} placeholder="—" disabled={disabled} />
-        </Field>
-        <Field label="Amount received">
-          <TextInput value={product.amount_received} onChange={set('amount_received')} placeholder="0" disabled={disabled} />
-        </Field>
-        <Field label="Payment received date">
-          <TextInput value={product.payment_received_date} onChange={set('payment_received_date')} type="date" disabled={disabled} />
-        </Field>
-        <Field label="Payment month">
-          <TextInput value={product.payment_received_month} onChange={set('payment_received_month')} placeholder="Jun-2026" disabled={disabled} />
-        </Field>
-        <Field label="Reference no.">
-          <TextInput value={product.reference_no} onChange={set('reference_no')} placeholder="—" disabled={disabled} />
         </Field>
         <Field label="Balance diff">
           <TextInput value={product.actual_balance_difference} onChange={set('actual_balance_difference')} placeholder="0" disabled={disabled} />

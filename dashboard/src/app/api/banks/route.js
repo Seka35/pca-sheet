@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { all, get, run } from '@/lib/db';
+import { requirePermission } from '@/lib/apiAuth';
+import { logActivity } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -18,6 +20,11 @@ export async function GET() {
 }
 
 export async function PUT(req) {
+  const auth = requirePermission(req, 'update_payments');
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const body = await req.json();
     const { bank_key, data } = body;
@@ -35,6 +42,8 @@ export async function PUT(req) {
       'UPDATE bank_details SET data_json = ?, updated_at = CURRENT_TIMESTAMP WHERE bank_key = ?',
       [JSON.stringify(data), bank_key]
     );
+
+    logActivity(auth.user?.id, auth.user?.username || 'system', 'UPDATE', 'payments', bank_key, bank_key, { fields_updated: Object.keys(data) });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

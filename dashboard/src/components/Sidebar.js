@@ -13,7 +13,7 @@ export default function Sidebar({ onClose }) {
     fetch('/api/auth/me')
       .then(res => res.json())
       .then(data => {
-        if (data.authenticated && data.user.permissions.includes('manage_users')) {
+        if (data.authenticated && data.user.permissions.includes('read_users')) {
           setCanManageUsers(true);
         }
       })
@@ -95,14 +95,6 @@ export default function Sidebar({ onClose }) {
         <Link href="/payments" style={getLinkStyle('/payments')} onClick={handleLinkClick}>
           <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
           <span>Payments</span>
-        </Link>
-        <Link href="/bot" style={getLinkStyle('/bot')} onClick={handleLinkClick}>
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-          <span>Bot Telegram</span>
-        </Link>
-        <Link href="/backup" style={getLinkStyle('/backup')} onClick={handleLinkClick}>
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H6a2 2 0 00-2 2zM12 11v6m-3-3h6" /></svg>
-          <span>Backup</span>
         </Link>
         {canManageUsers && (
           <Link href="/admin" style={getLinkStyle('/admin')} onClick={handleLinkClick}>

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getConfig, upsertConfig } from '@/lib/telegramBot';
+import { requirePermission } from '@/lib/apiAuth';
+import { logActivity } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -13,6 +15,11 @@ export async function GET() {
 }
 
 export async function PUT(req) {
+  const auth = requirePermission(req, 'update_bot');
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const body = await req.json();
     if (!body || typeof body !== 'object' || !body.templates) {
@@ -29,6 +36,9 @@ export async function PUT(req) {
       };
     }
     const updated = upsertConfig({ templates: clean });
+
+    logActivity(auth.user?.id, auth.user?.username || 'system', 'UPDATE', 'bot', 1, 'bot_templates', { offsets: Object.keys(clean) });
+
     return NextResponse.json({ templates: updated.templates });
   } catch (e) {
     console.error('PUT /api/bot/templates', e);

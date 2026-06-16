@@ -1,7 +1,7 @@
 // Authentication and authorization helpers (server-only)
 import { createHash, randomBytes, pbkdf2Sync } from 'crypto';
-import { get, all } from './db.js';
-import { PERMISSIONS, ROLE_PERMISSIONS } from './permissions.js';
+import { get, all, run } from './db.js';
+import { PERMISSIONS, ROLE_PERMISSIONS, LEGACY_PERMISSION_MAP } from './permissions.js';
 
 export { PERMISSIONS, ROLE_PERMISSIONS };
 
@@ -74,6 +74,18 @@ export function deleteUser(id) {
   return get('DELETE FROM users WHERE id = ? RETURNING id', [id]);
 }
 
+// Update last login timestamp
+export function updateLastLogin(id) {
+  return run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+}
+
+// Get user object from a Next.js request (via cookie)
+export function getUserFromRequest(req) {
+  const userId = req.cookies?.get?.('pca_user_id')?.value;
+  if (!userId) return null;
+  return getUserById(parseInt(userId, 10));
+}
+
 // Get all users (without passwords)
 export function getAllUsers() {
   return all('SELECT id, username, role, permissions, created_at, updated_at FROM users ORDER BY id');
@@ -87,25 +99,7 @@ export function hasUsers() {
 
 // Get effective permissions for a user
 export function getUserPermissions(user) {
-  if (!user) return [];
-
-  // Super admin has all permissions
-  if (user.role === 'super_admin') {
-    return Object.values(PERMISSIONS);
-  }
-
-  // Get role permissions
-  const rolePerms = ROLE_PERMISSIONS[user.role] || [];
-
-  // For custom role, merge with explicit permissions
-  if (user.role === 'custom' && user.permissions) {
-    const explicitPerms = typeof user.permissions === 'string'
-      ? JSON.parse(user.permissions)
-      : user.permissions || [];
-    return [...new Set([...rolePerms, ...explicitPerms])];
-  }
-
-  return rolePerms;
+  return parseUserPermissions(user);
 }
 
 // Check if user has a specific permission
@@ -115,22 +109,34 @@ export function hasPermission(user, permission) {
   return perms.includes(permission);
 }
 
-// Parse permissions from user object
+// Expand a single legacy permission into granular ones
+function expandLegacyPermission(perm) {
+  return LEGACY_PERMISSION_MAP[perm] || [perm];
+}
+
+// Parse permissions from user object (handles both legacy and granular)
 export function parseUserPermissions(user) {
   if (!user) return [];
   if (user.role === 'super_admin') {
     return Object.values(PERMISSIONS);
   }
   const rolePerms = ROLE_PERMISSIONS[user.role] || [];
+
+  let explicit = [];
   if (user.role === 'custom') {
     try {
-      const explicit = typeof user.permissions === 'string'
+      explicit = typeof user.permissions === 'string'
         ? JSON.parse(user.permissions)
         : (user.permissions || []);
-      return [...new Set([...rolePerms, ...explicit])];
     } catch {
-      return rolePerms;
+      explicit = [];
     }
   }
-  return rolePerms;
+
+  // Expand any legacy permissions in the explicit list
+  const expandedExplicit = explicit.flatMap(p =>
+    LEGACY_PERMISSION_MAP[p] ? LEGACY_PERMISSION_MAP[p] : [p]
+  );
+
+  return [...new Set([...rolePerms, ...expandedExplicit])];
 }

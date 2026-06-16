@@ -352,9 +352,29 @@ function initDatabase() {
       role TEXT NOT NULL DEFAULT 'custom',
       permissions TEXT DEFAULT '[]',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_login DATETIME
     )
   `);
+
+  // --- Activity Logs (audit trail) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      username TEXT NOT NULL,
+      action TEXT NOT NULL,
+      category TEXT NOT NULL,
+      entity_id TEXT,
+      entity_name TEXT,
+      details TEXT,
+      ip_address TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at DESC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_logs_category ON activity_logs(category)`);
 
   // Seed default bank data if empty
   const existingBanks = db.prepare('SELECT COUNT(*) as cnt FROM bank_details').get();
@@ -419,21 +439,21 @@ function initDatabase() {
           extra_fb_profile: 'https://whop.com/checkout/plan_UtvSvr7rpgiHe',
           extra_fb_page: 'https://whop.com/checkout/plan_ydwVtGCa9SDdB',
           extra_bm: 'https://whop.com/checkout/plan_B3eWNdQcc7XE5',
-          upgrade_t1_to_t2: 'https://whop.com/checkout/plan_Tzv7itek7ubC6',
-          upgrade_t1_to_t3: 'https://whop.com/checkout/plan_OH4qjhTS1SGZb',
-          upgrade_t1_to_t4: 'https://whop.com/checkout/plan_3lioNhSixcTHO',
-          upgrade_t1_to_t5: 'https://whop.com/checkout/plan_yvfKEVlGo8tCR',
-          upgrade_t1_to_t6: 'https://whop.com/checkout/plan_y9hxI0XDSgoGn',
-          upgrade_t2_to_t3: 'https://whop.com/checkout/plan_FJbnjaAu8WxWO',
-          upgrade_t2_to_t4: 'https://whop.com/checkout/plan_MQx8QlFHX0to7',
-          upgrade_t2_to_t5: 'https://whop.com/checkout/plan_MpIK280WxEurX',
-          upgrade_t2_to_t6: 'https://whop.com/checkout/plan_M1sa7PZAXmaje',
-          upgrade_t3_to_t4: 'https://whop.com/checkout/plan_Vr475tjp1OSSU',
-          upgrade_t3_to_t5: 'https://whop.com/checkout/plan_SZhKXtQEhiiRO',
-          upgrade_t3_to_t6: 'https://whop.com/checkout/plan_WTeLlWJ4sfUMk',
-          upgrade_t4_to_t5: 'https://whop.com/checkout/plan_GDV5cO2vo0njl',
-          upgrade_t4_to_t6: 'https://whop.com/checkout/plan_roXeaVsNrnDzL',
-          upgrade_t5_to_t6: 'https://whop.com/checkout/plan_Zmn2lqIYHeFvj'
+          upgrade_t1_to_t2: 'https://whop.com/wcaftm-llc/pca-tier-1-to-tier-2-upgrade-42',
+          upgrade_t1_to_t3: 'https://whop.com/wcaftm-llc/pca-tier-1-to-tier-3-upgrade-ec',
+          upgrade_t1_to_t4: 'https://whop.com/wcaftm-llc/pca-tier-1-to-tier-4-upgrade',
+          upgrade_t1_to_t5: 'https://whop.com/wcaftm-llc/pca-tier-1-to-tier-5-upgrade',
+          upgrade_t1_to_t6: 'https://whop.com/wcaftm-llc/pca-tier-1-to-tier-6-upgrade-9b',
+          upgrade_t2_to_t3: 'https://whop.com/wcaftm-llc/pca-tier-2-to-tier-3-upgrade-6e',
+          upgrade_t2_to_t4: 'https://whop.com/wcaftm-llc/pca-tier-2-to-tier-4-upgrade-66',
+          upgrade_t2_to_t5: 'https://whop.com/wcaftm-llc/pca-tier-2-to-tier-5-upgrade',
+          upgrade_t2_to_t6: 'https://whop.com/wcaftm-llc/pca-tier-2-to-tier-6-upgrade',
+          upgrade_t3_to_t4: 'https://whop.com/wcaftm-llc/pca-tier-3-to-tier-4-upgrade-ff',
+          upgrade_t3_to_t5: 'https://whop.com/wcaftm-llc/pca-tier-3-to-tier-5-upgrade',
+          upgrade_t3_to_t6: 'https://whop.com/wcaftm-llc/pca-tier-3-to-tier-6-upgrade-20',
+          upgrade_t4_to_t5: 'https://whop.com/wcaftm-llc/pca-tier-4-to-tier-5-upgrade-c1',
+          upgrade_t4_to_t6: 'https://whop.com/wcaftm-llc/pca-tier-4-to-tier-6-upgrade-91',
+          upgrade_t5_to_t6: 'https://whop.com/wcaftm-llc/pca-tier-5-to-tier-6-upgrade-0f'
         })
       }
     ];
@@ -465,6 +485,14 @@ function backfillTeleIds() {
   console.log(`[tele_id backfill] assigned tele_id to ${assigned} client(s)`);
 }
 
+// Log a user action to the activity_logs table
+function logActivity(userId, username, action, category, entityId, entityName, details) {
+  run(
+    `INSERT INTO activity_logs (user_id, username, action, category, entity_id, entity_name, details) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [userId, username, action, category, entityId, entityName, details ? JSON.stringify(details) : null]
+  );
+}
+
 export {
   DB_PATH,
   db,
@@ -476,4 +504,5 @@ export {
   getDb,
   initDatabase,
   backfillTeleIds,
+  logActivity,
 };

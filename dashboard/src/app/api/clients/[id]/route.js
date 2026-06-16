@@ -4,6 +4,8 @@ import { extractTeleId } from '@/lib/teleIdParser';
 import { getSheetsClient, overwriteClientBlock } from '@/lib/googleSheets';
 import { validateUpdateClientPayload } from '@/lib/clientValidation';
 import { createBackup } from '@/lib/backup';
+import { requirePermission } from '@/lib/apiAuth';
+import { logActivity } from '@/lib/db';
 
 // --- GET: full client detail (existing handler, unchanged) -----------------
 
@@ -29,6 +31,11 @@ export async function GET(req, { params }) {
 // --- PUT: update an existing client (writes to Sheet first, then DB) -------
 
 export async function PUT(req, { params }) {
+  const auth = requirePermission(req, 'update_clients');
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   let backupFilename = null;
   let sheetResult = null;
 
@@ -176,6 +183,8 @@ export async function PUT(req, { params }) {
     }
 
     console.log(`[PUT /api/clients/${clientId}] DB written`);
+
+    logActivity(auth.user?.id, auth.user?.username || 'system', 'UPDATE', 'clients', clientId, name, { added: sheetResult.added, updated: sheetResult.updated, removed: sheetResult.removed });
 
     return NextResponse.json({
       ok: true,

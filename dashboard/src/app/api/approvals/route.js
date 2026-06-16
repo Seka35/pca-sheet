@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { all, run } from '@/lib/db';
+import { requirePermission } from '@/lib/apiAuth';
+import { logActivity } from '@/lib/db';
 
 // Whitelist des colonnes qu'on accepte de mettre à jour (anti SQL-injection)
 const RENEWAL_COLUMNS = [
@@ -25,11 +27,18 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
-  try {
-    const { id, action } = await req.json();
+  const { id, action } = await req.json();
 
+  const perm = action === 'REJECT' ? 'reject_approvals' : 'approve_approvals';
+  const auth = requirePermission(req, perm);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  try {
     if (action === 'REJECT') {
       await run("UPDATE pending_updates SET status = 'REJECTED' WHERE id = ?", [id]);
+      logActivity(auth.user?.id, auth.user?.username || 'system', 'REJECT', 'approvals', id, null, null);
       return NextResponse.json({ message: 'Rejected' });
     }
 
@@ -69,6 +78,8 @@ export async function POST(req) {
       }
 
       await run("UPDATE pending_updates SET status = 'APPROVED' WHERE id = ?", [id]);
+
+      logActivity(auth.user?.id, auth.user?.username || 'system', 'APPROVE', 'approvals', id, pending.client_name || pending.sr_no, { field_name, new_value, sr_no });
 
       return NextResponse.json({ message: 'Approved and applied', field: field_name, sr_no });
     }
