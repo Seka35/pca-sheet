@@ -48,6 +48,9 @@ export async function PUT(req) {
     if (typeof body.quiet_hours_start === 'string') patch.quiet_hours_start = body.quiet_hours_start || null;
     if (typeof body.quiet_hours_end === 'string') patch.quiet_hours_end = body.quiet_hours_end || null;
     if (typeof body.timezone === 'string') patch.timezone = body.timezone.trim() || 'UTC';
+    if (typeof body.human_verification_enabled === 'boolean') {
+      patch.human_verification_enabled = body.human_verification_enabled;
+    }
 
     // Capture the previous enabled state BEFORE we save the new one, so we
     // can decide whether to start or stop the live bot instance.

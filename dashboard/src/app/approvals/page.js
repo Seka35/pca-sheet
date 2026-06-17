@@ -67,6 +67,15 @@ export default function ApprovalsPage() {
         }}>
           💳 Payments {pendingCount > 0 && <span style={{ background: 'var(--primary-accent)', color: '#fff', borderRadius: '10px', padding: '2px 6px', fontSize: '11px', marginLeft: '6px' }}>{pendingCount}</span>}
         </Link>
+        <Link href="/approvals/telegram" style={{
+          padding: '10px 20px',
+          textDecoration: 'none',
+          color: pathname === '/approvals/telegram' ? 'var(--primary-accent)' : 'var(--text-secondary)',
+          borderBottom: pathname === '/approvals/telegram' ? '2px solid var(--primary-accent)' : '2px solid transparent',
+          fontWeight: pathname === '/approvals/telegram' ? '600' : '400',
+        }}>
+          📱 Telegram
+        </Link>
       </div>
 
       {loading ? (

@@ -32,6 +32,7 @@ export function getConfig() {
     timezone: row.timezone || 'UTC',
     bot_username: row.bot_username || null,
     last_sweep_at: row.last_sweep_at || null,
+    human_verification_enabled: !!row.human_verification_enabled,
   };
 }
 
@@ -42,9 +43,9 @@ export function upsertConfig(patch) {
     `INSERT INTO bot_config (
        id, token, enabled, reminder_days, templates_json,
        sweep_interval_minutes, quiet_hours_start, quiet_hours_end,
-       timezone, bot_username, updated_at
+       timezone, bot_username, human_verification_enabled, updated_at
      )
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET
        token = excluded.token,
        enabled = excluded.enabled,
@@ -55,6 +56,7 @@ export function upsertConfig(patch) {
        quiet_hours_end = excluded.quiet_hours_end,
        timezone = excluded.timezone,
        bot_username = excluded.bot_username,
+       human_verification_enabled = excluded.human_verification_enabled,
        updated_at = CURRENT_TIMESTAMP`,
     [
       merged.token || null,
@@ -66,6 +68,7 @@ export function upsertConfig(patch) {
       merged.quiet_hours_end || null,
       merged.timezone || 'UTC',
       merged.bot_username || null,
+      merged.human_verification_enabled ? 1 : 0,
     ]
   );
   return getConfig();
@@ -169,83 +172,104 @@ export async function runReminderSweepOnce(bot) {
         continue;
       }
 
-      try {
-        const keyboard = buildPaymentReminderKeyboard(row.sr_no, row.chat_id);
+      const keyboard = buildPaymentReminderKeyboard(row.sr_no, row.chat_id);
 
-        // Generate PDF invoice using Puppeteer (renders the exact HTML invoice)
-        let pdfPath = null;
-        try {
-          const bankKey = (row.bank_name || '').toLowerCase().trim();
-          const bankData = bankDataMap[bankKey] || {};
-
-          // Parse amounts correctly (subscription_fee is "$199.00", discount is "$29.85")
-          const parseMoney = (s) => parseFloat(String(s || '0').replace(/[^0-9.]/g, '')) || 0;
-          const subscriptionFee = parseMoney(row.subscription_fee);
-          const discountAmount = parseMoney(row.discount);
-
-          const pdfBuffer = await generateInvoicePdfBuffer({
-            sr_no: row.sr_no,
-            client_name: row.client_name,
-            bank_name: row.bank_name,
-            product_name: row.tier || 'Service',
-            subtotal: subscriptionFee.toFixed(2),
-            discount: discountAmount.toFixed(2),
-            invoice_date: row.valid_stopped_date || new Date().toISOString().split('T')[0],
-            invoice_no: row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
-            bankData,
-            referral_partner_name: row.referral_partner_name || 'N.A.',
-            whop_link_type: 'tier',
-          });
-          // Write to temp file for Telegram sending
-          pdfPath = path.join(os.tmpdir(), `invoice-${row.sr_no}-${Date.now()}.pdf`);
-          fs.writeFileSync(pdfPath, pdfBuffer);
-        } catch (pdfErr) {
-          console.error('[sweep] PDF generation failed:', pdfErr.message);
-          // Continue without PDF if generation fails
-        }
-
-        const msg = await bot.sendMessage(row.chat_id, text, {
-          parse_mode: 'HTML',
-          disable_web_page_preview: true,
-          reply_markup: JSON.stringify(keyboard.reply_markup),
-        });
-
-        // Send PDF as document if available
-        if (pdfPath && fs.existsSync(pdfPath)) {
-          try {
-            await bot.sendDocument(row.chat_id, pdfPath, {
-              parse_mode: 'HTML',
-              caption: `📄 <b>Invoice</b> for ${row.client_name} — ${row.subscription_fee || '$0'}`,
-            });
-          } catch (docErr) {
-            console.error('[sweep] PDF send failed:', docErr.message);
-          } finally {
-            // Clean up temp file
-            try { fs.unlinkSync(pdfPath); } catch {}
-          }
-        }
-
-        run(
-          `INSERT INTO reminder_logs
-             (chat_id, client_id, renewal_sr_no, reminder_type, message, status, telegram_message_id)
-           VALUES (?, ?, ?, ?, ?, 'sent', ?)
-           ON CONFLICT(renewal_sr_no, reminder_type, chat_id) DO NOTHING`,
-          [row.chat_id, row.client_id, row.sr_no, formatType(dayOffset), text, msg?.message_id || null]
-        );
+      if (cfg.human_verification_enabled) {
+        // Human verification enabled: create pending approval entry instead of sending
+        run(`
+          INSERT INTO message_approvals
+            (renewal_sr_no, client_id, client_name, tele_id, chat_id, chat_title,
+             reminder_type, message, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+          ON CONFLICT(renewal_sr_no, reminder_type, chat_id) DO NOTHING
+        `, [
+          row.sr_no, row.client_id, row.client_name, row.tele_id,
+          row.chat_id, row.chat_title,
+          formatType(dayOffset), text
+        ]);
+        // Mark as scheduled so it's not re-queued on next sweep
         cache.push(dayOffset);
-        run('UPDATE renewals SET reminders_sent_json = ? WHERE sr_no = ?', [JSON.stringify(cache), row.sr_no]);
-        result.sent++;
-      } catch (err) {
-        const errMsg = err?.response?.body?.description || err?.message || String(err);
-        run(
-          `INSERT INTO reminder_logs
-             (chat_id, client_id, renewal_sr_no, reminder_type, message, status, error)
-           VALUES (?, ?, ?, ?, ?, 'failed', ?)
-           ON CONFLICT(renewal_sr_no, reminder_type, chat_id) DO NOTHING`,
-          [row.chat_id, row.client_id, row.sr_no, formatType(dayOffset), text, errMsg]
-        );
-        result.failed++;
-        result.errors.push({ sr_no: row.sr_no, chat_id: row.chat_id, reason: errMsg });
+        run('UPDATE renewals SET reminders_sent_json = ? WHERE sr_no = ?',
+          [JSON.stringify(cache), row.sr_no]);
+        // No Telegram message sent yet — will be sent after admin approval
+      } else {
+        // No human verification: send directly
+        try {
+          // Generate PDF invoice using Puppeteer (renders the exact HTML invoice)
+          let pdfPath = null;
+          try {
+            const bankKey = (row.bank_name || '').toLowerCase().trim();
+            const bankData = bankDataMap[bankKey] || {};
+
+            // Parse amounts correctly (subscription_fee is "$199.00", discount is "$29.85")
+            const parseMoney = (s) => parseFloat(String(s || '0').replace(/[^0-9.]/g, '')) || 0;
+            const subscriptionFee = parseMoney(row.subscription_fee);
+            const discountAmount = parseMoney(row.discount);
+
+            const pdfBuffer = await generateInvoicePdfBuffer({
+              sr_no: row.sr_no,
+              client_name: row.client_name,
+              bank_name: row.bank_name,
+              product_name: row.tier || 'Service',
+              subtotal: subscriptionFee.toFixed(2),
+              discount: discountAmount.toFixed(2),
+              invoice_date: row.valid_stopped_date || new Date().toISOString().split('T')[0],
+              invoice_no: row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
+              bankData,
+              referral_partner_name: row.referral_partner_name || 'N.A.',
+              whop_link_type: 'tier',
+            });
+            // Write to temp file for Telegram sending
+            pdfPath = path.join(os.tmpdir(), `invoice-${row.sr_no}-${Date.now()}.pdf`);
+            fs.writeFileSync(pdfPath, pdfBuffer);
+          } catch (pdfErr) {
+            console.error('[sweep] PDF generation failed:', pdfErr.message);
+            // Continue without PDF if generation fails
+          }
+
+          const msg = await bot.sendMessage(row.chat_id, text, {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            reply_markup: JSON.stringify(keyboard.reply_markup),
+          });
+
+          // Send PDF as document if available
+          if (pdfPath && fs.existsSync(pdfPath)) {
+            try {
+              await bot.sendDocument(row.chat_id, pdfPath, {
+                parse_mode: 'HTML',
+                caption: `📄 <b>Invoice</b> for ${row.client_name} — ${row.subscription_fee || '$0'}`,
+              });
+            } catch (docErr) {
+              console.error('[sweep] PDF send failed:', docErr.message);
+            } finally {
+              // Clean up temp file
+              try { fs.unlinkSync(pdfPath); } catch {}
+            }
+          }
+
+          run(
+            `INSERT INTO reminder_logs
+               (chat_id, client_id, renewal_sr_no, reminder_type, message, status, telegram_message_id)
+             VALUES (?, ?, ?, ?, ?, 'sent', ?)
+             ON CONFLICT(renewal_sr_no, reminder_type, chat_id) DO NOTHING`,
+            [row.chat_id, row.client_id, row.sr_no, formatType(dayOffset), text, msg?.message_id || null]
+          );
+          cache.push(dayOffset);
+          run('UPDATE renewals SET reminders_sent_json = ? WHERE sr_no = ?', [JSON.stringify(cache), row.sr_no]);
+          result.sent++;
+        } catch (err) {
+          const errMsg = err?.response?.body?.description || err?.message || String(err);
+          run(
+            `INSERT INTO reminder_logs
+               (chat_id, client_id, renewal_sr_no, reminder_type, message, status, error)
+             VALUES (?, ?, ?, ?, ?, 'failed', ?)
+             ON CONFLICT(renewal_sr_no, reminder_type, chat_id) DO NOTHING`,
+            [row.chat_id, row.client_id, row.sr_no, formatType(dayOffset), text, errMsg]
+          );
+          result.failed++;
+          result.errors.push({ sr_no: row.sr_no, chat_id: row.chat_id, reason: errMsg });
+        }
       }
 
       // Telegram per-chat rate limit: 1 msg/s.

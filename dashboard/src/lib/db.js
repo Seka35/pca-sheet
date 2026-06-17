@@ -134,9 +134,13 @@ function initDatabase() {
       timezone TEXT NOT NULL DEFAULT 'UTC',
       bot_username TEXT,
       last_sweep_at DATETIME,
+      human_verification_enabled INTEGER NOT NULL DEFAULT 0,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Add human_verification_enabled column to bot_config if it doesn't exist
+  try { db.exec(`ALTER TABLE bot_config ADD COLUMN human_verification_enabled INTEGER NOT NULL DEFAULT 0`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   // Seed default config + default English templates if empty.
   const existingCfg = db.prepare('SELECT id FROM bot_config WHERE id = 1').get();
@@ -299,6 +303,31 @@ function initDatabase() {
     )
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_approval_queue_status ON approval_queue(status)`);
+
+  // --- Telegram Message Approvals (human verification gate) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS message_approvals (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      renewal_sr_no    TEXT NOT NULL,
+      client_id        INTEGER NOT NULL,
+      client_name      TEXT,
+      tele_id          TEXT,
+      chat_id          TEXT NOT NULL,
+      chat_title       TEXT,
+      reminder_type    TEXT NOT NULL,
+      message          TEXT NOT NULL,
+      pdf_path         TEXT,
+      status           TEXT NOT NULL DEFAULT 'PENDING',
+      created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at      DATETIME,
+      reviewed_by      TEXT,
+      reject_reason    TEXT,
+      sent_message_id  TEXT,
+      FOREIGN KEY(client_id) REFERENCES clients(id),
+      UNIQUE(renewal_sr_no, reminder_type, chat_id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_message_approvals_status ON message_approvals(status)`);
 
   // --- Payment Selections (client chose a payment method from the group) ---
   db.exec(`

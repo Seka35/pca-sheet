@@ -75,6 +75,7 @@ export default function BotPage() {
     quiet_hours_start: '',
     quiet_hours_end: '',
     timezone: 'UTC',
+    human_verification_enabled: false,
   });
   const [hasToken, setHasToken] = useState(false);
 
@@ -102,6 +103,7 @@ export default function BotPage() {
         quiet_hours_start: c?.quiet_hours_start || '',
         quiet_hours_end: c?.quiet_hours_end || '',
         timezone: c?.timezone || 'UTC',
+        human_verification_enabled: !!c?.human_verification_enabled,
       });
     } catch (e) {
       console.error(e);
@@ -136,6 +138,7 @@ export default function BotPage() {
         quiet_hours_start: form.quiet_hours_start || null,
         quiet_hours_end: form.quiet_hours_end || null,
         timezone: form.timezone,
+        human_verification_enabled: form.human_verification_enabled,
       };
       if (form.token) body.token = form.token;
       const res = await fetch('/api/bot/config', {
@@ -417,6 +420,12 @@ export default function BotPage() {
                   onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
                   style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
                 <label htmlFor="enabled" style={{ fontSize: '13px', cursor: 'pointer' }}>Bot enabled</label>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'end' }}>
+                <input id="human_verification" type="checkbox" checked={form.human_verification_enabled}
+                  onChange={(e) => setForm({ ...form, human_verification_enabled: e.target.checked })}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                <label htmlFor="human_verification" style={{ fontSize: '13px', cursor: 'pointer' }}>Human verification required</label>
               </div>
             </div>
             <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px' }}>

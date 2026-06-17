@@ -36,6 +36,10 @@ export default function RenewalsPage() {
   const [telegramLogsTotalPages, setTelegramLogsTotalPages] = useState(1);
   const [telegramLogsLoading, setTelegramLogsLoading] = useState(false);
 
+  // Pending Telegram message approvals state
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [rejectModal, setRejectModal] = useState({ open: false, id: null, reason: '' });
+
   // Pagination states for each category
   const [latePage, setLatePage] = useState(1);
   const [todayPage, setTodayPage] = useState(1);
@@ -56,6 +60,54 @@ export default function RenewalsPage() {
   useEffect(() => {
     fetchTelegramLogs(1);
   }, []);
+
+  useEffect(() => {
+    fetchPendingApprovals();
+    const interval = setInterval(fetchPendingApprovals, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchPendingApprovals = async () => {
+    try {
+      const res = await fetch('/api/message-approvals?status=PENDING');
+      const data = await res.json();
+      setPendingApprovals(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleApproveTelegram = async (id) => {
+    try {
+      const res = await fetch(`/api/message-approvals/${id}/approve`, { method: 'POST' });
+      if (res.ok) {
+        fetchPendingApprovals();
+        fetchTelegramLogs(telegramLogsPage);
+      } else {
+        const err = await res.json();
+        alert('Failed to approve: ' + (err.error || res.statusText));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRejectTelegram = async () => {
+    if (!rejectModal.id) return;
+    try {
+      const res = await fetch(`/api/message-approvals/${rejectModal.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reject_reason: rejectModal.reason })
+      });
+      if (res.ok) {
+        setPendingApprovals(pendingApprovals.filter(a => a.id !== rejectModal.id));
+        setRejectModal({ open: false, id: null, reason: '' });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchTelegramLogs = (page) => {
     setTelegramLogsLoading(true);
@@ -430,6 +482,28 @@ export default function RenewalsPage() {
         <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading renewals...</div>
       ) : (
         <>
+          {/* Pending Telegram Message Approvals */}
+          {pendingApprovals.length > 0 && (
+            <div style={{ marginBottom: '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#FBBF24' }}>⏳ Pending Approvals</h2>
+                <span style={{ backgroundColor: 'rgba(251, 191, 36, 0.15)', color: '#FBBF24', padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold' }}>
+                  {pendingApprovals.length} pending
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {pendingApprovals.map(a => (
+                  <PendingApprovalRow
+                    key={a.id}
+                    approval={a}
+                    onApprove={() => handleApproveTelegram(a.id)}
+                    onReject={() => setRejectModal({ open: true, id: a.id, reason: '' })}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Telegram Messages - Full Width Card */}
           <div style={{ marginBottom: '32px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -522,6 +596,110 @@ export default function RenewalsPage() {
 
       <ClientModal selectedClient={selectedClient} onClose={() => setSelectedClient(null)} />
       <MessageLogModal log={selectedMessageLog} onClose={() => setSelectedMessageLog(null)} />
+
+      {/* Reject Modal for Pending Telegram Approvals */}
+      {rejectModal.open && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="card" style={{ width: '480px', maxWidth: '90vw' }}>
+            <h3 style={{ marginBottom: '16px' }}>Reject Message</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '14px' }}>
+              This message will not be sent to the Telegram group.
+            </p>
+            <textarea
+              value={rejectModal.reason}
+              onChange={e => setRejectModal(m => ({ ...m, reason: e.target.value }))}
+              placeholder="Enter rejection reason (optional)..."
+              rows={4}
+              style={{
+                width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)',
+                background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '14px',
+                resize: 'vertical', marginBottom: '16px'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setRejectModal({ open: false, id: null, reason: '' })}
+                style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', cursor: 'pointer', background: 'transparent', color: 'var(--text-primary)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectTelegram}
+                style={{
+                  padding: '8px 16px', borderRadius: '8px', background: '#ef4444', color: '#fff',
+                  border: 'none', cursor: 'pointer', fontWeight: '600'
+                }}
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PendingApprovalRow({ approval, onApprove, onReject }) {
+  const typeColors = {
+    'T-7': { bg: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8' },
+    'T-2': { bg: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24' },
+    'T0':  { bg: 'rgba(239, 68, 68, 0.15)', color: '#F87171' },
+    'T+1': { bg: 'rgba(239, 68, 68, 0.15)', color: '#F87171' },
+  };
+  const typeStyle = typeColors[approval.reminder_type] || { bg: 'var(--border-color)', color: 'var(--text-secondary)' };
+
+  return (
+    <div className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid rgba(251, 191, 36, 0.3)', background: 'rgba(251, 191, 36, 0.03)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '120px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Client</span>
+          <span style={{ fontSize: '14px', fontWeight: '600' }}>{approval.client_name || 'N/A'}</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '100px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tele ID</span>
+          <span style={{ fontSize: '13px', fontFamily: 'monospace' }}>{approval.tele_id || 'N/A'}</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '80px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</span>
+          <span style={{
+            backgroundColor: typeStyle.bg, color: typeStyle.color,
+            padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', display: 'inline-block', width: 'fit-content'
+          }}>
+            {approval.reminder_type}
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Message</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                title={approval.message}>
+            <span dangerouslySetInnerHTML={{ __html: approval.message }} />
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '140px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Created</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            {approval.created_at ? new Date(approval.created_at).toLocaleString() : '—'}
+          </span>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px', marginLeft: '16px', flexShrink: 0 }}>
+        <button
+          onClick={onReject}
+          style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444', background: 'transparent', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+        >
+          Reject
+        </button>
+        <button
+          onClick={onApprove}
+          style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--primary-accent)', color: '#0B111A', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+        >
+          Approve
+        </button>
+      </div>
     </div>
   );
 }
