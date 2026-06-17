@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import ApprovalsTabs from '@/components/ApprovalsTabs';
 
 export default function TelegramApprovalsPage() {
   const [approvals, setApprovals] = useState([]);
@@ -62,9 +63,11 @@ export default function TelegramApprovalsPage() {
   return (
     <div>
       <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Telegram Message Approvals</h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
         Review Telegram reminder messages before they are sent to clients. Approve to send, or reject to discard.
       </p>
+
+      <ApprovalsTabs telegramCount={pending.length} />
 
       {loading ? (
         <p>Loading...</p>

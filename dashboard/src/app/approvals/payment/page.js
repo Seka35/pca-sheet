@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import ApprovalsTabs from '@/components/ApprovalsTabs';
 
 export default function ApprovalQueuePage() {
   const [approvals, setApprovals] = useState([]);
@@ -59,9 +60,11 @@ export default function ApprovalQueuePage() {
   return (
     <div>
       <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Payment Approvals</h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
         Review client payment submissions and approve or reject them.
       </p>
+
+      <ApprovalsTabs pendingCount={pending.length} />
 
       {loading ? (
         <p>Loading...</p>
