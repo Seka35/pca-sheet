@@ -29,8 +29,10 @@ export async function GET() {
     const history = await all('SELECT * FROM renewals ORDER BY sr_no ASC');
 
     const totalClients = clients.length;
-    const activeClientsCount = clients.filter(c => c.status === 'Actif').length;
-    
+    const activeClients = clients.filter(c => c.status === 'Actif');
+    const activeClientsCount = activeClients.length;
+    const inactiveClients = clients.filter(c => c.status !== 'Actif').length;
+
     // Group history by client AND month
     const clientMonthlyPayments = {}; // { clientId: { 'May-2026': totalAmount } }
     const clientLatestRecord = {};
@@ -51,19 +53,38 @@ export async function GET() {
     // Compute Metrics
     let currentMRR = 0;
     let totalDue = 0;
-    
+    const activeByTier = { 'TIER 1': 0, 'TIER 2': 0, 'TIER 3': 0, 'TIER 4': 0, 'TIER 5': 0, 'TIER 6': 0 };
+    let mrrStabilized = 0; // MRR for clients with 2+ renewals
+
     // MRR calculation (Active clients)
-    clients.filter(c => c.status === 'Actif').forEach(c => {
+    const clientRenewalCount = {};
+    history.forEach(row => {
+      if (!clientRenewalCount[row.client_id]) clientRenewalCount[row.client_id] = 0;
+      clientRenewalCount[row.client_id]++;
+    });
+
+    activeClients.forEach(c => {
       const latest = clientLatestRecord[c.id];
       if (latest) {
         const expected = parseAmount(latest.subscription_fee) + parseAmount(latest.setup_fee);
         currentMRR += expected;
+
+        // activeByTier
+        const tier = latest.tier;
+        if (tier && activeByTier.hasOwnProperty(tier)) {
+          activeByTier[tier]++;
+        }
+
+        // mrrStabilized: clients with 2+ renewal records
+        if (clientRenewalCount[c.id] >= 2) {
+          mrrStabilized += expected;
+        }
       }
     });
 
     // Total Due calculation (from unpaid renewals of ACTIVE clients only)
-    const activeClientIds = new Set(clients.filter(c => c.status === 'Actif').map(c => c.id));
-    
+    const activeClientIds = new Set(activeClients.map(c => c.id));
+
     history.forEach(row => {
       if (!activeClientIds.has(row.client_id)) return;
 
@@ -106,6 +127,13 @@ export async function GET() {
       prevClients = curr;
     });
 
+    const reversedChurnHistory = [...churnHistory].reverse();
+    const latestChurn = reversedChurnHistory[0] || { churned: 0, rate: 0 };
+    const lastMonthChurn = reversedChurnHistory[1] || { churned: 0, rate: 0 };
+
+    // Global churn: inactive clients / total clients who ever were active
+    const globalChurn = totalClients > 0 ? (inactiveClients / totalClients) * 100 : 0;
+
     // Top 10
     const top10 = clients.map(c => {
       const h = history.filter(r => r.client_id === c.id);
@@ -113,22 +141,50 @@ export async function GET() {
       return { id: c.id, name: c.name, status: c.status, total_spent: total, tags: [], email: "" };
     }).sort((a, b) => b.total_spent - a.total_spent).slice(0, 10);
 
-    const reversedChurnHistory = [...churnHistory].reverse();
-    const latestChurn = reversedChurnHistory[0] || { churned: 0, rate: 0 };
+    // Monthly acquisition: count of clients whose first renewal is in that month
+    const monthlyAcquisition = {};
+    const clientFirstMonth = {};
+    history.forEach(row => {
+      if (!row.client_id || !row.month) return;
+      if (!clientFirstMonth[row.client_id] || parseMonthString(row.month).year < parseMonthString(clientFirstMonth[row.client_id]).year ||
+          (parseMonthString(row.month).year === parseMonthString(clientFirstMonth[row.client_id]).year &&
+           parseMonthString(row.month).month < parseMonthString(clientFirstMonth[row.client_id]).month)) {
+        clientFirstMonth[row.client_id] = row.month;
+      }
+    });
+    Object.values(clientFirstMonth).forEach(m => {
+      if (!m) return;
+      if (!monthlyAcquisition[m]) monthlyAcquisition[m] = 0;
+      monthlyAcquisition[m]++;
+    });
+    const acquisitionList = Object.entries(monthlyAcquisition)
+      .map(([month, count]) => ({ month, count }))
+      .sort((a, b) => {
+        const pa = parseMonthString(a.month);
+        const pb = parseMonthString(b.month);
+        return (pa.year !== pb.year) ? pa.year - pb.year : pa.month - pb.month;
+      });
 
     return NextResponse.json({
-      summary: { 
-        totalClients, 
-        activeClients: activeClientsCount, 
+      summary: {
+        totalClients,
+        activeClients: activeClientsCount,
+        inactiveClients,
         churned: latestChurn.churned,
-        churnRate: latestChurn.rate || 0, 
-        mrr: currentMRR, 
-        totalDue, 
-        averageBasket: activeClientsCount > 0 ? currentMRR/activeClientsCount : 0 
+        churnRate: latestChurn.rate || 0,
+        globalChurn: parseFloat(globalChurn.toFixed(2)),
+        lastMonthChurn: lastMonthChurn.churned,
+        lastMonthChurnRate: lastMonthChurn.rate || 0,
+        mrr: currentMRR,
+        mrrStabilized,
+        totalDue,
+        averageBasket: activeClientsCount > 0 ? currentMRR / activeClientsCount : 0,
+        activeByTier
       },
       churnHistory: reversedChurnHistory,
       revenueHistory: sortedMonths.map(m => ({ month: m, brut: monthlyStats[m].brut, frais: 0, net: monthlyStats[m].brut })).reverse(),
-      topClients: top10
+      topClients: top10,
+      monthlyAcquisition: acquisitionList
     });
   } catch (error) {
     console.error(error);

@@ -71,6 +71,37 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const [removedSrNos, setRemovedSrNos] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [formTrustpilotReviewed, setFormTrustpilotReviewed] = useState(client?.trustpilot_reviewed ? true : false);
+  const [formChurnReason, setFormChurnReason] = useState(client?.churn_reason || '');
+  const [uploadingContract, setUploadingContract] = useState(false);
+  const [computedData, setComputedData] = useState(selectedClient?.computed || null);
+
+  // Refetch client detail to get computed fields when modal opens
+  useEffect(() => {
+    if (!client?.id) return;
+    fetch(`/api/clients/${client.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.computed) setComputedData(data.computed);
+      })
+      .catch(() => {});
+  }, [client?.id]);
+
+  const uploadContract = async (file) => {
+    if (!file || saving) return;
+    setUploadingContract(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`/api/clients/${client.id}/contract`, { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.ok) {
+        setComputedData(prev => ({ ...prev, contract_file_path: data.path }));
+        onSaved && onSaved();
+      }
+    } catch {}
+    finally { setUploadingContract(false); }
+  };
 
   // Manual payment entry state
   const [editingPayment, setEditingPayment] = useState(null); // null | { srNo, row } | 'new'
@@ -254,6 +285,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setFormTelegramGroupId(client.telegram_group_id || '');
     setFormStatus(client.status || 'inactif');
     setRemovedSrNos([]);
+    setFormTrustpilotReviewed(client?.trustpilot_reviewed ? true : false);
+    setFormChurnReason(client?.churn_reason || '');
+    setComputedData(selectedClient?.computed || {});
     setFormProducts(
       (history || []).map((h) => ({
         sr_no: h.sr_no,
@@ -556,6 +590,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           status: formStatus,
           products: formProducts,
           removed_sr_nos: removedSrNos,
+          trustpilot_reviewed: formTrustpilotReviewed ? 1 : 0,
+          churn_reason: formChurnReason || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -593,6 +629,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     if ((formAddress || '').trim() !== (client?.address || '')) return true;
     if ((formTelegramGroupId || '').trim() !== (client?.telegram_group_id || '')) return true;
     if ((formStatus || '') !== (client?.status || 'inactif')) return true;
+    if ((formTrustpilotReviewed ? 1 : 0) !== (client?.trustpilot_reviewed || 0)) return true;
+    if ((formChurnReason || '') !== (client?.churn_reason || '')) return true;
     if (removedSrNos.length > 0) return true;
     const original = history || [];
     if (formProducts.length !== original.length) return true;
@@ -614,7 +652,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       if (fActive !== oActive) return true;
     }
     return false;
-  }, [mode, formName, formFirstName, formLastName, formEmail, formAddress, formTelegramGroupId, formStatus, formProducts, removedSrNos, client, history]);
+  }, [mode, formName, formFirstName, formLastName, formEmail, formAddress, formTelegramGroupId, formStatus, formTrustpilotReviewed, formChurnReason, formProducts, removedSrNos, client, history]);
 
   const primaryBtn = {
     backgroundColor: '#14b8a6', color: '#fff', padding: '8px 16px',
@@ -664,6 +702,21 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                   conflict={teleIdConflict}
                 />
                 <TelegramBadge chatId={client.telegram_group_id} title="Primary linked group" />
+                {client.trustpilot_reviewed ? (
+                  <span title="Trustpilot reviewed" style={{ color: '#34D399', fontSize: '16px' }}>✅</span>
+                ) : (
+                  <span title="Trustpilot not reviewed" style={{ color: 'var(--text-secondary)', fontSize: '16px' }}>❌</span>
+                )}
+                {computedData?.healthStatus && (
+                  <span style={{
+                    padding: '2px 8px', borderRadius: '100px', fontSize: '10px', fontWeight: '700',
+                    backgroundColor: computedData.healthStatus === 'healthy' ? 'rgba(52, 211, 153, 0.15)' : computedData.healthStatus === 'at_risk' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    color: computedData.healthStatus === 'healthy' ? '#34D399' : computedData.healthStatus === 'at_risk' ? '#FBBF24' : '#F87171',
+                    border: `1px solid ${computedData.healthStatus === 'healthy' ? 'rgba(52, 211, 153, 0.3)' : computedData.healthStatus === 'at_risk' ? 'rgba(251, 191, 36, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  }}>
+                    {computedData.healthStatus === 'healthy' ? '🟢 HEALTHY' : computedData.healthStatus === 'at_risk' ? '🟡 AT RISK' : '🔴 CRITICAL'}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => setMode('edit')}
@@ -708,6 +761,75 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       </div>
                     ) : null}
                   </div>
+                </div>
+              )}
+
+              {/* Client Insights - computed data */}
+              {computedData && (
+                <div style={{ marginTop: '12px', padding: '12px', backgroundColor: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                    Client Insights
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', fontSize: '13px' }}>
+                    {computedData.earliestStartDate && (
+                      <div>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Start Date: </span>
+                        <span style={{ fontWeight: '500' }}>{computedData.earliestStartDate}</span>
+                      </div>
+                    )}
+                    {computedData.latestRenewalDate && (
+                      <div>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Renewal Date: </span>
+                        <span style={{ fontWeight: '500' }}>{computedData.latestRenewalDate}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Renewals: </span>
+                      <span style={{ fontWeight: '500' }}>{computedData.renewalCount}x</span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Tier: </span>
+                      {computedData.latestTier ? (
+                        <span style={{ color: '#A78BFA', fontWeight: '600', fontSize: '11px' }}>{computedData.latestTier}{computedData.isInvincible ? ' ⚡' : ''}</span>
+                      ) : <span style={{ fontWeight: '500' }}>—</span>}
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Spend (CL): </span>
+                      <span style={{ fontWeight: '500' }}>{formatCurrency(computedData.totalSpend)}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>CA: </span>
+                      <span style={{ fontWeight: '600', color: '#34D399' }}>{formatCurrency(computedData.totalCA)}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Stable: </span>
+                      <span style={{ fontWeight: '500' }}>{computedData.isStable ? '✅ Yes' : '❌ No'}</span>
+                    </div>
+                    {client.contract_file_path && (
+                      <div>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Contrat: </span>
+                        <a href={client.contract_file_path} target="_blank" rel="noopener noreferrer" style={{ color: '#38BDF8', fontWeight: '500', textDecoration: 'none' }}>📄 View</a>
+                      </div>
+                    )}
+                    {!client.contract_file_path && mode === 'edit' && (
+                      <div>
+                        <label style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Upload Contrat: </label>
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={e => { if (e.target.files?.[0]) uploadContract(e.target.files[0]); }}
+                          disabled={uploadingContract}
+                          style={{ fontSize: '11px', color: 'var(--text-primary)' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {client.status !== 'Actif' && client.churn_reason && (
+                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Raison de la perte: </span>
+                      <span style={{ fontWeight: '600', color: '#F87171' }}>{client.churn_reason}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -831,6 +953,39 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                   parsedTeleId={parsedTeleId}
                   conflict={teleIdConflict}
                 />
+                {/* Trustpilot toggle */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formTrustpilotReviewed}
+                    onChange={(e) => setFormTrustpilotReviewed(e.target.checked)}
+                    disabled={saving}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Trustpilot
+                </label>
+                {/* Churn reason — only relevant when inactive */}
+                <input
+                  list="churn-reason-suggestions"
+                  value={formChurnReason}
+                  onChange={(e) => setFormChurnReason(e.target.value)}
+                  placeholder="Churn reason (optional)"
+                  disabled={saving}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--border-color)', borderRadius: '6px',
+                    padding: '6px 10px', color: 'var(--text-primary)', outline: 'none',
+                    fontSize: '11px', minWidth: '160px',
+                  }}
+                />
+                <datalist id="churn-reason-suggestions">
+                  <option value="Price" />
+                  <option value="Not seeing results" />
+                  <option value="Poor service" />
+                  <option value="Competitor" />
+                  <option value="Internal decision" />
+                  <option value="Unknown" />
+                </datalist>
               </div>
             </div>
           )}

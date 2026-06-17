@@ -7,7 +7,71 @@ import { createBackup } from '@/lib/backup';
 import { requirePermission } from '@/lib/apiAuth';
 import { logActivity } from '@/lib/db';
 
-// --- GET: full client detail (existing handler, unchanged) -----------------
+function parseAmount(val) {
+  if (!val) return 0;
+  const parsed = parseFloat(val.toString().replace(/[^0-9.-]+/g, ""));
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+const monthOrder = {
+  'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+  'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+};
+
+function parseMonthString(mStr) {
+  if (!mStr) return { year: 0, month: 0 };
+  const parts = mStr.toLowerCase().split('-');
+  if (parts.length === 2) {
+    const m = monthOrder[parts[0]] || 0;
+    const y = parseInt(parts[1], 10) || 0;
+    return { year: y, month: m };
+  }
+  return { year: 0, month: 0 };
+}
+
+function computeHealthStatus(client, history) {
+  if (!history || history.length === 0) return 'critical';
+
+  // Tenure: months since first renewal
+  const earliest = history[history.length - 1]; // sorted DESC
+  const latest = history[0];
+  const tenureMonths = history.length;
+
+  // Renewal count
+  const renewalCount = history.length;
+
+  // Payment streak: consecutive months with payment
+  let paymentStreak = 0;
+  for (const r of history) {
+    if (r.reference_no && r.reference_no.trim() !== '') {
+      paymentStreak++;
+    } else {
+      break;
+    }
+  }
+
+  // Months since last payment
+  let monthsSincePayment = 0;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i].reference_no && history[i].reference_no.trim() !== '') {
+      monthsSincePayment = i;
+      break;
+    }
+  }
+  if (monthsSincePayment === 0 && history[0] && history[0].reference_no && history[0].reference_no.trim() !== '') {
+    monthsSincePayment = 0;
+  } else {
+    monthsSincePayment = Math.min(monthsSincePayment, 12);
+  }
+
+  const score = (tenureMonths * 10) + (renewalCount * 5) + (paymentStreak * 3) - (monthsSincePayment * 2);
+
+  if (score >= 50) return 'healthy';
+  if (score >= 25) return 'at_risk';
+  return 'critical';
+}
+
+// --- GET: full client detail (enhanced) --------------------------------------
 
 export async function GET(req, { params }) {
   try {
@@ -21,7 +85,50 @@ export async function GET(req, { params }) {
 
     const history = await all('SELECT * FROM renewals WHERE client_id = ? ORDER BY sr_no DESC', [id]);
 
-    return NextResponse.json({ client, history });
+    // Compute totalSpend (CL = sum of cl_amount)
+    const totalSpend = history.reduce((sum, r) => sum + parseAmount(r.cl_amount), 0);
+
+    // Compute totalCA (fees received = sum of amount_received)
+    const totalCA = history.reduce((sum, r) => sum + parseAmount(r.amount_received), 0);
+
+    // Renewal count
+    const renewalCount = history.length;
+
+    // Earliest start date (from oldest renewal)
+    const earliestStartDate = history.length > 0 ? history[history.length - 1].start_date : null;
+
+    // Latest renewal date: the month of the most recent renewal
+    const latestRenewalDate = history.length > 0 ? history[0].month : null;
+
+    // Latest tier & setup_type
+    const latestTier = history.length > 0 ? history[0].tier : null;
+    const latestSetupType = history.length > 0 ? history[0].setup_type : null;
+
+    // Is invincible setup?
+    const isInvincible = latestSetupType && latestSetupType.toLowerCase().includes('invincible');
+
+    // Health status
+    const healthStatus = computeHealthStatus(client, history);
+
+    // Client is considered stable if 2+ renewals
+    const isStable = renewalCount >= 2;
+
+    return NextResponse.json({
+      client,
+      history,
+      computed: {
+        totalSpend: parseFloat(totalSpend.toFixed(2)),
+        totalCA: parseFloat(totalCA.toFixed(2)),
+        renewalCount,
+        earliestStartDate,
+        latestRenewalDate,
+        latestTier,
+        latestSetupType,
+        isInvincible,
+        isStable,
+        healthStatus
+      }
+    });
   } catch (error) {
     console.error(`Erreur API /clients/${params.id}:`, error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -103,6 +210,11 @@ export async function PUT(req, { params }) {
       products.some((p) => p.active !== false) ? 'Actif' : 'inactif'
     );
 
+    // Handle new fields
+    const trustpilot_reviewed = body.trustpilot_reviewed ? 1 : 0;
+    const churn_reason = body.churn_reason || null;
+    const contract_file_path = body.contract_file_path || null;
+
     const insertRenewal = `INSERT OR REPLACE INTO renewals (
       sr_no, client_id, client_name, client_status_history, month, start_date,
       client_ad_id_name, ad_id_number, ad_account_type, tier, ad_spend_limit,
@@ -117,8 +229,8 @@ export async function PUT(req, { params }) {
     try {
       // Update the client header.
       run(
-        `UPDATE clients SET name = ?, first_name = ?, last_name = ?, email = ?, address = ?, telegram_group_id = ?, status = ?, tele_id = ? WHERE id = ?`,
-        [name, body.first_name || '', body.last_name || '', body.email || '', body.address || '', telegram_group_id || '', computedStatus, tele_id || null, clientId]
+        `UPDATE clients SET name = ?, first_name = ?, last_name = ?, email = ?, address = ?, telegram_group_id = ?, status = ?, tele_id = ?, trustpilot_reviewed = ?, churn_reason = ?, contract_file_path = ? WHERE id = ?`,
+        [name, body.first_name || '', body.last_name || '', body.email || '', body.address || '', telegram_group_id || '', computedStatus, tele_id || null, trustpilot_reviewed, churn_reason, contract_file_path, clientId]
       );
 
       // Remove the products the user deleted.
@@ -139,7 +251,6 @@ export async function PUT(req, { params }) {
         let sr_no = p.sr_no;
         if (!sr_no) {
           if (addedIdx >= addedSrNos.length) {
-            // Shouldn't happen — Sheet didn't allocate a slot. Skip.
             console.warn(`[PUT /api/clients/${clientId}] missing sr_no for new product, skipping`);
             continue;
           }

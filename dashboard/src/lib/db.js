@@ -226,6 +226,14 @@ function initDatabase() {
   try { db.exec('DROP INDEX IF EXISTS idx_clients_tele_id'); } catch (e) {}
   // db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_tele_id ON clients(tele_id) WHERE tele_id IS NOT NULL`);
 
+  // --- Churn & Client Enrichment ---
+  // Trustpilot review status (0 = not reviewed, 1 = reviewed)
+  try { db.exec(`ALTER TABLE clients ADD COLUMN trustpilot_reviewed INTEGER DEFAULT 0`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Reason for churn (populated when client becomes inactive)
+  try { db.exec(`ALTER TABLE clients ADD COLUMN churn_reason TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Contract file upload path
+  try { db.exec(`ALTER TABLE clients ADD COLUMN contract_file_path TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
   // --- Bot auto-create proposal state ---
   // When a seller /start in a group and no client matches, the bot stores a
   // proposal in this row (pending_create_name + pending_create_tele_id).

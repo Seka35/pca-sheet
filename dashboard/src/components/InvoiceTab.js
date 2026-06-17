@@ -504,7 +504,8 @@ export default function InvoiceTab() {
                     subtotal: String(invoiceData.items?.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.unitPrice) || 0), 0) || '0'),
                     discount: String(invoiceData.adjustments?.discount || 0),
                     invoice_date: new Date().toISOString().split('T')[0],
-                    invoice_no: '001'
+                    invoice_no: '001',
+                    currency: invoiceData.currency || '$'
                   });
 
                   if (method === 'whop') {

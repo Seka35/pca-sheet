@@ -22,8 +22,9 @@ export async function GET(req) {
     // WHOP-specific parameters
     const referral_partner_name = searchParams.get('referral_partner_name') || 'N.A.';
     const whop_link_type = searchParams.get('whop_link_type') || 'tier';
+    const currency = searchParams.get('currency') || '$';
 
-    return generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type });
+    return generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type, currency });
   } catch (error) {
     console.error('Error generating invoice:', error);
     return new NextResponse('Error generating invoice', { status: 500 });
@@ -51,10 +52,12 @@ function getWhopPaymentLink(referralPartner, tier, linkType = 'tier') {
   return getWhopLink({ referralPartner, tier: normalizedTier });
 }
 
-function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type }) {
+function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type, currency }) {
   // Get invoice template
   const templateRow = get('SELECT data_json FROM invoice_settings WHERE id = 1');
   const template = templateRow ? JSON.parse(templateRow.data_json) : {};
+  // Override currency with param if provided
+  if (currency) template.currency = currency;
 
   // Normalize bank_name for comparison
   const bankInput = (bank_name || '').toLowerCase().trim();
