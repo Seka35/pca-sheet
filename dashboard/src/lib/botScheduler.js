@@ -33,6 +33,7 @@ export function getConfig() {
     bot_username: row.bot_username || null,
     last_sweep_at: row.last_sweep_at || null,
     human_verification_enabled: !!row.human_verification_enabled,
+    team_notification_chat_id: row.team_notification_chat_id || null,
   };
 }
 
@@ -43,9 +44,9 @@ export function upsertConfig(patch) {
     `INSERT INTO bot_config (
        id, token, enabled, reminder_days, templates_json,
        sweep_interval_minutes, quiet_hours_start, quiet_hours_end,
-       timezone, bot_username, human_verification_enabled, updated_at
+       timezone, bot_username, human_verification_enabled, team_notification_chat_id, updated_at
      )
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
      ON CONFLICT(id) DO UPDATE SET
        token = excluded.token,
        enabled = excluded.enabled,
@@ -57,6 +58,7 @@ export function upsertConfig(patch) {
        timezone = excluded.timezone,
        bot_username = excluded.bot_username,
        human_verification_enabled = excluded.human_verification_enabled,
+       team_notification_chat_id = excluded.team_notification_chat_id,
        updated_at = CURRENT_TIMESTAMP`,
     [
       merged.token || null,
@@ -69,6 +71,7 @@ export function upsertConfig(patch) {
       merged.timezone || 'UTC',
       merged.bot_username || null,
       merged.human_verification_enabled ? 1 : 0,
+      merged.team_notification_chat_id || null,
     ]
   );
   return getConfig();
@@ -92,6 +95,13 @@ function inQuietHours(cfg) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 export async function runReminderSweepOnce(bot) {
   const cfg = getConfig();
@@ -165,6 +175,7 @@ export async function runReminderSweepOnce(bot) {
       const tpl = templates[tplKey];
       const vars = buildVars(row, diffDays);
       const text = renderTemplate(tpl.message, vars);
+      const isFinalReminder = tpl.is_final_reminder === true;
 
       result.scheduled++;
       if (!bot) {
@@ -179,13 +190,13 @@ export async function runReminderSweepOnce(bot) {
         run(`
           INSERT INTO message_approvals
             (renewal_sr_no, client_id, client_name, tele_id, chat_id, chat_title,
-             reminder_type, message, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+             reminder_type, message, is_final_reminder, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
           ON CONFLICT(renewal_sr_no, reminder_type, chat_id) DO NOTHING
         `, [
           row.sr_no, row.client_id, row.client_name, row.tele_id,
           row.chat_id, row.chat_title,
-          formatType(dayOffset), text
+          formatType(dayOffset), text, isFinalReminder ? 1 : 0
         ]);
         // Mark as scheduled so it's not re-queued on next sweep
         cache.push(dayOffset);
@@ -258,6 +269,27 @@ export async function runReminderSweepOnce(bot) {
           cache.push(dayOffset);
           run('UPDATE renewals SET reminders_sent_json = ? WHERE sr_no = ?', [JSON.stringify(cache), row.sr_no]);
           result.sent++;
+
+          // Product-disable step: runs after the message is sent
+          if (isFinalReminder) {
+            // Mark product as inactive
+            run('UPDATE renewals SET visual_status = ? WHERE sr_no = ?', ['', row.sr_no]);
+
+            // Send team notification if configured
+            if (cfg?.team_notification_chat_id) {
+              const teamMsg =
+                `🔕 <b>Product Disabled</b>\n\n` +
+                `Client: <b>${escapeHtml(row.client_name || '')}</b>\n` +
+                `Product: <b>${escapeHtml(row.tier || row.setup_type || 'N/A')}</b>\n` +
+                `Amount: <b>${escapeHtml(row.subscription_fee || '$0')}</b>\n` +
+                `Due date: ${row.valid_stopped_date || 'N/A'}\n\n` +
+                `The product has been marked <b>inactive</b> and reminders have stopped.`;
+
+              bot.sendMessage(cfg.team_notification_chat_id, teamMsg, { parse_mode: 'HTML' }).catch((e) => {
+                console.error('[sweep] team notification failed:', e?.response?.body?.description || e?.message);
+              });
+            }
+          }
         } catch (err) {
           const errMsg = err?.response?.body?.description || err?.message || String(err);
           run(

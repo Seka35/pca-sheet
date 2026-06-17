@@ -33,6 +33,7 @@ export async function PUT(req) {
         label: String(v?.label || '').slice(0, 80),
         message: String(v?.message || '').slice(0, 4000),
         enabled: v?.enabled === false ? false : true,
+        is_final_reminder: v?.is_final_reminder === true ? true : false,
       };
     }
     const updated = upsertConfig({ templates: clean });

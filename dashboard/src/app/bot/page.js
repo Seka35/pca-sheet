@@ -76,6 +76,7 @@ export default function BotPage() {
     quiet_hours_end: '',
     timezone: 'UTC',
     human_verification_enabled: false,
+    team_notification_chat_id: '',
   });
   const [hasToken, setHasToken] = useState(false);
 
@@ -104,6 +105,7 @@ export default function BotPage() {
         quiet_hours_end: c?.quiet_hours_end || '',
         timezone: c?.timezone || 'UTC',
         human_verification_enabled: !!c?.human_verification_enabled,
+        team_notification_chat_id: c?.team_notification_chat_id || '',
       });
     } catch (e) {
       console.error(e);
@@ -139,6 +141,7 @@ export default function BotPage() {
         quiet_hours_end: form.quiet_hours_end || null,
         timezone: form.timezone,
         human_verification_enabled: form.human_verification_enabled,
+        team_notification_chat_id: form.team_notification_chat_id || null,
       };
       if (form.token) body.token = form.token;
       const res = await fetch('/api/bot/config', {
@@ -415,6 +418,16 @@ export default function BotPage() {
                   onChange={(e) => setForm({ ...form, quiet_hours_end: e.target.value })}
                   style={inputStyle} />
               </div>
+              <div>
+                <label style={labelStyle}>Team notification chat ID</label>
+                <input type="text" placeholder="e.g. -1001234567890"
+                  value={form.team_notification_chat_id}
+                  onChange={(e) => setForm({ ...form, team_notification_chat_id: e.target.value })}
+                  style={inputStyle} />
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Team receives product-disabled alerts here. Leave empty to disable.
+                </div>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'end' }}>
                 <input id="enabled" type="checkbox" checked={form.enabled}
                   onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
@@ -455,11 +468,21 @@ export default function BotPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {Object.keys(templates).sort((a, b) => Number(a) - Number(b)).map((offset) => {
                   const tpl = templates[offset];
+                  const isFinal = tpl.is_final_reminder === true;
                   return (
                     <div key={offset} style={{
                       backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
+                      border: isFinal ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
                     }}>
+                      {isFinal && (
+                        <div style={{
+                          fontSize: '11px', color: '#F87171', fontWeight: '600',
+                          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                          padding: '4px 8px', borderRadius: '4px', marginBottom: '10px',
+                        }}>
+                          🔕 Final reminder — product will be disabled after this fires
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
                         <div style={{ flex: '0 0 100px' }}>
                           <label style={labelStyle}>Day offset</label>
@@ -478,6 +501,14 @@ export default function BotPage() {
                           <input type="checkbox" checked={tpl.enabled !== false}
                             onChange={(e) => updateTemplate(offset, { enabled: e.target.checked })}
                             style={{ width: '18px', height: '18px' }} />
+                        </div>
+                        <div style={{ flex: '0 0 110px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <label style={{ ...labelStyle, color: '#F87171' }}>Disable product</label>
+                          <input type="checkbox" checked={tpl.is_final_reminder === true}
+                            onChange={(e) => updateTemplate(offset, { is_final_reminder: e.target.checked })}
+                            style={{ width: '18px', height: '18px' }}
+                            title="When this reminder fires, mark the product as inactive"
+                          />
                         </div>
                         <button onClick={() => removeTemplate(offset)} style={{
                           alignSelf: 'end', backgroundColor: 'transparent',

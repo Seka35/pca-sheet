@@ -51,6 +51,9 @@ export async function PUT(req) {
     if (typeof body.human_verification_enabled === 'boolean') {
       patch.human_verification_enabled = body.human_verification_enabled;
     }
+    if (typeof body.team_notification_chat_id === 'string') {
+      patch.team_notification_chat_id = body.team_notification_chat_id.trim() || null;
+    }
 
     // Capture the previous enabled state BEFORE we save the new one, so we
     // can decide whether to start or stop the live bot instance.

@@ -848,8 +848,19 @@ async function handleMessage(msg, TelegramBotInstance) {
         '  /cancel — discard a pending "Create client" proposal\n' +
         '  /status — show the current link\n' +
         '  /pay — submit payment proof\n' +
-        '  /help — this message'
+        '  /help — this message\n' +
+        '  /id — show this chat\'s Chat ID'
     );
+  }
+
+  // /id — return the chat ID of the current conversation
+  if (text.match(/^\/id(?:@\w+)?\s*$/)) {
+    await TelegramBotInstance.sendMessage(
+      chatId,
+      `📌 This chat's ID: <code>${chatId}</code>`,
+      { parse_mode: 'HTML' }
+    );
+    return;
   }
 }
 

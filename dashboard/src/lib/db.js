@@ -135,12 +135,16 @@ function initDatabase() {
       bot_username TEXT,
       last_sweep_at DATETIME,
       human_verification_enabled INTEGER NOT NULL DEFAULT 0,
+      team_notification_chat_id TEXT,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Add human_verification_enabled column to bot_config if it doesn't exist
   try { db.exec(`ALTER TABLE bot_config ADD COLUMN human_verification_enabled INTEGER NOT NULL DEFAULT 0`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
+  // Add team_notification_chat_id column to bot_config if it doesn't exist
+  try { db.exec(`ALTER TABLE bot_config ADD COLUMN team_notification_chat_id TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   // Seed default config + default English templates if empty.
   const existingCfg = db.prepare('SELECT id FROM bot_config WHERE id = 1').get();
@@ -317,6 +321,7 @@ function initDatabase() {
       reminder_type    TEXT NOT NULL,
       message          TEXT NOT NULL,
       pdf_path         TEXT,
+      is_final_reminder INTEGER NOT NULL DEFAULT 0,
       status           TEXT NOT NULL DEFAULT 'PENDING',
       created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       reviewed_at      DATETIME,

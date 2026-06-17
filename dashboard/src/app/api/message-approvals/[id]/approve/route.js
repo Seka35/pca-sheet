@@ -9,6 +9,13 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 export async function POST(req) {
   const url = new URL(req.url);
   const segments = url.pathname.split('/');
@@ -138,6 +145,28 @@ export async function POST(req) {
         cache.push(offset);
         run('UPDATE renewals SET reminders_sent_json = ? WHERE sr_no = ?',
           [JSON.stringify(cache), entry.renewal_sr_no]);
+      }
+    }
+
+    // Product-disable step: if this is the final-reminder template
+    if (entry.is_final_reminder) {
+      // Mark product as inactive
+      run('UPDATE renewals SET visual_status = ? WHERE sr_no = ?', ['', entry.renewal_sr_no]);
+
+      // Fetch team_notification_chat_id
+      const cfgRow = get('SELECT team_notification_chat_id FROM bot_config WHERE id = 1');
+      if (cfgRow?.team_notification_chat_id) {
+        const teamMsg =
+          `🔕 <b>Product Disabled</b>\n\n` +
+          `Client: <b>${escapeHtml(entry.client_name || '')}</b>\n` +
+          `Product: <b>${escapeHtml(renewalRow?.tier || renewalRow?.setup_type || 'N/A')}</b>\n` +
+          `Amount: <b>${escapeHtml(renewalRow?.subscription_fee || '$0')}</b>\n` +
+          `Due date: ${renewalRow?.valid_stopped_date || 'N/A'}\n\n` +
+          `The product has been marked <b>inactive</b> and reminders have stopped.`;
+
+        bot.sendMessage(cfgRow.team_notification_chat_id, teamMsg, { parse_mode: 'HTML' }).catch((e) => {
+          console.error('[approve] team notification failed:', e?.response?.body?.description || e?.message);
+        });
       }
     }
 
