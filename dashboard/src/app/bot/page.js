@@ -241,11 +241,10 @@ export default function BotPage() {
   };
 
   const addTemplate = () => {
-    const nextOffset = 0;
-    if (templates[String(nextOffset)] !== undefined) {
-      alert('Template for offset 0 already exists.');
-      return;
-    }
+    // Find the next available positive offset (after existing ones)
+    const existingOffsets = Object.keys(templates).map(Number);
+    let nextOffset = 1;
+    while (existingOffsets.includes(nextOffset)) nextOffset++;
     const updated = {
       ...templates,
       [String(nextOffset)]: { label: 'New reminder', message: 'Hi {{client_name}}, this is a reminder.', enabled: true },
