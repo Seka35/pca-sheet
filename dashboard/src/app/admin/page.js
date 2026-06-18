@@ -94,39 +94,38 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>
+    <div style={{ paddingBottom: '64px' }}>
+      <div style={{ marginBottom: '32px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.5px' }}>
           Admin <span style={{ color: 'var(--primary-accent)' }}>Panel</span>
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>
           Manage users, permissions, and monitor activity.
         </p>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '0' }}>
+      <div style={{ display: 'flex', backgroundColor: 'rgba(255,255,255,0.02)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '32px', width: 'fit-content', flexWrap: 'wrap' }}>
         {TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{
-              padding: '10px 16px',
-              backgroundColor: 'transparent',
+              padding: '10px 24px',
+              borderRadius: '10px',
               border: 'none',
-              borderBottom: activeTab === tab.id ? '2px solid var(--primary-accent)' : '2px solid transparent',
-              color: activeTab === tab.id ? 'var(--primary-accent)' : 'var(--text-secondary)',
+              fontSize: '13px',
+              fontWeight: '700',
               cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: activeTab === tab.id ? '600' : '400',
+              transition: 'all 0.2s',
+              backgroundColor: activeTab === tab.id ? 'var(--primary-accent)' : 'transparent',
+              color: activeTab === tab.id ? '#000' : 'var(--text-secondary)',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              transition: 'color 0.15s, border-color 0.15s',
-              marginBottom: '-1px',
+              gap: '8px'
             }}
           >
-            <span>{tab.icon}</span>
+            <span style={{ fontSize: '16px' }}>{tab.icon}</span>
             <span>{tab.label}</span>
           </button>
         ))}
@@ -143,37 +142,44 @@ export default function AdminPage() {
 
       {activeTab === 'backup' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{
-            padding: '20px',
+          <div className="card" style={{
+            padding: '32px',
             border: '1px solid var(--border-color)',
-            borderRadius: '8px',
+            borderRadius: '16px',
             backgroundColor: 'rgba(255,255,255,0.02)',
+            maxWidth: '600px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '24px' }}>💾</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+                💾
+              </div>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '4px' }}>Backup Management</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '4px', color: 'var(--text-primary)' }}>Backup Management</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
                   Create manual backups or restore from previous backups.
                 </p>
               </div>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
-              The full backup management interface is available at{' '}
-              <Link href="/backup" style={{ color: 'var(--primary-accent)' }}>/backup</Link>.
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.5' }}>
+              The full backup management interface is available at a dedicated route to ensure security and isolation of backup processes.
             </p>
             <Link href="/backup">
               <button style={{
-                padding: '8px 16px',
+                padding: '12px 24px',
                 backgroundColor: 'var(--primary-accent)',
-                color: '#0B111A',
+                color: '#000',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 fontSize: '14px',
-                fontWeight: '600',
+                fontWeight: '700',
                 cursor: 'pointer',
-              }}>
-                Open Backup Manager
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 14px rgba(52, 211, 153, 0.2)'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 211, 153, 0.3)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(52, 211, 153, 0.2)'; }}
+              >
+                Open Backup Manager →
               </button>
             </Link>
           </div>
@@ -182,37 +188,44 @@ export default function AdminPage() {
 
       {activeTab === 'bot' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{
-            padding: '20px',
+          <div className="card" style={{
+            padding: '32px',
             border: '1px solid var(--border-color)',
-            borderRadius: '8px',
+            borderRadius: '16px',
             backgroundColor: 'rgba(255,255,255,0.02)',
+            maxWidth: '600px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '24px' }}>🤖</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+                🤖
+              </div>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '4px' }}>Bot Telegram</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '4px', color: 'var(--text-primary)' }}>Bot Telegram</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
                   Configure the Telegram bot, reminder templates, and group links.
                 </p>
               </div>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
-              The full bot management interface is available at{' '}
-              <Link href="/bot" style={{ color: 'var(--primary-accent)' }}>/bot</Link>.
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.5' }}>
+              The bot management interface allows you to customize automated messages, check bot health, and manually trigger syncs.
             </p>
             <Link href="/bot">
               <button style={{
-                padding: '8px 16px',
-                backgroundColor: 'var(--primary-accent)',
-                color: '#0B111A',
+                padding: '12px 24px',
+                backgroundColor: '#38BDF8',
+                color: '#000',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 fontSize: '14px',
-                fontWeight: '600',
+                fontWeight: '700',
                 cursor: 'pointer',
-              }}>
-                Open Bot Manager
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 14px rgba(56, 189, 248, 0.2)'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(56, 189, 248, 0.3)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(56, 189, 248, 0.2)'; }}
+              >
+                Open Bot Manager →
               </button>
             </Link>
           </div>

@@ -169,7 +169,7 @@ export default function AddClientModal({ open, onClose, onCreated }) {
     <div
       style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+        backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 2000, padding: '16px',
       }}
@@ -180,16 +180,18 @@ export default function AddClientModal({ open, onClose, onCreated }) {
         onSubmit={onSubmit}
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: '900px', maxHeight: '90vh',
+          width: '100%', maxWidth: '850px', maxHeight: '90vh',
           overflowY: 'auto', position: 'relative',
-          display: 'flex', flexDirection: 'column', gap: '20px',
+          display: 'flex', flexDirection: 'column', gap: '24px',
+          padding: '32px', border: '1px solid var(--border-color)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
         }}
       >
         <button
           type="button"
           onClick={() => { if (!submitting) onClose(); }}
           style={{
-            position: 'absolute', top: '16px', right: '16px',
+            position: 'absolute', top: '24px', right: '24px',
             color: 'var(--text-secondary)', fontSize: '20px',
             cursor: submitting ? 'not-allowed' : 'pointer',
             background: 'transparent', border: 'none', zIndex: 10,
@@ -199,34 +201,37 @@ export default function AddClientModal({ open, onClose, onCreated }) {
         </button>
 
         <div style={{ paddingRight: '40px' }}>
-          <h2 style={{ fontSize: '20px', marginBottom: '4px' }}>Add Client</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            The client will be added to the dashboard AND to the Google Sheet (1 blue header + green product rows).
+          <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)' }}>New Client</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.5' }}>
+            Adding a client will automatically create a new entry in both the dashboard and the Google Sheet master record.
           </p>
         </div>
 
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+          <h3 style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-secondary)', marginBottom: '16px' }}>Identity & Communication</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
               <label style={labelStyle}>
-                Client name <span style={{ color: 'var(--status-cut)' }}>*</span>
+                Client / Group Name <span style={{ color: 'var(--status-cut)' }}>*</span>
               </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. 🟢John Doe X Prime circle: Tele 305"
+                placeholder="e.g. 🟢John Doe X Prime circle"
                 required
-                style={inputStyle}
+                style={{ ...inputStyle, backgroundColor: 'var(--bg-main)' }}
               />
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>Must match the Telegram group name for auto-sync.</span>
             </div>
             <div>
-              <label style={labelStyle}>Telegram group ID (optional)</label>
+              <label style={labelStyle}>Telegram Group ID</label>
               <input
                 value={telegramGroupId}
                 onChange={(e) => setTelegramGroupId(e.target.value)}
-                placeholder="-1001234567890"
-                style={inputStyle}
+                placeholder="-100..."
+                style={{ ...inputStyle, backgroundColor: 'var(--bg-main)' }}
               />
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>Starts with -100 for groups/channels.</span>
             </div>
           </div>
         </div>
@@ -234,32 +239,31 @@ export default function AddClientModal({ open, onClose, onCreated }) {
         <div>
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginBottom: '12px', borderBottom: '1px solid var(--border-color)',
-            paddingBottom: '8px', flexWrap: 'wrap', gap: '8px',
+            marginBottom: '16px', flexWrap: 'wrap', gap: '8px',
           }}>
-            <h3 style={{ fontSize: '15px', margin: 0 }}>
-              Products ({products.length})
+            <h3 style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-secondary)' }}>
+              Subscription & Product Details ({products.length})
             </h3>
             <button
               type="button"
               onClick={addProduct}
               disabled={submitting}
               style={{
-                backgroundColor: 'transparent',
+                backgroundColor: 'rgba(20, 184, 166, 0.1)',
                 color: '#14b8a6',
-                border: '1px solid #14b8a6',
-                borderRadius: '6px',
-                padding: '6px 12px',
+                border: '1px solid rgba(20, 184, 166, 0.2)',
+                borderRadius: '8px',
+                padding: '6px 14px',
                 fontSize: '12px',
-                fontWeight: '600',
+                fontWeight: '700',
                 cursor: submitting ? 'not-allowed' : 'pointer',
               }}
             >
-              + Add product
+              + ADD ANOTHER PRODUCT
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {products.map((p, idx) => (
               <ClientFormFields
                 key={idx}
@@ -270,7 +274,7 @@ export default function AddClientModal({ open, onClose, onCreated }) {
                 isFirst={idx === 0}
                 disabled={submitting}
                 isNew={true}
-                headerLabel={`Product #${idx + 1}`}
+                headerLabel={`Product Bundle #${idx + 1}`}
               />
             ))}
           </div>
@@ -278,42 +282,53 @@ export default function AddClientModal({ open, onClose, onCreated }) {
 
         {error && (
           <div style={{
-            backgroundColor: 'var(--status-cut-bg)',
-            color: 'var(--status-cut)',
-            padding: '10px 14px',
-            borderRadius: '8px',
+            backgroundColor: 'rgba(255, 77, 77, 0.1)',
+            color: '#FF4D4D',
+            padding: '12px 16px',
+            borderRadius: '10px',
             fontSize: '13px',
-            fontWeight: '500',
+            fontWeight: '600',
+            border: '1px solid rgba(255, 77, 77, 0.2)'
           }}>
-            {error}
+            Error: {error}
           </div>
         )}
         {warning && (
           <div style={{
-            backgroundColor: 'var(--status-pause-bg)',
-            color: 'var(--status-pause)',
-            padding: '10px 14px',
-            borderRadius: '8px',
+            backgroundColor: 'rgba(255, 176, 32, 0.1)',
+            color: '#FFB020',
+            padding: '12px 16px',
+            borderRadius: '10px',
             fontSize: '13px',
-            fontWeight: '500',
+            fontWeight: '600',
+            border: '1px solid rgba(255, 176, 32, 0.2)'
           }}>
             {warning}
           </div>
         )}
 
         <div style={{
-          display: 'flex', justifyContent: 'flex-end', gap: '12px',
-          borderTop: '1px solid var(--border-color)', paddingTop: '16px',
+          display: 'flex', justifyContent: 'flex-end', gap: '16px',
+          borderTop: '1px solid var(--border-color)', paddingTop: '24px', marginTop: '8px'
         }}>
-          <button type="button" onClick={onClose} disabled={submitting} style={secondaryBtn}>
-            Cancel
+          <button type="button" onClick={onClose} disabled={submitting} style={{
+            ...secondaryBtn,
+            padding: '12px 24px',
+            borderRadius: '10px',
+            fontWeight: '700'
+          }}>
+            Discard
           </button>
           <button type="submit" disabled={submitting || !name.trim()} style={{
             ...primaryBtn,
+            padding: '12px 32px',
+            borderRadius: '10px',
+            fontWeight: '700',
             opacity: (submitting || !name.trim()) ? 0.5 : 1,
             cursor: (submitting || !name.trim()) ? 'not-allowed' : 'pointer',
+            boxShadow: '0 4px 14px rgba(20, 184, 166, 0.3)'
           }}>
-            {submitting ? 'Saving…' : 'Save'}
+            {submitting ? 'Creating Client...' : 'Create Client'}
           </button>
         </div>
       </form>

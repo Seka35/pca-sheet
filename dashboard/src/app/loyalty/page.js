@@ -67,19 +67,19 @@ export default function LoyaltyPage() {
   return (
     <div style={{ paddingBottom: '64px' }}>
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Client Loyalty</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Rankings and tier distribution of your client base</p>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.5px' }}>Client Loyalty</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>Rankings and tier distribution of your client base</p>
       </div>
 
       {/* Summary cards */}
       <div className="grid-metrics" style={{ marginBottom: '32px' }}>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 16px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '24px', backgroundColor: 'rgba(52, 211, 153, 0.02)', border: '1px solid rgba(52, 211, 153, 0.3)' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           </div>
           <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Invincible Setups</div>
-            <div style={{ fontSize: '24px', fontWeight: '600' }}>{invincibleCount}</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Invincible Setups</div>
+            <div style={{ fontSize: '28px', fontWeight: '800', color: '#34D399' }}>{invincibleCount}</div>
           </div>
         </div>
         {Object.entries(byTier).sort(([a], [b]) => {
@@ -88,13 +88,13 @@ export default function LoyaltyPage() {
           const ib = order.indexOf(b);
           return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
         }).map(([tier, count]) => (
-          <div key={tier} className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px 16px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: `${tierColors[tier]}15`, color: tierColors[tier], display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+          <div key={tier} className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '24px', border: `1px solid ${tierColors[tier]}30`, backgroundColor: `${tierColors[tier]}05` }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: `${tierColors[tier]}15`, color: tierColors[tier], display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tier}</div>
-              <div style={{ fontSize: '24px', fontWeight: '600', color: tierColors[tier] }}>{count}</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tier}</div>
+              <div style={{ fontSize: '28px', fontWeight: '800', color: tierColors[tier] }}>{count}</div>
             </div>
           </div>
         ))}
@@ -108,31 +108,36 @@ export default function LoyaltyPage() {
 
       {/* Tier breakdown */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Tier Breakdown</h2>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-secondary)' }}>Tier Breakdown</h2>
         </div>
-        <div style={{ padding: '20px 24px' }}>
+        <div style={{ padding: '24px' }}>
           {tierSelfRanking.map(t => {
             const maxCount = Math.max(...tierSelfRanking.map(x => x.count), 1);
             return (
-              <div key={t.tier} style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <span style={{ color: tierColors[t.tier], fontSize: '11px', fontWeight: '600', border: `1px solid ${tierColors[t.tier]}50`, padding: '2px 8px', borderRadius: '4px' }}>{t.tier}</span>
-                  <span style={{ fontSize: '13px', fontWeight: '600' }}>{t.count} client{t.count !== 1 ? 's' : ''}</span>
+              <div key={t.tier} style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ 
+                    color: tierColors[t.tier] || '#8B9AB0', fontSize: '11px', fontWeight: '700', 
+                    border: `1px solid ${tierColors[t.tier]}50`, backgroundColor: `${tierColors[t.tier]}10`,
+                    padding: '4px 8px', borderRadius: '6px', textTransform: 'uppercase' 
+                  }}>{t.tier}</span>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>{t.count} client{t.count !== 1 ? 's' : ''}</span>
                 </div>
-                <div style={{ height: '10px', borderRadius: '5px', backgroundColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                <div style={{ height: '8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                   <div style={{
                     width: `${(t.count / maxCount) * 100}%`,
                     height: '100%',
                     backgroundColor: tierColors[t.tier] || '#8B9AB0',
-                    borderRadius: '5px'
+                    borderRadius: '4px',
+                    transition: 'width 0.5s ease-in-out'
                   }} />
                 </div>
               </div>
             );
           })}
           {tierSelfRanking.length === 0 && (
-            <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No tier data yet</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>No tier data yet</div>
           )}
         </div>
       </div>

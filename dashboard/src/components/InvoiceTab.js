@@ -261,18 +261,20 @@ export default function InvoiceTab() {
   const previewSrc = '/api/invoice/preview?t=' + previewKey;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '32px', alignItems: 'start' }}>
       {/* Left: Form */}
-      <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Invoice Settings</h3>
-          <div style={{ display: 'flex', gap: '8px' }}>
+      <div style={{ backgroundColor: 'transparent', borderRadius: '16px', overflow: 'hidden' }}>
+        <div style={{ paddingBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--text-primary)' }}>Invoice Settings</h3>
+          <div style={{ display: 'flex', gap: '12px' }}>
             <button
               onClick={downloadPdf}
               style={{
-                padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--primary-accent)',
-                backgroundColor: 'transparent', color: 'var(--primary-accent)', fontSize: '13px', fontWeight: '500', cursor: 'pointer'
+                padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--primary-accent)',
+                backgroundColor: 'rgba(0, 242, 181, 0.05)', color: 'var(--primary-accent)', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s'
               }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary-accent)'; e.currentTarget.style.color = '#000'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(0, 242, 181, 0.05)'; e.currentTarget.style.color = 'var(--primary-accent)'; }}
             >
               📥 PDF
             </button>
@@ -280,164 +282,160 @@ export default function InvoiceTab() {
               onClick={save}
               disabled={saving}
               style={{
-                padding: '8px 20px', borderRadius: '8px', border: 'none',
-                backgroundColor: saving ? '#666' : 'var(--primary-accent)',
-                color: '#fff', fontSize: '13px', fontWeight: '500', cursor: saving ? 'not-allowed' : 'pointer'
+                padding: '10px 24px', borderRadius: '8px', border: 'none',
+                backgroundColor: saving ? 'var(--border-color)' : 'var(--primary-accent)',
+                color: saving ? 'var(--text-secondary)' : '#000', fontSize: '13px', fontWeight: '700', cursor: saving ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s', boxShadow: saving ? 'none' : '0 4px 14px rgba(52, 211, 153, 0.2)'
               }}
+              onMouseOver={(e) => { if (!saving) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 211, 153, 0.3)'; } }}
+              onMouseOut={(e) => { if (!saving) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(52, 211, 153, 0.2)'; } }}
             >
               {saving ? 'Saving...' : 'Save & Preview'}
             </button>
           </div>
         </div>
 
-        <div style={{ padding: '24px', maxHeight: '70vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Company Info */}
-          <div style={{ marginBottom: '28px' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Company Header</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="card" style={{ padding: '24px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Company Header</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Company Name</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Company Name</label>
                 <input type="text" value={invoiceData.company?.name || ''} onChange={(e) => handleChange('company.name', e.target.value)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Address Line 1</label>
+                  <input type="text" value={invoiceData.company?.addressLines?.[0] || ''} onChange={(e) => handleArrayChange('company.addressLines', 0, e.target.value)}
+                    style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Address Line 2</label>
+                  <input type="text" value={invoiceData.company?.addressLines?.[1] || ''} onChange={(e) => handleArrayChange('company.addressLines', 1, e.target.value)}
+                    style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
+                </div>
               </div>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Address Line 1</label>
-                <input type="text" value={invoiceData.company?.addressLines?.[0] || ''} onChange={(e) => handleArrayChange('company.addressLines', 0, e.target.value)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Address Line 2</label>
-                <input type="text" value={invoiceData.company?.addressLines?.[1] || ''} onChange={(e) => handleArrayChange('company.addressLines', 1, e.target.value)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Logo URL (use absolute URL like https://...)</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Logo URL</label>
                 <input type="text" value={invoiceData.logo?.src || ''} onChange={(e) => handleChange('logo.src', e.target.value)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
             </div>
           </div>
 
           {/* Meta Rows */}
-          <div style={{ marginBottom: '28px' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Invoice Meta</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="card" style={{ padding: '24px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Invoice Meta Data</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {invoiceData.meta?.map((row, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <input type="text" placeholder="Label" value={row.label || ''} onChange={(e) => handleMetaChange(i, 'label', e.target.value)}
-                    style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px', color: 'var(--text-primary)', fontSize: '12px' }} />
+                    style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
                   <input type="text" placeholder="Value" value={row.value || ''} onChange={(e) => handleMetaChange(i, 'value', e.target.value)}
-                    style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px', color: 'var(--text-primary)', fontSize: '12px' }} />
+                    style={{ backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
                 </div>
               ))}
             </div>
           </div>
 
           {/* Bill To */}
-          <div style={{ marginBottom: '28px' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Bill To (Default Template)</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="card" style={{ padding: '24px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Bill To (Default Template)</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Client Name</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Client Name</label>
                 <input type="text" value={invoiceData.billTo?.name || ''} onChange={(e) => handleChange('billTo.name', e.target.value)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Address / Reference</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Address / Reference</label>
                 <textarea value={(invoiceData.billTo?.lines || []).join('\n')} onChange={(e) => handleChange('billTo.lines', e.target.value.split('\n'))}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', minHeight: '80px', resize: 'vertical' }} />
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '10px', borderRadius: '8px' }}>
-                💡 When generating an invoice for a client, the Bill To is auto-filled with the client's name. The payment instructions are auto-filled based on the client's "Bank Name" selection.
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', minHeight: '100px', resize: 'vertical', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
             </div>
           </div>
 
           {/* Items */}
-          <div style={{ marginBottom: '28px' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Line Items</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="card" style={{ padding: '24px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Line Items</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {invoiceData.items?.map((item, i) => (
-                <div key={i} style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '14px', display: 'grid', gridTemplateColumns: '1fr 60px 80px 80px 32px', gap: '8px', alignItems: 'center' }}>
+                <div key={i} style={{ backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '16px', display: 'grid', gridTemplateColumns: '1fr 80px 100px 80px 32px', gap: '12px', alignItems: 'center', border: '1px solid var(--border-color)' }}>
                   <input type="text" placeholder="Description" value={item.description || ''} onChange={(e) => handleItemChange(i, 'description', e.target.value)}
-                    style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', color: 'var(--text-primary)', fontSize: '12px' }} />
+                    style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
                   <input type="number" placeholder="Qty" value={item.qty || ''} onChange={(e) => handleItemChange(i, 'qty', e.target.value)}
-                    style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', color: 'var(--text-primary)', fontSize: '12px', textAlign: 'center' }} />
+                    style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', textAlign: 'center', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
                   <input type="number" placeholder="Price" value={item.unitPrice || ''} onChange={(e) => handleItemChange(i, 'unitPrice', e.target.value)}
-                    style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', color: 'var(--text-primary)', fontSize: '12px', textAlign: 'right' }} />
-                  <div style={{ fontSize: '12px', fontWeight: '600', textAlign: 'right', padding: '8px', color: 'var(--text-primary)' }}>
+                    style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', textAlign: 'right', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
+                  <div style={{ fontSize: '14px', fontWeight: '700', textAlign: 'right', padding: '8px', color: 'var(--primary-accent)' }}>
                     ${((item.qty || 0) * (item.unitPrice || 0)).toFixed(2)}
                   </div>
-                  <button onClick={() => removeItem(i)} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#F87171', fontSize: '14px' }}>×</button>
+                  <button onClick={() => removeItem(i)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '8px', padding: '10px', cursor: 'pointer', color: '#F87171', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}>
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
                 </div>
               ))}
-              <button onClick={addItem} style={{ padding: '10px', borderRadius: '8px', border: '1px dashed var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>
+              <button onClick={addItem} style={{ padding: '12px', borderRadius: '10px', border: '1px dashed var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'border-color 0.2s, color 0.2s' }} onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--primary-accent)'; e.currentTarget.style.color = 'var(--primary-accent)'; }} onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
                 + Add Line Item
               </button>
             </div>
           </div>
 
           {/* Adjustments */}
-          <div style={{ marginBottom: '28px' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Adjustments</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div className="card" style={{ padding: '24px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Adjustments</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Discount ($)</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Discount ($)</label>
                 <input type="number" value={invoiceData.adjustments?.discount || 0} onChange={(e) => handleChange('adjustments.discount', parseFloat(e.target.value) || 0)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Tax Rate (%)</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Tax Rate (%)</label>
                 <input type="number" value={invoiceData.adjustments?.taxRate || 0} onChange={(e) => handleChange('adjustments.taxRate', parseFloat(e.target.value) || 0)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Shipping ($)</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Shipping ($)</label>
                 <input type="number" value={invoiceData.adjustments?.shipping || 0} onChange={(e) => handleChange('adjustments.shipping', parseFloat(e.target.value) || 0)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
             </div>
           </div>
 
           {/* Payment Instructions */}
-          <div style={{ marginBottom: '28px' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Payment Instructions (Default Template)</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="card" style={{ padding: '24px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Payment Instructions (Default Template)</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Title</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Title</label>
                 <input type="text" value={invoiceData.paymentInstructions?.title || ''} onChange={(e) => handleChange('paymentInstructions.title', e.target.value)}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
               <div>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Paragraphs (one per line)</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Paragraphs (one per line)</label>
                 <textarea value={(invoiceData.paymentInstructions?.paragraphs || []).join('\n')} onChange={(e) => handleChange('paymentInstructions.paragraphs', e.target.value.split('\n'))}
-                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', minHeight: '120px', resize: 'vertical' }} />
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '10px', borderRadius: '8px' }}>
-                💡 When generating an invoice for a client, the payment instructions will be auto-filled based on the client's "Bank Name" selection (Crypto, LHV, Slash, or WHOP).
+                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', minHeight: '140px', resize: 'vertical', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
             </div>
           </div>
 
           {/* Generate Personalized Invoice */}
-          <div style={{ marginBottom: '28px' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Generate Personalized Invoice</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '10px', padding: '12px 16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
- 💡 Generate a personalized invoice with specific payment link. Select a payment method below and click "Generate PDF" to open a new invoice.
-                </div>
-              </div>
+          <div className="card" style={{ padding: '24px', border: '1px solid rgba(16, 185, 129, 0.3)', backgroundColor: 'rgba(16, 185, 129, 0.02)' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Generate Personalized Invoice</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
               {/* Payment Method Selection */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Payment Method</label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Payment Method</label>
                   <select
                     id="paymentMethodSelect"
                     value={invoiceData.genPaymentMethod || 'crypto'}
                     onChange={(e) => handleChange('genPaymentMethod', e.target.value)}
-                    style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer' }}
+                    style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                   >
                     <option value="crypto">Crypto (USDT/TRC20)</option>
                     <option value="lhv">LHV Bank (SEPA/IBAN)</option>
@@ -450,11 +448,11 @@ export default function InvoiceTab() {
                 {invoiceData.genPaymentMethod === 'whop' && (
                   <>
                     <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Referral Partner</label>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Referral Partner</label>
                       <select
                         value={invoiceData.genReferralPartner || 'N.A.'}
                         onChange={(e) => handleChange('genReferralPartner', e.target.value)}
-                        style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer' }}
+                        style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                       >
                         <option value="N.A.">N.A. (0% discount)</option>
                         <option value="Chris">Chris (0% discount)</option>
@@ -464,11 +462,11 @@ export default function InvoiceTab() {
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Product / Tier</label>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Product / Tier</label>
                       <select
                         value={invoiceData.genProduct || 'tier1'}
                         onChange={(e) => handleChange('genProduct', e.target.value)}
-                        style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer' }}
+                        style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                       >
                         <option value="tier1">Tier 1</option>
                         <option value="tier2">Tier 2</option>
@@ -516,9 +514,12 @@ export default function InvoiceTab() {
                   window.open('/api/invoice/generate?' + params.toString(), '_blank');
                 }}
                 style={{
-                  padding: '12px 20px', borderRadius: '8px', border: 'none',
-                  backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: 'pointer'
+                  padding: '14px 24px', borderRadius: '10px', border: 'none',
+                  backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '14px', fontWeight: '700', cursor: 'pointer',
+                  transition: 'all 0.2s', boxShadow: '0 4px 14px rgba(52, 211, 153, 0.2)'
                 }}
+                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 211, 153, 0.3)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(52, 211, 153, 0.2)'; }}
               >
  📥 Generate Personalized PDF
               </button>
@@ -527,10 +528,10 @@ export default function InvoiceTab() {
 
           {/* Currency */}
           <div>
-            <h4 style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Currency</h4>
+            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>Currency</h4>
             <div style={{ display: 'flex', gap: '12px' }}>
               <input type="text" value={invoiceData.currency || '$'} onChange={(e) => handleChange('currency', e.target.value)}
-                style={{ width: '80px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px' }} />
+                style={{ width: '80px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '12px 16px', color: 'var(--text-primary)', fontSize: '14px', textAlign: 'center', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
             </div>
           </div>
         </div>
@@ -538,37 +539,36 @@ export default function InvoiceTab() {
 
       {/* Right: Preview - fits entire A4 without scrolling */}
       <div style={{ backgroundColor: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden', position: 'sticky', top: '24px' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', margin: 0 }}>Invoice Preview</h3>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>Invoice Preview</h3>
         </div>
         <div style={{
           width: '100%',
-          height: 'calc(100vh - 180px)',
-          backgroundColor: '#d9d9d9',
-          padding: '8px',
+          height: 'calc(100vh - 120px)',
+          backgroundColor: '#E5E7EB',
+          padding: '16px',
           boxSizing: 'border-box',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           overflow: 'hidden'
         }}>
-          <iframe
-            key={previewKey}
-            ref={iframeRef}
-            src={previewSrc}
-            style={{
-              width: '100%',
-              maxWidth: '985px',
-              height: '100%',
-              maxHeight: '1271px',
-              border: 'none',
-              borderRadius: '4px',
-              zoom: '0.65',
-              transformOrigin: 'center center'
-            }}
-            title="Invoice Preview"
-            scrolling="no"
-          />
+          <div style={{ boxShadow: '0 10px 40px rgba(0,0,0,0.2)', width: '100%', height: '100%', maxWidth: '985px', maxHeight: '1271px', overflow: 'hidden', borderRadius: '4px', backgroundColor: '#fff' }}>
+            <iframe
+              key={previewKey}
+              ref={iframeRef}
+              src={previewSrc}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                zoom: '0.65',
+                transformOrigin: 'top center'
+              }}
+              title="Invoice Preview"
+              scrolling="no"
+            />
+          </div>
         </div>
       </div>
     </div>

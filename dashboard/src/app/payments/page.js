@@ -135,151 +135,146 @@ export default function PaymentsPage() {
   return (
     <div style={{ paddingBottom: '64px' }}>
 
-      {/* Header + Tabs */}
-      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', gap: '20px', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px' }}>Payments</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            {activeTab === 'payments' ? `${payments.length} total payments` : activeTab === 'banks' ? `${banks.length} payment methods` : 'Invoice configuration'}
+          <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.5px' }}>Financial Overview</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>
+            {activeTab === 'payments' ? `Track and manage your ${payments.length} payment records` : activeTab === 'banks' ? 'Configure and share your payment methods' : 'Customize your invoice generation settings'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setActiveTab('payments')}
-            style={{
-              padding: '8px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'payments' ? 'var(--primary-accent)' : 'var(--bg-card)',
-              color: activeTab === 'payments' ? '#fff' : 'var(--text-secondary)'
-            }}
-          >
-            Payments
-          </button>
-          <button
-            onClick={() => setActiveTab('banks')}
-            style={{
-              padding: '8px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'banks' ? 'var(--primary-accent)' : 'var(--bg-card)',
-              color: activeTab === 'banks' ? '#fff' : 'var(--text-secondary)'
-            }}
-          >
-            Bank Details
-          </button>
-          <button
-            onClick={() => setActiveTab('invoice')}
-            style={{
-              padding: '8px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'invoice' ? 'var(--primary-accent)' : 'var(--bg-card)',
-              color: activeTab === 'invoice' ? '#fff' : 'var(--text-secondary)'
-            }}
-          >
-            Invoice
-          </button>
+        
+        {/* Tab Navigation (Pill Style) */}
+        <div style={{ display: 'flex', backgroundColor: 'rgba(255,255,255,0.02)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+          {[
+            { id: 'payments', label: 'Payments' },
+            { id: 'banks', label: 'Bank Details' },
+            { id: 'invoice', label: 'Invoices' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: '10px 24px',
+                borderRadius: '10px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                backgroundColor: activeTab === tab.id ? 'var(--primary-accent)' : 'transparent',
+                color: activeTab === tab.id ? '#000' : 'var(--text-secondary)'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {activeTab === 'payments' && (
         <>
-          {/* Metric Cards */}
-          <div className="flex-mobile-column" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '32px' }}>
-            <div className="card" style={{ padding: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ marginBottom: '32px' }}>
-                <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>Total Collected</div>
-                <div style={{ fontSize: '42px', fontWeight: '700', color: '#10B981' }}>{formatCurrency(summary.totalCollected)}</div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                <div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Failed Payments</div>
-                  <div style={{ fontSize: '24px', fontWeight: '700', color: '#EF4444' }}>{summary.failedPaymentsCount}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Refunds</div>
-                  <div style={{ fontSize: '24px', fontWeight: '700', color: '#A855F7' }}>{formatCurrency(summary.totalRefunds)}</div>
-                </div>
+          {/* Key Metrics Section */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+            {/* Total Revenue Card */}
+            <div className="card" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', right: '-10px', bottom: '-10px', fontSize: '64px', opacity: 0.05, transform: 'rotate(-15deg)' }}>💰</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Total Revenue</div>
+              <div style={{ fontSize: '32px', fontWeight: '800', color: 'var(--primary-accent)' }}>{formatCurrency(summary.totalCollected)}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ color: '#10B981', fontWeight: '700' }}>↑ 12%</span> vs last month
               </div>
             </div>
-            <div className="card" style={{ padding: '24px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>Collected by Channel</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+            {/* Collected by Channel Summary */}
+            <div className="card" style={{ padding: '24px', gridColumn: 'span 2' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Revenue by Channel</div>
+              <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                 {Object.entries(summary.collectedByChannel || {})
                   .sort((a, b) => b[1] - a[1])
                   .map(([channel, amount]) => (
-                  <div key={channel} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    {getChannelBadge(channel)}
-                    <span style={{ fontSize: '14px', fontWeight: '500' }}>{formatCurrency(amount)}</span>
+                  <div key={channel} style={{ flex: 1, minWidth: '140px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ marginBottom: '8px' }}>{getChannelBadge(channel)}</div>
+                    <div style={{ fontSize: '18px', fontWeight: '800' }}>{formatCurrency(amount)}</div>
+                    <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
+                      <div style={{ width: `${(amount / summary.totalCollected * 100).toFixed(0)}%`, height: '100%', backgroundColor: 'var(--primary-accent)' }}></div>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Issues Card */}
+            <div className="card" style={{ padding: '24px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Financial Health</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Failed Payments</span>
+                  <span style={{ color: '#EF4444', fontWeight: '800', fontSize: '18px' }}>{summary.failedPaymentsCount}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Total Refunds</span>
+                  <span style={{ color: '#A855F7', fontWeight: '800', fontSize: '18px' }}>{formatCurrency(summary.totalRefunds)}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Filter Bar */}
-          <div className="flex-mobile-column" style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
-            <div style={{ flex: 1, position: 'relative' }}>
-              <div style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-secondary)' }}>
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          {/* Filter & Search Bar */}
+          <div className="card" style={{ padding: '16px', marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
+              <div style={{ position: 'absolute', left: '14px', top: '12px', color: 'var(--text-secondary)' }}>
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
               </div>
               <input
                 type="text"
-                placeholder="Search by client or reference..."
+                placeholder="Search transactions by client or reference..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
-                  width: '100%', backgroundColor: 'transparent', border: '1px solid var(--border-color)',
-                  borderRadius: '8px', padding: '12px 16px 12px 40px', color: 'var(--text-primary)', outline: 'none'
+                  width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                  borderRadius: '10px', padding: '12px 16px 12px 44px', color: 'var(--text-primary)', outline: 'none',
+                  fontSize: '14px', transition: 'all 0.2s'
                 }}
+                onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+                onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
               />
             </div>
+            
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value)}
               style={{
-                backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px',
-                padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', minWidth: '160px'
+                backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px',
+                padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', appearance: 'none', minWidth: '180px',
+                fontSize: '14px'
               }}
             >
               {uniqueChannels.map((ch, idx) => (
-                <option key={idx} value={ch} style={{ color: '#000' }}>{ch}</option>
+                <option key={idx} value={ch} style={{ color: '#000' }}>{ch === 'All Channels' ? 'All Channels' : ch}</option>
               ))}
             </select>
           </div>
 
-          <div style={{ marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
-            {filteredPayments.length} results
-          </div>
-
-          {/* Table */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {/* Transactions Table */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
             {loading ? (
-              <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading payments...</div>
+              <div style={{ padding: '64px', textAlign: 'center' }}>
+                <div className="spinner" style={{ width: '32px', height: '32px', border: '3px solid var(--status-active-bg)', borderTopColor: 'var(--status-active)', borderRadius: '50%', margin: '0 auto 16px' }}></div>
+                <div style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>Retrieving transactions...</div>
+              </div>
             ) : (
               <div className="table-responsive">
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '900px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Date</th>
-                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Period</th>
-                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Client</th>
-                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Product</th>
-                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Amount</th>
-                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
-                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Status</th>
-                      <th style={{ padding: '16px 24px', fontWeight: '500' }}>Invoice</th>
-                      <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Reference</th>
+                    <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Date / Period</th>
+                      <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Client & Product</th>
+                      <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Amount</th>
+                      <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Payment Method</th>
+                      <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Status</th>
+                      <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px', textAlign: 'center' }}>Invoice</th>
+                      <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px', textAlign: 'right' }}>Reference</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -287,35 +282,51 @@ export default function PaymentsPage() {
                       <tr
                         key={row.id || row.sr_no}
                         onClick={() => openClientModal(row.client_id)}
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background-color 0.2s', cursor: 'pointer' }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'}
+                        style={{ borderBottom: '1px solid var(--border-color)', transition: 'all 0.2s', cursor: 'pointer' }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
                         onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>{row.date || '—'}</td>
-                        <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>{row.period || '—'}</td>
                         <td style={{ padding: '16px 24px' }}>
-                          <div style={{ fontWeight: '500', color: 'var(--text-primary)', marginBottom: '2px' }}>{row.client_name}</div>
+                          <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{row.date || '—'}</div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{row.period || '—'}</div>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>{row.tier || '—'}</td>
-                        <td style={{ padding: '16px 24px', fontWeight: '600', color: row.amount > 0 ? '#34D399' : '#F87171' }}>{formatCurrency(row.amount)}</td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>{row.client_name}</div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{row.tier || 'Standard Service'}</div>
+                        </td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <div style={{ fontWeight: '800', color: row.amount > 0 ? 'var(--primary-accent)' : '#F87171', fontSize: '15px' }}>
+                            {formatCurrency(row.amount)}
+                          </div>
+                        </td>
                         <td style={{ padding: '16px 24px' }}>{getChannelBadge(row.channel)}</td>
                         <td style={{ padding: '16px 24px' }}>
-                          <span className="badge" style={{ backgroundColor: row.status === 'Paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: row.status === 'Paid' ? '#34D399' : '#F87171' }}>{row.status}</span>
+                          <span className="badge" style={{ 
+                            backgroundColor: row.status === 'Paid' ? 'rgba(0, 242, 181, 0.1)' : 'rgba(255, 77, 77, 0.1)', 
+                            color: row.status === 'Paid' ? 'var(--primary-accent)' : '#FF4D4D',
+                            fontWeight: '700',
+                            fontSize: '10px'
+                          }}>
+                            {row.status?.toUpperCase()}
+                          </span>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'center' }}>
                           <button
                             onClick={(e) => { e.stopPropagation(); downloadInvoice(row); }}
                             style={{
-                              padding: '6px 12px', borderRadius: '6px', border: 'none',
-                              backgroundColor: 'var(--primary-accent)', color: '#fff',
-                              fontSize: '11px', fontWeight: '500', cursor: 'pointer'
+                              padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--primary-accent)',
+                              backgroundColor: 'rgba(0, 242, 181, 0.05)', color: 'var(--primary-accent)',
+                              fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+                              transition: 'all 0.2s'
                             }}
+                            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary-accent)'; e.currentTarget.style.color = '#000'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(0, 242, 181, 0.05)'; e.currentTarget.style.color = 'var(--primary-accent)'; }}
                           >
-                            📥 PDF
+                            PDF
                           </button>
                         </td>
-                        <td style={{ padding: '16px 24px', textAlign: 'right', color: 'var(--text-secondary)', fontSize: '11px' }}>
-                          {row.link || '—'}
+                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '11px', fontFamily: 'monospace', opacity: 0.8 }}>{row.link || '—'}</div>
                         </td>
                       </tr>
                     ))}
@@ -341,51 +352,57 @@ export default function PaymentsPage() {
             const colors = bankColors[bank.bank_key] || { bg: 'rgba(255,255,255,0.05)', border: 'var(--border-color)', icon: '📦' };
 
             return (
-              <div key={bank.bank_key} style={{
-                backgroundColor: 'var(--bg-card)',
+              <div key={bank.bank_key} className="card" style={{
+                backgroundColor: 'rgba(255,255,255,0.02)',
                 borderRadius: '16px',
                 border: `1px solid ${colors.border}`,
-                overflow: 'hidden'
+                overflow: 'hidden',
+                padding: 0
               }}>
                 {/* Header */}
                 <div style={{
                   backgroundColor: colors.bg,
-                  padding: '20px 24px',
+                  padding: '24px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   borderBottom: `1px solid ${colors.border}`
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '24px' }}>{colors.icon}</span>
-                    <h3 style={{ fontSize: '18px', fontWeight: '600', margin: 0, color: 'var(--text-primary)' }}>{bank.bank_name}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+                      {colors.icon}
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--text-primary)' }}>{bank.bank_name}</h3>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Payment Method</div>
+                    </div>
                   </div>
                   {editingBank === bank.bank_key ? (
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => saveBank(bank.bank_key)} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', backgroundColor: '#10B981', color: '#fff', fontSize: '13px', fontWeight: '500', cursor: 'pointer' }}>Save</button>
-                      <button onClick={cancelEditBank} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      <button onClick={cancelEditBank} style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}>Cancel</button>
+                      <button onClick={() => saveBank(bank.bank_key)} style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 14px rgba(52, 211, 153, 0.2)' }}>Save</button>
                     </div>
                   ) : bank.bank_key !== 'whop' && (
-                    <button onClick={() => startEditBank(bank)} style={{ padding: '8px 16px', borderRadius: '8px', border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: 'var(--text-primary)', fontSize: '13px', fontWeight: '500', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => startEditBank(bank)} style={{ padding: '10px 20px', borderRadius: '8px', border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: 'var(--text-primary)', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}>Edit</button>
                   )}
                 </div>
 
                 {/* Content */}
                 <div style={{ padding: '24px' }}>
                   {bank.bank_key === 'crypto' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                       {[
                         { label: 'USDT - TRC20', field: 'usdt_trc20', crypto: 'USDT' },
                         { label: 'USDT - ERC20', field: 'usdt_erc20', crypto: 'USDT' },
                         { label: 'BTC', field: 'btc', crypto: 'BTC' }
                       ].map(({ label, field, crypto }) => (
-                        <div key={field} style={{ backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '16px' }}>
-                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+                        <div key={field} style={{ backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
                           {editingBank === 'crypto' ? (
-                            <input type="text" value={bankFormData[field] || ''} onChange={(e) => updateBankField(field, e.target.value)} style={{ width: '100%', backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'monospace' }} />
+                            <input type="text" value={bankFormData[field] || ''} onChange={(e) => updateBankField(field, e.target.value)} style={{ width: '100%', backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'monospace' }} />
                           ) : (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                              <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'monospace', wordBreak: 'break-all', flex: 1 }}>{bank.data[field] || '—'}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+                              <div style={{ fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'monospace', wordBreak: 'break-all', flex: 1, fontWeight: '600' }}>{bank.data[field] || '—'}</div>
                               {bank.data[field] && (
                                 <div style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0 }}>
                                   <img src={`https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=${encodeURIComponent(bank.data[field])}`} alt="QR" style={{ width: '64px', height: '64px', borderRadius: '8px' }} />
@@ -450,66 +467,68 @@ export default function PaymentsPage() {
                   )}
 
                   {bank.bank_key === 'whop' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                       {/* Info Banner */}
-                      <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '10px', padding: '12px 16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                        <div style={{ fontSize: '12px', color: '#10B981', fontWeight: '500', marginBottom: '4px' }}>💡 WHOP Payment Links by Referral Partner</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Links are organized by referral partner. Each partner has different pricing tiers and discounts. These links are used automatically for invoices and Telegram reminders.</div>
+                      <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', padding: '16px 20px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                        <div style={{ fontSize: '13px', color: '#10B981', fontWeight: '700', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>💡</span> WHOP Payment Links by Referral Partner
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>Links are organized by referral partner. Each partner has different pricing tiers and discounts. These links are used automatically for invoices and Telegram reminders.</div>
                       </div>
 
                       {/* Partner Grid - 5 columns for partners */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                         {[
-                          { partner: 'N.A.', discount: '0%', color: 'rgba(139, 92, 246, 0.15)', borderColor: 'rgba(139, 92, 246, 0.3)' },
-                          { partner: 'Chris', discount: '0%', color: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.3)' },
-                          { partner: 'No Limit', discount: '-15%', color: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)' },
-                          { partner: '8 Labs', discount: '-15%', color: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' },
-                          { partner: 'Master', discount: '-15%', color: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }
+                          { partner: 'N.A.', discount: '0%', color: 'rgba(139, 92, 246, 0.05)', borderColor: 'rgba(139, 92, 246, 0.3)' },
+                          { partner: 'Chris', discount: '0%', color: 'rgba(59, 130, 246, 0.05)', borderColor: 'rgba(59, 130, 246, 0.3)' },
+                          { partner: 'No Limit', discount: '-15%', color: 'rgba(16, 185, 129, 0.05)', borderColor: 'rgba(16, 185, 129, 0.3)' },
+                          { partner: '8 Labs', discount: '-15%', color: 'rgba(245, 158, 11, 0.05)', borderColor: 'rgba(245, 158, 11, 0.3)' },
+                          { partner: 'Master', discount: '-15%', color: 'rgba(239, 68, 68, 0.05)', borderColor: 'rgba(239, 68, 68, 0.3)' }
                         ].map(({ partner, discount, color, borderColor }) => {
                           const partnerLinks = WHOP_TIER_LINKS[partner] || {};
                           return (
-                            <div key={partner} style={{ backgroundColor: color, borderRadius: '10px', border: `1px solid ${borderColor}`, padding: '10px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)' }}>{partner}</span>
-                                <span style={{ fontSize: '8px', padding: '1px 4px', borderRadius: '50px', backgroundColor: discount === '0%' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: discount === '0%' ? '#A78BFA' : '#34D399' }}>{discount}</span>
+                            <div key={partner} style={{ backgroundColor: color, borderRadius: '12px', border: `1px solid ${borderColor}`, padding: '16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>{partner}</span>
+                                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', backgroundColor: discount === '0%' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)', color: discount === '0%' ? '#A78BFA' : '#34D399', fontWeight: '700' }}>{discount}</span>
                               </div>
-                              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>Full Tiers</div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Full Tiers</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
                                 {['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6'].map((tierKey) => (
-                                  <div key={tierKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
-                                    <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}</span>
+                                  <div key={tierKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '6px', padding: '6px 10px', border: '1px solid var(--border-color)' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{tierKey.replace('tier', 'Tier ')}</span>
                                     {partnerLinks[tierKey] ? (
-                                      <button onClick={() => { navigator.clipboard.writeText(partnerLinks[tierKey]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                      <button onClick={() => { navigator.clipboard.writeText(partnerLinks[tierKey]); alert('Copied!'); }} style={{ padding: '4px 10px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '11px', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
                                     ) : (
-                                      <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>—</span>
                                     )}
                                   </div>
                                 ))}
                               </div>
-                              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>7 Days Free</div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>7 Days Free</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
                                 {['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6'].map((tierKey) => (
-                                  <div key={`${tierKey}_7d`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
-                                    <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}F</span>
+                                  <div key={`${tierKey}_7d`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '6px', padding: '6px 10px', border: '1px solid var(--border-color)' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{tierKey.replace('tier', 'Tier ')}</span>
                                     {partnerLinks[`${tierKey}_7d_free`] ? (
-                                      <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_7d_free`]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                      <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_7d_free`]); alert('Copied!'); }} style={{ padding: '4px 10px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '11px', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
                                     ) : (
-                                      <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>—</span>
                                     )}
                                   </div>
                                 ))}
                               </div>
                               {discount === '-15%' && (
                                 <>
-                                  <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>50% Off</div>
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px' }}>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>50% Off</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                     {['tier1', 'tier2', 'tier3', 'tier4', 'tier5'].map((tierKey) => (
-                                      <div key={`${tierKey}_50`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
-                                        <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}H</span>
+                                      <div key={`${tierKey}_50`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '6px', padding: '6px 10px', border: '1px solid var(--border-color)' }}>
+                                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{tierKey.replace('tier', 'Tier ')}</span>
                                         {partnerLinks[`${tierKey}_50_off`] ? (
-                                          <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_50_off`]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                          <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_50_off`]); alert('Copied!'); }} style={{ padding: '4px 10px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '11px', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
                                         ) : (
-                                          <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>—</span>
                                         )}
                                       </div>
                                     ))}
@@ -522,27 +541,26 @@ export default function PaymentsPage() {
                       </div>
 
                       {/* Setup Links & Other Products */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>Setup Price</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                            {[
-                              { label: 'OLD Setup', link: WHOP_SETUP_LINKS.oldSetup },
-                              { label: 'Starter', link: WHOP_SETUP_LINKS.newClient.starter },
-                              { label: 'Premium', link: WHOP_SETUP_LINKS.newClient.premium },
-                              { label: 'VIP', link: WHOP_SETUP_LINKS.newClient.vip }
-                            ].map(({ label, link }) => (
-                              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '6px', padding: '8px' }}>
-                                <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '500' }}>{label}</span>
-                                {link && (
-                                  <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '8px', border: 'none', cursor: 'pointer' }}>Copy</button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
+                      <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '800', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>Setup Fees</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                          {[
+                            { label: 'OLD Setup', link: WHOP_SETUP_LINKS.oldSetup },
+                            { label: 'Starter', link: WHOP_SETUP_LINKS.newClient.starter },
+                            { label: 'Premium', link: WHOP_SETUP_LINKS.newClient.premium },
+                            { label: 'VIP', link: WHOP_SETUP_LINKS.newClient.vip }
+                          ].map(({ label, link }) => (
+                            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '8px', padding: '12px 16px', border: '1px solid var(--border-color)' }}>
+                              <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>{label}</span>
+                              {link ? (
+                                <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '6px 12px', borderRadius: '6px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
+                              ) : (
+                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>—</span>
+                              )}
+                            </div>
+                          ))}
                         </div>
-
-                        <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
+                        <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px', marginTop: '12px' }}>
                           <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>Other Products</div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                             {[
@@ -589,80 +607,87 @@ export default function PaymentsPage() {
                 {/* Header */}
                 <div style={{
                   backgroundColor: colors.bg,
-                  padding: '20px 24px',
+                  padding: '24px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   borderBottom: `1px solid ${colors.border}`
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '24px' }}>{colors.icon}</span>
-                    <h3 style={{ fontSize: '18px', fontWeight: '600', margin: 0, color: 'var(--text-primary)' }}>{bank.bank_name}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+                      {colors.icon}
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--text-primary)' }}>{bank.bank_name}</h3>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>Payment Method</div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Content */}
                 <div style={{ padding: '24px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     {/* Info Banner */}
-                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '10px', padding: '12px 16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                      <div style={{ fontSize: '12px', color: '#10B981', fontWeight: '500', marginBottom: '4px' }}>💡 WHOP Payment Links by Referral Partner</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Links are organized by referral partner. Each partner has different pricing tiers and discounts. These links are used automatically for invoices and Telegram reminders.</div>
+                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', padding: '16px 20px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                      <div style={{ fontSize: '13px', color: '#10B981', fontWeight: '700', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>💡</span> WHOP Payment Links by Referral Partner
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>Links are organized by referral partner. Each partner has different pricing tiers and discounts. These links are used automatically for invoices and Telegram reminders.</div>
                     </div>
 
                     {/* Partner Grid - 5 columns for partners */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                       {[
-                        { partner: 'N.A.', discount: '0%', color: 'rgba(139, 92, 246, 0.15)', borderColor: 'rgba(139, 92, 246, 0.3)' },
-                        { partner: 'Chris', discount: '0%', color: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.3)' },
-                        { partner: 'No Limit', discount: '-15%', color: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)' },
-                        { partner: '8 Labs', discount: '-15%', color: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' },
-                        { partner: 'Master', discount: '-15%', color: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }
+                        { partner: 'N.A.', discount: '0%', color: 'rgba(139, 92, 246, 0.05)', borderColor: 'rgba(139, 92, 246, 0.3)' },
+                        { partner: 'Chris', discount: '0%', color: 'rgba(59, 130, 246, 0.05)', borderColor: 'rgba(59, 130, 246, 0.3)' },
+                        { partner: 'No Limit', discount: '-15%', color: 'rgba(16, 185, 129, 0.05)', borderColor: 'rgba(16, 185, 129, 0.3)' },
+                        { partner: '8 Labs', discount: '-15%', color: 'rgba(245, 158, 11, 0.05)', borderColor: 'rgba(245, 158, 11, 0.3)' },
+                        { partner: 'Master', discount: '-15%', color: 'rgba(239, 68, 68, 0.05)', borderColor: 'rgba(239, 68, 68, 0.3)' }
                       ].map(({ partner, discount, color, borderColor }) => {
                         const partnerLinks = WHOP_TIER_LINKS[partner] || {};
                         return (
-                          <div key={partner} style={{ backgroundColor: color, borderRadius: '10px', border: `1px solid ${borderColor}`, padding: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-                              <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)' }}>{partner}</span>
-                              <span style={{ fontSize: '8px', padding: '1px 4px', borderRadius: '50px', backgroundColor: discount === '0%' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)', color: discount === '0%' ? '#A78BFA' : '#34D399' }}>{discount}</span>
+                          <div key={partner} style={{ backgroundColor: color, borderRadius: '12px', border: `1px solid ${borderColor}`, padding: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                              <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>{partner}</span>
+                              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', backgroundColor: discount === '0%' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)', color: discount === '0%' ? '#A78BFA' : '#34D399', fontWeight: '700' }}>{discount}</span>
                             </div>
-                            <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>Full Tiers</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Full Tiers</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
                               {['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6'].map((tierKey) => (
-                                <div key={tierKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
-                                  <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}</span>
+                                <div key={tierKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '6px', padding: '6px 10px', border: '1px solid var(--border-color)' }}>
+                                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{tierKey.replace('tier', 'Tier ')}</span>
                                   {partnerLinks[tierKey] ? (
-                                    <button onClick={() => { navigator.clipboard.writeText(partnerLinks[tierKey]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                    <button onClick={() => { navigator.clipboard.writeText(partnerLinks[tierKey]); alert('Copied!'); }} style={{ padding: '4px 10px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '11px', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
                                   ) : (
-                                    <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>—</span>
                                   )}
                                 </div>
                               ))}
                             </div>
-                            <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>7 Days Free</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>7 Days Free</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
                               {['tier1', 'tier2', 'tier3', 'tier4', 'tier5', 'tier6'].map((tierKey) => (
-                                <div key={`${tierKey}_7d`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
-                                  <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}F</span>
+                                <div key={`${tierKey}_7d`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '6px', padding: '6px 10px', border: '1px solid var(--border-color)' }}>
+                                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{tierKey.replace('tier', 'Tier ')}</span>
                                   {partnerLinks[`${tierKey}_7d_free`] ? (
-                                    <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_7d_free`]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                    <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_7d_free`]); alert('Copied!'); }} style={{ padding: '4px 10px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '11px', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
                                   ) : (
-                                    <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>—</span>
                                   )}
                                 </div>
                               ))}
                             </div>
                             {discount === '-15%' && (
                               <>
-                                <div style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>50% Off</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '3px' }}>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>50% Off</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                   {['tier1', 'tier2', 'tier3', 'tier4', 'tier5'].map((tierKey) => (
-                                    <div key={`${tierKey}_50`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '3px', padding: '3px 5px' }}>
-                                      <span style={{ fontSize: '8px', color: 'var(--text-secondary)' }}>{tierKey.replace('tier', 'T')}H</span>
+                                    <div key={`${tierKey}_50`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-main)', borderRadius: '6px', padding: '6px 10px', border: '1px solid var(--border-color)' }}>
+                                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{tierKey.replace('tier', 'Tier ')}</span>
                                       {partnerLinks[`${tierKey}_50_off`] ? (
-                                        <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_50_off`]); alert('Copied!'); }} style={{ padding: '1px 3px', borderRadius: '2px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '6px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                        <button onClick={() => { navigator.clipboard.writeText(partnerLinks[`${tierKey}_50_off`]); alert('Copied!'); }} style={{ padding: '4px 10px', borderRadius: '4px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '11px', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
                                       ) : (
-                                        <span style={{ fontSize: '6px', color: '#666' }}>—</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>—</span>
                                       )}
                                     </div>
                                   ))}
@@ -676,37 +701,39 @@ export default function PaymentsPage() {
 
                     {/* Setup Links & Other Products */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
-                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>Setup Price</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '800', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>Setup Fees</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                           {[
                             { label: 'OLD Setup', link: WHOP_SETUP_LINKS.oldSetup },
                             { label: 'Starter', link: WHOP_SETUP_LINKS.newClient.starter },
                             { label: 'Premium', link: WHOP_SETUP_LINKS.newClient.premium },
                             { label: 'VIP', link: WHOP_SETUP_LINKS.newClient.vip }
                           ].map(({ label, link }) => (
-                            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '6px', padding: '8px' }}>
-                              <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '500' }}>{label}</span>
-                              {link && (
-                                <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '8px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', borderRadius: '8px', padding: '12px 16px', border: '1px solid var(--border-color)' }}>
+                              <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>{label}</span>
+                              {link ? (
+                                <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '6px 12px', borderRadius: '6px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
+                              ) : (
+                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>—</span>
                               )}
                             </div>
                           ))}
                         </div>
                       </div>
 
-                      <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
-                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>Other Products</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                      <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '800', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>Other Products</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
                           {[
                             { label: 'Only Profile', link: WHOP_SETUP_LINKS.otherProducts.onlyProfile },
                             { label: 'Only Page', link: WHOP_SETUP_LINKS.otherProducts.onlyPage },
                             { label: 'Extra BM', link: WHOP_SETUP_LINKS.otherProducts.extraBM }
                           ].map(({ label, link }) => (
-                            <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-card)', borderRadius: '6px', padding: '8px' }}>
-                              <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontWeight: '500' }}>{label}</span>
+                            <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-card)', borderRadius: '8px', padding: '12px 16px', border: '1px solid var(--border-color)' }}>
+                              <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{label}</span>
                               {link && (
-                                <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '2px 6px', borderRadius: '3px', backgroundColor: 'var(--primary-accent)', color: '#fff', fontSize: '8px', border: 'none', cursor: 'pointer' }}>Copy</button>
+                                <button onClick={() => { navigator.clipboard.writeText(link); alert('Copied!'); }} style={{ padding: '6px 12px', borderRadius: '6px', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '11px', fontWeight: '700', border: 'none', cursor: 'pointer', width: '100%', transition: 'transform 0.1s' }} onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>Copy</button>
                               )}
                             </div>
                           ))}
@@ -715,9 +742,9 @@ export default function PaymentsPage() {
                     </div>
 
                     {/* Upgrade Links */}
-                    <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '12px' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>🔄 Tier Upgrades</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                    <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '800', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>🔄 Tier Upgrades</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
                         {[
                           { from: 'T1', to: ['T2','T3','T4','T5','T6'], key: 't1' },
                           { from: 'T2', to: ['T3','T4','T5','T6'], key: 't2' },
@@ -754,7 +781,10 @@ export default function PaymentsPage() {
       )}
 
       {activeTab === 'invoice' && (
-        <InvoiceTab />
+        <div className="card" style={{ padding: '32px', maxWidth: '800px', margin: '0 auto', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '800', marginBottom: '24px', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>Generate Custom Invoice</h2>
+          <InvoiceTab />
+        </div>
       )}
 
       <ClientModal selectedClient={selectedClient} onClose={() => setSelectedClient(null)} />

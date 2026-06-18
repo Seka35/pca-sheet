@@ -58,6 +58,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const { client, history } = selectedClient;
   const [linkedGroups, setLinkedGroups] = useState([]);
   const [mode, setMode] = useState('view'); // 'view' | 'edit'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'products' | 'payments'
 
   // Edit-mode form state.
   const [formName, setFormName] = useState(client?.name || '');
@@ -688,13 +689,13 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         </button>
 
         {/* Header */}
-        <div style={{ paddingRight: '100px' }}>
-          {mode === 'view' ? (
-            <>
-              <h2 style={{ fontSize: '20px', marginBottom: '4px' }}>{client.name}</h2>
+        <div style={{ paddingRight: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+            <div>
+              <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px', color: 'var(--text-primary)' }}>{client.name}</h2>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <span className="badge" style={{ backgroundColor: client.status === 'Actif' ? 'var(--status-active-bg)' : 'var(--status-cut-bg)', color: client.status === 'Actif' ? 'var(--status-active)' : 'var(--status-cut)' }}>
-                  {client.status === 'Actif' ? 'Active' : 'Inactive'}
+                <span className="badge" style={{ backgroundColor: client.status === 'Actif' ? 'var(--status-active-bg)' : 'var(--status-cut-bg)', color: client.status === 'Actif' ? 'var(--status-active)' : 'var(--status-cut)', fontSize: '11px', fontWeight: '700' }}>
+                  {client.status === 'Actif' ? 'ACTIVE' : 'INACTIVE'}
                 </span>
                 <TeleIdBadge
                   teleId={client.tele_id}
@@ -702,920 +703,571 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                   conflict={teleIdConflict}
                 />
                 <TelegramBadge chatId={client.telegram_group_id} title="Primary linked group" />
-                {client.trustpilot_reviewed ? (
-                  <span title="Trustpilot reviewed" style={{ color: '#34D399', fontSize: '16px' }}>✅</span>
-                ) : (
-                  <span title="Trustpilot not reviewed" style={{ color: 'var(--text-secondary)', fontSize: '16px' }}>❌</span>
-                )}
                 {computedData?.healthStatus && (
                   <span style={{
-                    padding: '2px 8px', borderRadius: '100px', fontSize: '10px', fontWeight: '700',
+                    padding: '2px 10px', borderRadius: '100px', fontSize: '10px', fontWeight: '800',
                     backgroundColor: computedData.healthStatus === 'healthy' ? 'rgba(52, 211, 153, 0.15)' : computedData.healthStatus === 'at_risk' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                     color: computedData.healthStatus === 'healthy' ? '#34D399' : computedData.healthStatus === 'at_risk' ? '#FBBF24' : '#F87171',
                     border: `1px solid ${computedData.healthStatus === 'healthy' ? 'rgba(52, 211, 153, 0.3)' : computedData.healthStatus === 'at_risk' ? 'rgba(251, 191, 36, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                    textTransform: 'uppercase'
                   }}>
-                    {computedData.healthStatus === 'healthy' ? '🟢 HEALTHY' : computedData.healthStatus === 'at_risk' ? '🟡 AT RISK' : '🔴 CRITICAL'}
+                    {computedData.healthStatus === 'healthy' ? 'Healthy' : computedData.healthStatus === 'at_risk' ? 'At Risk' : 'Critical'}
                   </span>
                 )}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {mode === 'view' ? (
                 <button
                   type="button"
                   onClick={() => setMode('edit')}
                   style={{
-                    marginLeft: 'auto',
-                    backgroundColor: 'transparent',
+                    backgroundColor: 'rgba(20, 184, 166, 0.1)',
                     color: '#14b8a6',
-                    border: '1px solid #14b8a6',
-                    borderRadius: '6px',
-                    padding: '4px 12px',
-                    fontSize: '12px',
+                    border: '1px solid rgba(20, 184, 166, 0.2)',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.2)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(20, 184, 166, 0.1)'; }}
+                >
+                  Edit Profile
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '13px',
                     fontWeight: '600',
                     cursor: 'pointer',
                   }}
                 >
-                  Edit
+                  Cancel
                 </button>
-              </div>
-              {/* Personal info - visible in view mode */}
-              {(client.first_name || client.last_name || client.email || client.address) && (
-                <div style={{ marginTop: '12px', padding: '12px', backgroundColor: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                    Billing Information
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', fontSize: '13px' }}>
-                    {client.first_name || client.last_name ? (
-                      <div>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Name: </span>
-                        <span style={{ fontWeight: '500' }}>{client.first_name} {client.last_name}</span>
-                      </div>
-                    ) : null}
-                    {client.email ? (
-                      <div>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Email: </span>
-                        <span style={{ fontWeight: '500' }}>{client.email}</span>
-                      </div>
-                    ) : null}
-                    {client.address ? (
-                      <div style={{ gridColumn: '1 / -1' }}>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Address: </span>
-                        <span style={{ fontWeight: '500' }}>{client.address}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
               )}
-
-              {/* Client Insights - computed data */}
-              {computedData && (
-                <div style={{ marginTop: '12px', padding: '12px', backgroundColor: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                    Client Insights
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', fontSize: '13px' }}>
-                    {computedData.earliestStartDate && (
-                      <div>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Start Date: </span>
-                        <span style={{ fontWeight: '500' }}>{computedData.earliestStartDate}</span>
-                      </div>
-                    )}
-                    {computedData.latestRenewalDate && (
-                      <div>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Renewal Date: </span>
-                        <span style={{ fontWeight: '500' }}>{computedData.latestRenewalDate}</span>
-                      </div>
-                    )}
-                    <div>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Renewals: </span>
-                      <span style={{ fontWeight: '500' }}>{computedData.renewalCount}x</span>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Tier: </span>
-                      {computedData.latestTier ? (
-                        <span style={{ color: '#A78BFA', fontWeight: '600', fontSize: '11px' }}>{computedData.latestTier}{computedData.isInvincible ? ' ⚡' : ''}</span>
-                      ) : <span style={{ fontWeight: '500' }}>—</span>}
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Spend (CL): </span>
-                      <span style={{ fontWeight: '500' }}>{formatCurrency(computedData.totalSpend)}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>CA: </span>
-                      <span style={{ fontWeight: '600', color: '#34D399' }}>{formatCurrency(computedData.totalCA)}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Stable: </span>
-                      <span style={{ fontWeight: '500' }}>{computedData.isStable ? '✅ Yes' : '❌ No'}</span>
-                    </div>
-                    {client.contract_file_path && (
-                      <div>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Contrat: </span>
-                        <a href={client.contract_file_path} target="_blank" rel="noopener noreferrer" style={{ color: '#38BDF8', fontWeight: '500', textDecoration: 'none' }}>📄 View</a>
-                      </div>
-                    )}
-                    {!client.contract_file_path && mode === 'edit' && (
-                      <div>
-                        <label style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Upload Contrat: </label>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          onChange={e => { if (e.target.files?.[0]) uploadContract(e.target.files[0]); }}
-                          disabled={uploadingContract}
-                          style={{ fontSize: '11px', color: 'var(--text-primary)' }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  {client.status !== 'Actif' && client.churn_reason && (
-                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Raison de la perte: </span>
-                      <span style={{ fontWeight: '600', color: '#F87171' }}>{client.churn_reason}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <h2 style={{ fontSize: '20px', marginBottom: 0 }}>Edit Client</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                    Name (Telegram Group) <span style={{ color: 'var(--status-cut)' }}>*</span>
-                  </label>
-                  <input
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Telegram group ID</label>
-                  <input
-                    value={formTelegramGroupId}
-                    onChange={(e) => setFormTelegramGroupId(e.target.value)}
-                    placeholder="-1001234567890"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-              </div>
-              {/* Personal info fields */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>First Name</label>
-                  <input
-                    value={formFirstName}
-                    onChange={(e) => setFormFirstName(e.target.value)}
-                    placeholder="John"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Last Name</label>
-                  <input
-                    value={formLastName}
-                    onChange={(e) => setFormLastName(e.target.value)}
-                    placeholder="Doe"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Email</label>
-                  <input
-                    value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    placeholder="john@example.com"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Address</label>
-                  <input
-                    value={formAddress}
-                    onChange={(e) => setFormAddress(e.target.value)}
-                    placeholder="123 Main St"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Status</label>
-                <select
-                  value={formStatus}
-                  onChange={(e) => setFormStatus(e.target.value)}
-                  disabled={saving}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: '1px solid var(--border-color)', borderRadius: '6px',
-                    padding: '6px 10px', color: 'var(--text-primary)', outline: 'none',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  <option value="Actif" style={{ color: '#000' }}>Active</option>
-                  <option value="inactif" style={{ color: '#000' }}>Inactive</option>
-                </select>
-                <TeleIdBadge
-                  teleId={client.tele_id}
-                  parsedTeleId={parsedTeleId}
-                  conflict={teleIdConflict}
-                />
-                {/* Trustpilot toggle */}
-                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={formTrustpilotReviewed}
-                    onChange={(e) => setFormTrustpilotReviewed(e.target.checked)}
-                    disabled={saving}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  Trustpilot
-                </label>
-                {/* Churn reason — only relevant when inactive */}
-                <input
-                  list="churn-reason-suggestions"
-                  value={formChurnReason}
-                  onChange={(e) => setFormChurnReason(e.target.value)}
-                  placeholder="Churn reason (optional)"
-                  disabled={saving}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: '1px solid var(--border-color)', borderRadius: '6px',
-                    padding: '6px 10px', color: 'var(--text-primary)', outline: 'none',
-                    fontSize: '11px', minWidth: '160px',
-                  }}
-                />
-                <datalist id="churn-reason-suggestions">
-                  <option value="Price" />
-                  <option value="Not seeing results" />
-                  <option value="Poor service" />
-                  <option value="Competitor" />
-                  <option value="Internal decision" />
-                  <option value="Unknown" />
-                </datalist>
-              </div>
             </div>
-          )}
+          </div>
 
-          {linkedGroups.length > 1 && (
-            <div style={{ marginTop: '12px', padding: '10px 12px', backgroundColor: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-                All linked Telegram groups ({linkedGroups.length})
-              </div>
-              {linkedGroups.map((g) => (
-                <div key={g.chat_id} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '4px 0' }}>
-                  <TelegramBadge chatId={g.chat_id} title={g.chat_title} />
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{g.chat_title}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Tab Navigation */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '20px' }}>
+            {[
+              { id: 'overview', label: 'Overview' },
+              { id: 'products', label: 'Products' },
+              { id: 'payments', label: 'Payments' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: activeTab === tab.id ? 'var(--primary-accent)' : 'var(--text-secondary)',
+                  borderBottom: activeTab === tab.id ? '2px solid var(--primary-accent)' : '2px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  background: 'transparent'
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
-
-        {/* Products section */}
-        <div>
-          {mode === 'view' ? (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                <h3 style={{ fontSize: '15px', margin: 0 }}>Outstanding & Latest Products</h3>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {displayProducts.length > 0 && (
-                    <div style={{ fontSize: '15px', fontWeight: '600', color: totalDue > 0 ? 'var(--status-cut)' : 'var(--status-active)' }}>
-                      Total Debt: {formatCurrency(totalDue)}
+        {/* Modal Content */}
+        <div style={{ flex: 1 }}>
+          {activeTab === 'overview' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {mode === 'view' ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                    {/* Billing Info Card */}
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <h4 style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        Billing Information
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Full Name</span>
+                          <span style={{ fontWeight: '600', fontSize: '13px' }}>{client.first_name} {client.last_name || '—'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Email</span>
+                          <span style={{ fontWeight: '600', fontSize: '13px' }}>{client.email || '—'}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Address</span>
+                          <span style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{client.address || '—'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Trustpilot</span>
+                          <span>{client.trustpilot_reviewed ? '✅ Reviewed' : '❌ Not reviewed'}</span>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Insights Card */}
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <h4 style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                        Performance Insights
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Total Revenue</span>
+                          <span style={{ fontWeight: '700', fontSize: '18px', color: 'var(--primary-accent)' }}>{formatCurrency(computedData?.totalCA)}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Total Spend (CL)</span>
+                          <span style={{ fontWeight: '700', fontSize: '18px' }}>{formatCurrency(computedData?.totalSpend)}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Renewals</span>
+                          <span style={{ fontWeight: '700', fontSize: '18px' }}>{computedData?.renewalCount}x</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Stable Client</span>
+                          <span style={{ fontWeight: '700', fontSize: '18px' }}>{computedData?.isStable ? '✅ Yes' : '❌ No'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Secondary Details */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '600' }}>Relationship Dates</span>
+                      <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div>Started: <span style={{ fontWeight: '600' }}>{computedData?.earliestStartDate || '—'}</span></div>
+                        <div>Next Renewal: <span style={{ fontWeight: '600' }}>{computedData?.latestRenewalDate || '—'}</span></div>
+                      </div>
+                    </div>
+                    {client.status !== 'Actif' && client.churn_reason && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <span style={{ color: '#F87171', fontSize: '12px', fontWeight: '600' }}>Churn Reason</span>
+                        <div style={{ fontSize: '13px', fontWeight: '600', padding: '8px 12px', backgroundColor: 'rgba(248, 113, 113, 0.1)', borderRadius: '8px', border: '1px solid rgba(248, 113, 113, 0.2)' }}>
+                          {client.churn_reason}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '600' }}>Contract</span>
+                        <label style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '6px', 
+                          backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '11px', 
+                          fontWeight: '600', cursor: uploadingContract ? 'not-allowed' : 'pointer', border: '1px solid var(--border-color)'
+                        }}>
+                          {uploadingContract ? 'Uploading...' : 'Upload'}
+                          <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => { if (e.target.files?.[0]) uploadContract(e.target.files[0]); }} disabled={uploadingContract} style={{ display: 'none' }} />
+                        </label>
+                      </div>
+                      {client.contract_file_path ? (
+                        <a href={client.contract_file_path} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--primary-accent)', fontWeight: '600', textDecoration: 'none', fontSize: '13px' }}>
+                          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                          View Signed Contract
+                        </a>
+                      ) : (
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>No contract uploaded</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Overview Tab - Edit Mode */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>
+                        Group Name <span style={{ color: 'var(--status-cut)' }}>*</span>
+                      </label>
+                      <input
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        disabled={saving}
+                        style={{
+                          width: '100%', backgroundColor: 'var(--bg-main)',
+                          border: '1px solid var(--border-color)', borderRadius: '8px',
+                          padding: '12px', color: 'var(--text-primary)',
+                          outline: 'none', fontSize: '14px',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Telegram Group ID</label>
+                      <input
+                        value={formTelegramGroupId}
+                        onChange={(e) => setFormTelegramGroupId(e.target.value)}
+                        placeholder="-100..."
+                        disabled={saving}
+                        style={{
+                          width: '100%', backgroundColor: 'var(--bg-main)',
+                          border: '1px solid var(--border-color)', borderRadius: '8px',
+                          padding: '12px', color: 'var(--text-primary)',
+                          outline: 'none', fontSize: '14px',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>First Name</label>
+                      <input value={formFirstName} onChange={(e) => setFormFirstName(e.target.value)} disabled={saving} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Last Name</label>
+                      <input value={formLastName} onChange={(e) => setFormLastName(e.target.value)} disabled={saving} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Email</label>
+                      <input value={formEmail} onChange={(e) => setFormEmail(e.target.value)} disabled={saving} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Status</label>
+                      <select
+                        value={formStatus}
+                        onChange={(e) => setFormStatus(e.target.value)}
+                        disabled={saving}
+                        style={{
+                          width: '100%', backgroundColor: 'var(--bg-main)',
+                          border: '1px solid var(--border-color)', borderRadius: '8px',
+                          padding: '12px', color: 'var(--text-primary)', outline: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="Actif">Active</option>
+                        <option value="inactif">Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Address</label>
+                    <input value={formAddress} onChange={(e) => setFormAddress(e.target.value)} disabled={saving} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={formTrustpilotReviewed} onChange={(e) => setFormTrustpilotReviewed(e.target.checked)} disabled={saving} />
+                      Trustpilot Reviewed
+                    </label>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Churn Reason (if inactive)</label>
+                      <input value={formChurnReason} onChange={(e) => setFormChurnReason(e.target.value)} disabled={saving} placeholder="e.g. Price too high" style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'products' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Active Products</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Current Debt</div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: totalDue > 0 ? 'var(--status-cut)' : 'var(--status-active)' }}>{formatCurrency(totalDue)}</div>
+                  </div>
+                  {mode === 'edit' && (
+                    <button
+                      type="button"
+                      onClick={addProduct}
+                      disabled={saving}
+                      style={{
+                        backgroundColor: 'var(--primary-accent)', color: '#000',
+                        padding: '8px 16px', borderRadius: '8px', fontWeight: '600', fontSize: '13px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Add Product
+                    </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setMode('edit')}
-                    style={{
-                      backgroundColor: 'transparent',
-                      color: '#14b8a6',
-                      border: '1px solid #14b8a6',
-                      borderRadius: '6px',
-                      padding: '4px 12px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    + Add Product
-                  </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {displayProducts.length > 0 ? displayProducts.map((product, idx) => {
-                  const productDue = calculateProductDue(product);
-                  const isPaid = product.reference_no && product.reference_no.trim() !== '';
-                  const productKey = `${product.tier || ''}-${product.setup_type || ''}-${idx}`;
-                  return (
-                    <div key={productKey} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', position: 'relative', border: isPaid ? 'none' : '1px solid var(--status-cut)' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Product Type ({product.month})</div>
-                          <span className="badge" style={{ backgroundColor: product.visual_status === 'Active' || product.active !== false ? 'var(--status-active-bg)' : 'var(--status-cut-bg)', color: product.visual_status === 'Active' || product.active !== false ? 'var(--status-active)' : 'var(--status-cut)', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' }}>
-                            {product.visual_status === 'Active' || product.active !== false ? 'Active' : 'Inactive'}
-                          </span>
+
+              {mode === 'view' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                  {displayProducts.length > 0 ? displayProducts.map((product, idx) => {
+                    const productDue = calculateProductDue(product);
+                    const isPaid = product.reference_no && product.reference_no.trim() !== '';
+                    return (
+                      <div key={idx} style={{ 
+                        backgroundColor: 'var(--bg-main)', padding: '24px', borderRadius: '16px', 
+                        border: '1px solid var(--border-color)', borderLeft: `6px solid ${isPaid ? 'var(--status-active)' : 'var(--status-cut)'}`,
+                        display: 'flex', flexDirection: 'column', gap: '24px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                      }}>
+                        {/* Top Row: Product Identity & Main Status */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                          <div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '700' }}>Product Bundle</div>
+                            <ProductBadge tier={product.tier} setup_type={product.setup_type} />
+                          </div>
+                          <div style={{ textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px', fontWeight: '700' }}>Billing Status</div>
+                            <div style={{ fontSize: '20px', fontWeight: '800', color: productDue > 0 ? 'var(--status-cut)' : 'var(--status-active)' }}>
+                              {isPaid ? '✅ Fully Paid' : `⚠️ Due: ${formatCurrency(productDue)}`}
+                            </div>
+                          </div>
                         </div>
-                        <ProductBadge tier={product.tier} setup_type={product.setup_type} />
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Amount Due</div>
-                        <div style={{ fontWeight: '700', color: productDue > 0 ? 'var(--status-cut)' : 'var(--status-active)', fontSize: '16px' }}>
-                          {isPaid ? 'PAID' : formatCurrency(productDue)}
+
+                        {/* Middle Row: Metrics Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                          
+                          {/* Financial Breakdown */}
+                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>💰 Financials</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Subscription</span>
+                                <span style={{ fontWeight: '600' }}>{formatCurrency(parseAmount(product.subscription_fee))}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Setup Fee</span>
+                                <span style={{ fontWeight: '600' }}>{formatCurrency(parseAmount(product.setup_fee))}</span>
+                              </div>
+                              {(product.discount || product.cl_amount) && (
+                                <>
+                                  <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '4px 0' }}></div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Discount</span>
+                                    <span style={{ fontWeight: '600', color: 'var(--status-active)' }}>{product.discount || '—'}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>CL Amount</span>
+                                    <span style={{ fontWeight: '600' }}>{product.cl_amount || '—'}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Ad Account */}
+                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>📈 Ad Account</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>ID</span>
+                                <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{product.ad_id_number || '—'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Type</span>
+                                <span style={{ fontWeight: '600' }}>{product.ad_account_type || '—'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Limit</span>
+                                <span style={{ fontWeight: '600', color: 'var(--primary-accent)' }}>{product.ad_spend_limit || '—'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Lifecycle & Referral */}
+                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>📅 Lifecycle & Referral</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Start Date</span>
+                                <span style={{ fontWeight: '600' }}>{product.start_date || '—'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Valid Until</span>
+                                <span style={{ fontWeight: '600' }}>{product.valid_stopped_date || '—'}</span>
+                              </div>
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '4px 0' }}></div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Partner</span>
+                                <span style={{ fontWeight: '600', color: '#A855F7' }}>{product.referral_partner_name || '—'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Ref. Amount</span>
+                                <span style={{ fontWeight: '600' }}>{product.referral_amount || '—'}</span>
+                              </div>
+                            </div>
+                          </div>
+
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          (Sub: {product.subscription_fee ? formatCurrency(parseAmount(product.subscription_fee)) : '$0'} / Setup: {product.setup_fee ? formatCurrency(parseAmount(product.setup_fee)) : '$0'})
-                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Discount / CL Amount</div>
-                        <div style={{ fontWeight: '500' }}>{product.discount || '—'} / {product.cl_amount || '—'}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Start Date / Valid Until</div>
-                        <div style={{ fontWeight: '500' }}>{product.start_date || '—'} ➔ {product.valid_stopped_date || '—'}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Ad ID Number</div>
-                        <div style={{ fontWeight: '500' }}>{product.ad_id_number || '—'}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Ad Spend Limit</div>
-                        <div style={{ fontWeight: '500' }}>{product.ad_spend_limit || '—'}</div>
-                      </div>
+                    );
+                  }) : (
+                    <div style={{ padding: '40px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', color: 'var(--text-secondary)' }}>
+                      No active products found for this client.
                     </div>
-                  );
-                }) : (
-                  <div style={{ color: 'var(--text-secondary)' }}>No active products found.</div>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                <h3 style={{ fontSize: '15px', margin: 0 }}>Products ({formProducts.length})</h3>
-                <button
-                  type="button"
-                  onClick={addProduct}
-                  disabled={saving}
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: '#14b8a6',
-                    border: '1px solid #14b8a6',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  + Add product
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {formProducts.length === 0 ? (
-                  <div style={{ color: 'var(--text-secondary)', padding: '16px' }}>
-                    No products. Click "Add product" to add one.
-                  </div>
-                ) : (
-                  formProducts.map((p, idx) => (
+                  )}
+                </div>
+              ) : (
+                /* Products Tab - Edit Mode */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {formProducts.map((p, idx) => (
                     <ClientFormFields
-                      key={p.sr_no || `new-${idx}`}
+                      key={idx}
                       product={p}
                       onChange={(next) => updateProduct(idx, next)}
                       onRemove={() => removeProductAt(idx)}
                       index={idx}
                       isFirst={idx === 0}
                       disabled={saving}
-                      headerLabel={`Product #${idx + 1}${p.sr_no ? '' : ' (new)'}`}
+                      headerLabel={`Product #${idx + 1}`}
                     />
-                  ))
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Payment history (always read-only) */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-            <h3 style={{ fontSize: '16px', margin: 0 }}>Payment History</h3>
-            {editingPayment === 'new' ? (
-              <button
-                type="button"
-                onClick={cancelPaymentEdit}
-                disabled={saving}
-                style={{
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-secondary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  padding: '4px 12px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={startAddPayment}
-                disabled={saving}
-                style={{
-                  backgroundColor: 'transparent',
-                  color: '#14b8a6',
-                  border: '1px solid #14b8a6',
-                  borderRadius: '6px',
-                  padding: '4px 12px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                }}
-              >
-                + Add Manual Payment
-              </button>
-            )}
-          </div>
-
-          {/* Product filter buttons for payment history */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-            <button
-              type="button"
-              onClick={() => setSelectedPaymentProduct(null)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: selectedPaymentProduct === null ? 'var(--primary-accent)' : 'var(--border-color)',
-                backgroundColor: selectedPaymentProduct === null ? 'var(--primary-accent)' : 'transparent',
-                color: selectedPaymentProduct === null ? '#fff' : 'var(--text-secondary)',
-                fontSize: '12px',
-                fontWeight: '500',
-                cursor: 'pointer',
-              }}
-            >
-              All Products
-            </button>
-            {displayProducts.map((product, idx) => {
-              const key = `${product.tier || ''}|${product.setup_type || ''}`;
-              const isSelected = selectedPaymentProduct === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setSelectedPaymentProduct(isSelected ? null : key)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid',
-                    borderColor: isSelected ? 'var(--primary-accent)' : 'var(--border-color)',
-                    backgroundColor: isSelected ? 'var(--primary-accent)' : 'transparent',
-                    color: isSelected ? '#fff' : 'var(--text-secondary)',
-                    fontSize: '12px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {product.tier || 'Unknown'} {product.setup_type || ''}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Inline payment edit form */}
-          {editingPayment && (
-            <div style={{ backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid var(--primary-accent)' }}>
-              <h4 style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--primary-accent)' }}>
-                {editingPayment === 'new' ? 'Add Manual Payment' : 'Edit Payment Entry'}
-              </h4>
-
-              {/* Product selector dropdown */}
-              {editingPayment === 'new' && (
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>
-                    Link to existing product
-                  </label>
-                  <select
-                    value={selectedProductSrNo}
-                    onChange={(e) => handleProductSelect(e.target.value)}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <option value="new">— New free-form entry —</option>
-                    {unpaidProducts.length > 0 && (
-                      <>
-                        <optgroup label="— Unpaid products (link payment) —">
-                          {unpaidProducts.map(p => (
-                            <option key={p.sr_no} value={p.sr_no}>
-                              {p.tier || 'Unknown'} {p.setup_type || ''} ({p.month || 'No period'}) - Due: {p.subscription_fee || '0'}
-                            </option>
-                          ))}
-                        </optgroup>
-                      </>
-                    )}
-                    <optgroup label="— All products —">
-                      {activeProducts.map(p => (
-                        <option key={p.sr_no} value={p.sr_no}>
-                          {p.tier || 'Unknown'} {p.setup_type || ''} ({p.month || 'No period'}) - {p.reference_no ? '✓ Paid' : '○ Unpaid'}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
+                  ))}
                 </div>
               )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Period *</label>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <select
-                      value={manualPaymentForm.month?.split('-')[0] || ''}
-                      onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: `${e.target.value}-${prev.month?.split('-')[1] || '2026'}` }))}
-                      disabled={saving}
-                      style={{
-                        flex: 1, backgroundColor: 'transparent',
-                        border: '1px solid var(--border-color)', borderRadius: '6px',
-                        padding: '8px 10px', color: 'var(--text-primary)',
-                        outline: 'none', fontSize: '13px',
-                        cursor: saving ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      <option value="">Month</option>
-                      {MONTH_OPTIONS.map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={manualPaymentForm.month?.split('-')[1] || ''}
-                      onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: `${prev.month?.split('-')[0] || 'Jun'}-${e.target.value}` }))}
-                      disabled={saving}
-                      style={{
-                        flex: 1, backgroundColor: 'transparent',
-                        border: '1px solid var(--border-color)', borderRadius: '6px',
-                        padding: '8px 10px', color: 'var(--text-primary)',
-                        outline: 'none', fontSize: '13px',
-                        cursor: saving ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      <option value="">Year</option>
-                      {YEAR_OPTIONS.map(y => (
-                        <option key={y} value={y}>{y}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Product Tier</label>
-                  <select
-                    value={manualPaymentForm.tier}
-                    onChange={handlePaymentTierChange}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <option value="">— Select tier —</option>
-                    {TIER_OPTIONS.map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Setup Type</label>
-                  <select
-                    value={manualPaymentForm.setup_type}
-                    onChange={handlePaymentSetupTypeChange}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <option value="">— Select type —</option>
-                    {SETUP_OPTIONS.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Referral Partner</label>
-                  <select
-                    value={manualPaymentForm.referral_partner_name || ''}
-                    onChange={handlePaymentReferralPartnerChange}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <option value="">— Select partner —</option>
-                    {REFERRAL_OPTIONS.map(r => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Subscription Fee</label>
-                  <input
-                    type="text"
-                    value={manualPaymentForm.subscription_fee}
-                    onChange={(e) => {
-                      const newSub = e.target.value;
-                      const updates = { subscription_fee: newSub };
-                      // Recalculate discount if referral partner is set
-                      if (manualPaymentForm.referral_partner_name && newSub) {
-                        const discountPct = Math.abs(WHOP_DISCOUNT_BY_PARTNER[manualPaymentForm.referral_partner_name] || 0);
-                        if (discountPct > 0) {
-                          updates.discount = String(Math.round(parseFloat(newSub) * discountPct / 100));
-                        }
-                      }
-                      setManualPaymentForm(prev => ({ ...prev, ...updates }));
-                    }}
-                    placeholder="e.g. 100"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Setup Fee</label>
-                  <input
-                    type="text"
-                    value={manualPaymentForm.setup_fee || ''}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, setup_fee: e.target.value }))}
-                    placeholder="e.g. 0"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Discount</label>
-                  <input
-                    type="text"
-                    value={manualPaymentForm.discount || ''}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, discount: e.target.value }))}
-                    placeholder="e.g. 0"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Bank</label>
-                  <select
-                    value={manualPaymentForm.bank_name}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, bank_name: e.target.value }))}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                      cursor: saving ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <option value="">— Select bank —</option>
-                    {BANK_OPTIONS.map(b => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Amount Received</label>
-                  <input
-                    type="text"
-                    value={manualPaymentForm.amount_received}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, amount_received: e.target.value }))}
-                    placeholder="e.g. 100"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Payment Date</label>
-                  <input
-                    type="date"
-                    value={manualPaymentForm.payment_received_date}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, payment_received_date: e.target.value }))}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Reference No.</label>
-                  <input
-                    type="text"
-                    value={manualPaymentForm.reference_no}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, reference_no: e.target.value }))}
-                    placeholder="e.g. TRX-12345"
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '4px' }}>Valid Until</label>
-                  <input
-                    type="date"
-                    value={manualPaymentForm.valid_stopped_date}
-                    onChange={(e) => setManualPaymentForm(prev => ({ ...prev, valid_stopped_date: e.target.value }))}
-                    disabled={saving}
-                    style={{
-                      width: '100%', backgroundColor: 'transparent',
-                      border: '1px solid var(--border-color)', borderRadius: '6px',
-                      padding: '8px 10px', color: 'var(--text-primary)',
-                      outline: 'none', fontSize: '13px',
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
-                <button
-                  type="button"
-                  onClick={cancelPaymentEdit}
-                  disabled={saving}
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: 'var(--text-secondary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: saving ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={saveManualPayment}
-                  disabled={saving || !manualPaymentForm.month}
-                  style={{
-                    backgroundColor: '#14b8a6',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: (saving || !manualPaymentForm.month) ? 'not-allowed' : 'pointer',
-                    opacity: (saving || !manualPaymentForm.month) ? 0.5 : 1,
-                  }}
-                >
-                  {saving ? 'Saving…' : 'Save Payment'}
-                </button>
-              </div>
             </div>
           )}
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ color: 'var(--text-secondary)' }}>
-                <th style={{ padding: '8px' }}>Period</th>
-                <th style={{ padding: '8px' }}>Product</th>
-                <th style={{ padding: '8px' }}>Bank</th>
-                <th style={{ padding: '8px' }}>Valid Until</th>
-                <th style={{ padding: '8px' }}>Amount Received</th>
-                <th style={{ padding: '8px' }}>Ref.</th>
-                <th style={{ padding: '8px' }}>Invoice</th>
-                <th style={{ padding: '8px', width: '60px' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(selectedPaymentProduct ? (history || []).filter(row => `${row.tier || ''}|${row.setup_type || ''}` === selectedPaymentProduct) : (history || [])).map((row) => {
-                const billing = getBillingInfo(row);
-                return (
-                  <tr key={row.sr_no} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '12px 8px' }}>{row.month}</td>
-                    <td style={{ padding: '12px 8px' }}>
-                      <ProductBadge tier={row.tier} setup_type={row.setup_type} />
-                    </td>
-                    <td style={{ padding: '12px 8px' }}>
-                      {row.bank_name ? <span className="badge" style={{ backgroundColor: 'var(--border-color)' }}>{row.bank_name}</span> : '—'}
-                    </td>
-                    <td style={{ padding: '12px 8px' }}>{row.valid_stopped_date}</td>
-                    <td style={{ padding: '12px 8px', color: 'var(--primary-accent)', fontWeight: '500' }}>{row.amount_received}</td>
-                    <td style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>{row.reference_no || '—'}</td>
-                    <td style={{ padding: '12px 8px' }}>
-                      <a
-                        href={`/api/invoice/generate?sr_no=${encodeURIComponent(row.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(row.bank_name || 'crypto')}&product_name=${encodeURIComponent(row.tier ? row.tier + (row.setup_type ? ' - ' + row.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent(row.subscription_fee ? row.subscription_fee.replace(/[^0-9.]/g, '') : '0')}&discount=${encodeURIComponent(row.discount ? row.discount.replace(/[^0-9.]/g, '') : '0')}&invoice_date=${encodeURIComponent(row.payment_received_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-block',
-                          padding: '4px 10px', borderRadius: '4px', border: 'none',
-                          backgroundColor: 'var(--primary-accent)', color: '#fff',
-                          fontSize: '11px', fontWeight: '500', textDecoration: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        📥 PDF
-                      </a>
-                    </td>
-                    <td style={{ padding: '12px 8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => startEditPayment(row)}
-                        disabled={saving || editingPayment !== null}
-                        title="Edit payment"
-                        style={{
-                          backgroundColor: 'transparent',
-                          color: '#14b8a6',
-                          border: '1px solid #14b8a6',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          fontSize: '11px',
-                          cursor: (saving || editingPayment !== null) ? 'not-allowed' : 'pointer',
-                          opacity: (saving || editingPayment !== null) ? 0.5 : 1,
-                        }}
-                      >
-                        ✏️
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {activeTab === 'payments' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Payment History</h3>
+                <button
+                  type="button"
+                  onClick={startAddPayment}
+                  disabled={saving}
+                  style={{
+                    backgroundColor: 'rgba(20, 184, 166, 0.1)', color: '#14b8a6',
+                    padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(20, 184, 166, 0.2)',
+                    fontWeight: '600', fontSize: '13px', cursor: 'pointer'
+                  }}
+                >
+                  + Record Payment
+                </button>
+              </div>
+
+              {editingPayment && (
+                <div style={{ backgroundColor: 'rgba(0, 242, 181, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(0, 242, 181, 0.2)' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '16px', color: 'var(--primary-accent)' }}>
+                    {editingPayment === 'new' ? 'New Payment Entry' : 'Edit Payment Entry'}
+                  </h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
+                    <div style={{ gridColumn: '1 / -1', marginBottom: '8px' }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Link to product</label>
+                      <select value={selectedProductSrNo} onChange={(e) => handleProductSelect(e.target.value)} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
+                        <option value="new">Manual Entry</option>
+                        {activeProducts.map(p => (
+                          <option key={p.sr_no} value={p.sr_no}>{p.tier} {p.setup_type} ({p.month}) - {p.reference_no ? 'Paid' : 'Unpaid'}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Period</label>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <select
+                          value={manualPaymentForm.month?.split('-')[0] || ''}
+                          onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: `${e.target.value}-${prev.month?.split('-')[1] || '2026'}` }))}
+                          style={{ flex: 1, backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', color: '#fff', fontSize: '12px' }}
+                        >
+                          {MONTH_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <select
+                          value={manualPaymentForm.month?.split('-')[1] || ''}
+                          onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: `${prev.month?.split('-')[0] || 'Jun'}-${e.target.value}` }))}
+                          style={{ flex: 1, backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', color: '#fff', fontSize: '12px' }}
+                        >
+                          {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Bank</label>
+                      <select value={manualPaymentForm.bank_name} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, bank_name: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
+                        <option value="">Select Bank</option>
+                        {BANK_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Amount</label>
+                      <input type="text" value={manualPaymentForm.amount_received} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, amount_received: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Reference</label>
+                      <input type="text" value={manualPaymentForm.reference_no} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, reference_no: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
+                    <button type="button" onClick={cancelPaymentEdit} style={{ padding: '8px 16px', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>Cancel</button>
+                    <button type="button" onClick={saveManualPayment} style={{ padding: '8px 16px', backgroundColor: 'var(--primary-accent)', color: '#000', borderRadius: '8px', fontWeight: '600' }}>Save Payment</button>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '12px 8px' }}>Period</th>
+                      <th style={{ padding: '12px 8px' }}>Product</th>
+                      <th style={{ padding: '12px 8px' }}>Fees & Disc.</th>
+                      <th style={{ padding: '12px 8px' }}>Bank</th>
+                      <th style={{ padding: '12px 8px' }}>Amount</th>
+                      <th style={{ padding: '12px 8px' }}>Valid Until</th>
+                      <th style={{ padding: '12px 8px' }}>Reference</th>
+                      <th style={{ padding: '12px 8px', textAlign: 'center' }}>Invoice</th>
+                      <th style={{ padding: '12px 8px', width: '50px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(history || []).map((row) => {
+                      const billing = getBillingInfo(row);
+                      return (
+                        <tr key={row.sr_no} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                          <td style={{ padding: '16px 8px', fontWeight: '600' }}>{row.month}</td>
+                          <td style={{ padding: '16px 8px' }}><ProductBadge tier={row.tier} setup_type={row.setup_type} /></td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span>Sub: {row.subscription_fee || '0'}</span>
+                              {row.setup_fee && <span>Setup: {row.setup_fee}</span>}
+                              {row.discount && <span>Disc: {row.discount}</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 8px' }}>{row.bank_name || '—'}</td>
+                          <td style={{ padding: '16px 8px', color: 'var(--primary-accent)', fontWeight: '700' }}>{row.amount_received}</td>
+                          <td style={{ padding: '16px 8px' }}>{row.valid_stopped_date || '—'}</td>
+                          <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{row.reference_no || '—'}</td>
+                          <td style={{ padding: '16px 8px', textAlign: 'center' }}>
+                            <a
+                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(row.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(row.bank_name || 'crypto')}&product_name=${encodeURIComponent(row.tier ? row.tier + (row.setup_type ? ' - ' + row.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent(row.amount_received ? String(row.amount_received).replace(/[^0-9.]/g, '') : '0')}&discount=${encodeURIComponent(row.discount ? row.discount.replace(/[^0-9.]/g, '') : '0')}&invoice_date=${encodeURIComponent(row.payment_received_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}`}
+                              target="_blank" rel="noopener noreferrer"
+                              style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '11px', fontWeight: '600' }}
+                            >
+                              PDF
+                            </a>
+                          </td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <button onClick={() => startEditPayment(row)} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent' }}>✏️</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Edit-mode footer: error + Save/Cancel */}

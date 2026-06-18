@@ -397,46 +397,52 @@ export default function RenewalsPage() {
 
   return (
     <div style={{ paddingBottom: '64px' }}>
-      <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Renewals</h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
-        {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-      </p>
+      
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', gap: '20px', flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.5px' }}>Renewals & Churn Risk</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+      </div>
 
       {/* Cards */}
       <div className="grid-metrics" style={{ marginBottom: '32px' }}>
 
         {/* LATE */}
-        <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
+        <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px', border: '1px solid rgba(239, 68, 68, 0.2)', backgroundColor: 'rgba(239, 68, 68, 0.02)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(239, 68, 68, 0.08)', color: '#F87171', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#F87171', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </div>
-              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Late / Overdue</h3>
+              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Overdue</h3>
             </div>
-            <span style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#F87171', padding: '2px 8px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+            <span style={{ backgroundColor: '#F87171', color: '#fff', padding: '2px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: '800' }}>
               {data.late.length}
             </span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: '#F87171', marginTop: '16px' }}>
+          <div style={{ fontSize: '32px', fontWeight: '800', color: '#F87171', marginTop: '16px' }}>
             {formatCurrency(data.late.reduce((acc, row) => acc + (row.total_due || 0), 0))}
           </div>
         </div>
 
         {/* TODAY */}
-        <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
+        <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px', border: '1px solid rgba(245, 158, 11, 0.2)', backgroundColor: 'rgba(245, 158, 11, 0.02)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(245, 158, 11, 0.08)', color: '#FBBF24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#FBBF24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
-              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</h3>
+              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</h3>
             </div>
-            <span style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#FBBF24', padding: '2px 8px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+            <span style={{ backgroundColor: '#FBBF24', color: '#000', padding: '2px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: '800' }}>
               {data.today.length}
             </span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: '#FBBF24', marginTop: '16px' }}>
+          <div style={{ fontSize: '32px', fontWeight: '800', color: '#FBBF24', marginTop: '16px' }}>
             {formatCurrency(data.today.reduce((acc, row) => acc + (row.total_due || 0), 0))}
           </div>
         </div>
@@ -445,16 +451,16 @@ export default function RenewalsPage() {
         <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(59, 130, 246, 0.08)', color: '#60A5FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#60A5FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               </div>
-              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Week</h3>
+              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Week</h3>
             </div>
-            <span style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#60A5FA', padding: '2px 8px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+            <span style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', padding: '2px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: '800' }}>
               {data.thisWeek.length}
             </span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: '#60A5FA', marginTop: '16px' }}>
+          <div style={{ fontSize: '32px', fontWeight: '800', color: '#60A5FA', marginTop: '16px' }}>
             {formatCurrency(data.thisWeek.reduce((acc, row) => acc + (row.total_due || 0), 0))}
           </div>
         </div>
@@ -463,16 +469,16 @@ export default function RenewalsPage() {
         <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(52, 211, 153, 0.08)', color: 'var(--primary-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(0, 242, 181, 0.1)', color: 'var(--primary-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               </div>
-              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Month</h3>
+              <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Month</h3>
             </div>
-            <span style={{ backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--primary-accent)', padding: '2px 8px', borderRadius: '100px', fontSize: '11px', fontWeight: '700' }}>
+            <span style={{ backgroundColor: 'rgba(0, 242, 181, 0.15)', color: 'var(--primary-accent)', padding: '2px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: '800' }}>
               {data.thisMonth?.length || 0}
             </span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--primary-accent)', marginTop: '16px' }}>
+          <div style={{ fontSize: '32px', fontWeight: '800', color: 'var(--primary-accent)', marginTop: '16px' }}>
             {formatCurrency(data.thisMonth?.reduce((acc, row) => acc + (row.total_due || 0), 0) || 0)}
           </div>
         </div>

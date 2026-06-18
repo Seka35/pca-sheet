@@ -300,77 +300,87 @@ export default function BotPage() {
   return (
     <div style={{ paddingBottom: '64px' }}>
       {/* Header */}
-      <div className="flex-mobile-column" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', gap: '16px' }}>
+      <div className="flex-mobile-column" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', gap: '16px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
-            <h1 style={{ fontSize: '24px', fontWeight: '600' }}>Bot Telegram</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '-0.5px', margin: 0 }}>Bot Telegram</h1>
             {status && <StatusPill status={status} reason={status.reason} />}
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>
             Send renewal reminders to a Telegram group shared with the client.
             {status?.bot_username
-              ? <> Connected as <b>@{status.bot_username}</b> — token is valid.</>
+              ? <> Connected as <b style={{ color: 'var(--text-primary)' }}>@{status.bot_username}</b> — token is valid.</>
               : status?.reason === 'no_token'
                 ? <> Paste a Telegram bot token below to get started.</>
                 : status?.reason === 'disabled'
                   ? <> Bot token saved but disabled — toggle "Bot enabled" and save.</>
                   : status?.reason === 'invalid_token'
-                    ? <> Token saved but invalid — check it on @BotFather.</>
+                    ? <> Token saved but <span style={{ color: '#F87171' }}>invalid</span> — check it on @BotFather.</>
                     : null}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
           <button onClick={() => setTestModal(true)} style={{
-            backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)',
-            padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)',
-            fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-          }}>Test send</button>
+            backgroundColor: 'transparent', color: 'var(--text-primary)',
+            padding: '10px 20px', borderRadius: '10px', border: '1px solid var(--border-color)',
+            fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+          >Test send</button>
           <button onClick={runSweep} style={{
-            backgroundColor: 'var(--primary-accent)', color: '#0B111A',
-            padding: '10px 14px', borderRadius: '8px', border: 'none',
-            fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-          }}>Run sweep now</button>
+            backgroundColor: 'var(--primary-accent)', color: '#000',
+            padding: '10px 20px', borderRadius: '10px', border: 'none',
+            fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
+            boxShadow: '0 4px 14px rgba(52, 211, 153, 0.2)'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 211, 153, 0.3)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(52, 211, 153, 0.2)'; }}
+          >Run sweep now</button>
         </div>
       </div>
 
       {sweepResult && (
-        <div className="card" style={{ marginBottom: '24px', padding: '12px 16px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Last sweep</div>
-          <pre style={{ margin: 0, fontSize: '12px', color: 'var(--text-primary)' }}>
+        <div className="card" style={{ marginBottom: '32px', padding: '24px', border: '1px solid rgba(56, 189, 248, 0.3)', backgroundColor: 'rgba(56, 189, 248, 0.02)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Last sweep</div>
+          <pre style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
 {JSON.stringify(sweepResult, null, 2)}
           </pre>
         </div>
       )}
 
       {loading ? (
-        <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading…</div>
+        <div style={{ padding: '64px', textAlign: 'center' }}>
+          <div className="spinner" style={{ width: '32px', height: '32px', border: '3px solid var(--status-active-bg)', borderTopColor: 'var(--status-active)', borderRadius: '50%', margin: '0 auto 16px' }}></div>
+          <div style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>Loading bot configuration...</div>
+        </div>
       ) : (
         <>
           {/* Section A — General */}
-          <div className="card" style={{ marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 16px 0' }}>General</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+          <div className="card" style={{ marginBottom: '32px', padding: '32px', border: '1px solid var(--border-color)' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', margin: '0 0 24px 0', color: 'var(--text-primary)' }}>General Settings</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
               <div style={{ gridColumn: '1 / -1' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <label style={{ ...labelStyle, marginBottom: 0 }}>Bot token (from @BotFather)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                  <label style={{ ...labelStyle, marginBottom: 0, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Bot token (from @BotFather)</label>
                   {hasToken && (
                     <span style={{
-                      fontSize: '11px', fontWeight: '600',
+                      fontSize: '11px', fontWeight: '700',
                       color: '#34D399', backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                      padding: '2px 8px', borderRadius: '4px',
+                      padding: '4px 10px', borderRadius: '6px',
                     }}>✓ Token saved</span>
                   )}
                 </div>
                 {tokenPreview && (
                   <div style={{
                     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
-                    fontSize: '12px',
+                    fontSize: '13px',
                     color: 'var(--text-primary)',
                     backgroundColor: 'var(--bg-main)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    padding: '6px 10px',
-                    marginBottom: '6px',
+                    border: '1px dashed var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    marginBottom: '12px',
                     display: 'inline-block',
                     letterSpacing: '0.5px',
                   }}>
@@ -384,194 +394,239 @@ export default function BotPage() {
                   placeholder={hasToken ? 'Leave empty to keep the current token, or paste a new one to replace it' : 'Paste the token from @BotFather'}
                   value={form.token}
                   onChange={(e) => setForm({ ...form, token: e.target.value })}
-                  style={inputStyle}
+                  style={{ ...inputStyle, padding: '12px 16px', fontSize: '14px', borderRadius: '10px', backgroundColor: 'var(--bg-main)', transition: 'border-color 0.2s' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                 />
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
                   Stored server-side in the database. The input is masked for security
                   (it stays empty after save — that's normal). {hasToken && status?.bot_username && (
-                    <>Currently connected as <b>@{status.bot_username}</b>.</>
+                    <>Currently connected as <b style={{ color: 'var(--text-primary)' }}>@{status.bot_username}</b>.</>
                   )}
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Sweep interval (minutes)</label>
+                <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Sweep interval (minutes)</label>
                 <input type="number" min="1" value={form.sweep_interval_minutes}
                   onChange={(e) => setForm({ ...form, sweep_interval_minutes: e.target.value })}
-                  style={inputStyle} />
+                  style={{ ...inputStyle, padding: '12px 16px', fontSize: '14px', borderRadius: '10px', backgroundColor: 'var(--bg-main)', transition: 'border-color 0.2s' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
               <div>
-                <label style={labelStyle}>Timezone</label>
+                <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Timezone</label>
                 <input type="text" placeholder="UTC" value={form.timezone}
                   onChange={(e) => setForm({ ...form, timezone: e.target.value })}
-                  style={inputStyle} />
+                  style={{ ...inputStyle, padding: '12px 16px', fontSize: '14px', borderRadius: '10px', backgroundColor: 'var(--bg-main)', transition: 'border-color 0.2s' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
               <div>
-                <label style={labelStyle}>Quiet hours start</label>
+                <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Quiet hours start</label>
                 <input type="time" value={form.quiet_hours_start}
                   onChange={(e) => setForm({ ...form, quiet_hours_start: e.target.value })}
-                  style={inputStyle} />
+                  style={{ ...inputStyle, padding: '12px 16px', fontSize: '14px', borderRadius: '10px', backgroundColor: 'var(--bg-main)', transition: 'border-color 0.2s' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
               <div>
-                <label style={labelStyle}>Quiet hours end</label>
+                <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Quiet hours end</label>
                 <input type="time" value={form.quiet_hours_end}
                   onChange={(e) => setForm({ ...form, quiet_hours_end: e.target.value })}
-                  style={inputStyle} />
+                  style={{ ...inputStyle, padding: '12px 16px', fontSize: '14px', borderRadius: '10px', backgroundColor: 'var(--bg-main)', transition: 'border-color 0.2s' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
               </div>
-              <div>
-                <label style={labelStyle}>Team notification chat ID</label>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Team notification chat ID</label>
                 <input type="text" placeholder="e.g. -1001234567890"
                   value={form.team_notification_chat_id}
                   onChange={(e) => setForm({ ...form, team_notification_chat_id: e.target.value })}
-                  style={inputStyle} />
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  style={{ ...inputStyle, padding: '12px 16px', fontSize: '14px', borderRadius: '10px', backgroundColor: 'var(--bg-main)', transition: 'border-color 0.2s' }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>
                   Team receives product-disabled alerts here. Leave empty to disable.
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'end' }}>
-                <input id="enabled" type="checkbox" checked={form.enabled}
-                  onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                <label htmlFor="enabled" style={{ fontSize: '13px', cursor: 'pointer' }}>Bot enabled</label>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'end' }}>
-                <input id="human_verification" type="checkbox" checked={form.human_verification_enabled}
-                  onChange={(e) => setForm({ ...form, human_verification_enabled: e.target.checked })}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                <label htmlFor="human_verification" style={{ fontSize: '13px', cursor: 'pointer' }}>Human verification required</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', gridColumn: '1 / -1', marginTop: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                  <input id="enabled" type="checkbox" checked={form.enabled}
+                    onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
+                    style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Bot Enabled</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Turn the bot operations on or off globally.</div>
+                  </div>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                  <input id="human_verification" type="checkbox" checked={form.human_verification_enabled}
+                    onChange={(e) => setForm({ ...form, human_verification_enabled: e.target.checked })}
+                    style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Human Verification Required</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Require manual approval before sending reminders.</div>
+                  </div>
+                </label>
               </div>
             </div>
-            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px' }}>
+            <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
               {savedAt && (
-                <span style={{ fontSize: '12px', color: '#34D399', fontWeight: '600' }}>
-                  ✓ Saved
+                <span style={{ fontSize: '13px', color: '#34D399', fontWeight: '700' }}>
+                  ✓ Settings Saved
                 </span>
               )}
-              <button onClick={saveConfig} disabled={saving} className="btn-primary" style={{ opacity: saving ? 0.7 : 1 }}>
-                {saving ? 'Saving…' : 'Save settings'}
+              <button onClick={saveConfig} disabled={saving} style={{
+                padding: '12px 24px', borderRadius: '10px', border: 'none',
+                backgroundColor: saving ? 'var(--border-color)' : 'var(--primary-accent)',
+                color: saving ? 'var(--text-secondary)' : '#000', fontSize: '14px', fontWeight: '700', cursor: saving ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s', boxShadow: saving ? 'none' : '0 4px 14px rgba(52, 211, 153, 0.2)'
+              }}
+              onMouseOver={(e) => { if (!saving) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 211, 153, 0.3)'; } }}
+              onMouseOut={(e) => { if (!saving) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(52, 211, 153, 0.2)'; } }}
+              >
+                {saving ? 'Saving…' : 'Save Settings'}
               </button>
             </div>
           </div>
 
           {/* Section B — Reminder schedule */}
-          <div className="card" style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Reminder schedule</h2>
+          <div className="card" style={{ marginBottom: '32px', padding: '32px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--text-primary)' }}>Reminder Schedule</h2>
               <button onClick={addTemplate} style={{
-                backgroundColor: 'transparent', color: 'var(--primary-accent)',
-                padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--primary-accent)',
-                fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-              }}>+ Add reminder</button>
+                backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38BDF8',
+                padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.2)',
+                fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.2)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'; }}
+              >+ Add Reminder</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '24px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '32px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {Object.keys(templates).sort((a, b) => Number(a) - Number(b)).map((offset) => {
                   const tpl = templates[offset];
                   const isFinal = tpl.is_final_reminder === true;
                   return (
                     <div key={offset} style={{
-                      backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '8px',
+                      backgroundColor: 'var(--bg-main)', padding: '24px', borderRadius: '12px',
                       border: isFinal ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
+                      boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
                     }}>
                       {isFinal && (
                         <div style={{
-                          fontSize: '11px', color: '#F87171', fontWeight: '600',
+                          fontSize: '12px', color: '#F87171', fontWeight: '700',
                           backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                          padding: '4px 8px', borderRadius: '4px', marginBottom: '10px',
+                          padding: '6px 12px', borderRadius: '6px', marginBottom: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px'
                         }}>
-                          🔕 Final reminder — product will be disabled after this fires
+                          <span>🔕</span> Final reminder — product will be disabled after this fires
                         </div>
                       )}
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap' }}>
                         <div style={{ flex: '0 0 100px' }}>
-                          <label style={labelStyle}>Day offset</label>
+                          <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Day Offset</label>
                           <input type="number" value={offset}
                             onChange={(e) => renameTemplateOffset(offset, parseInt(e.target.value) || 0)}
-                            style={inputStyle} />
+                            style={{ ...inputStyle, padding: '10px 12px', borderRadius: '8px', fontSize: '14px', backgroundColor: 'var(--bg-card)', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={labelStyle}>Label</label>
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                          <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Label</label>
                           <input type="text" value={tpl.label || ''}
                             onChange={(e) => updateTemplate(offset, { label: e.target.value })}
-                            style={inputStyle} />
+                            style={{ ...inputStyle, padding: '10px 12px', borderRadius: '8px', fontSize: '14px', backgroundColor: 'var(--bg-card)', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
                         </div>
-                        <div style={{ flex: '0 0 80px' }}>
-                          <label style={labelStyle}>Enabled</label>
+                        <div style={{ flex: '0 0 80px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Enabled</label>
                           <input type="checkbox" checked={tpl.enabled !== false}
                             onChange={(e) => updateTemplate(offset, { enabled: e.target.checked })}
-                            style={{ width: '18px', height: '18px' }} />
+                            style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
                         </div>
-                        <div style={{ flex: '0 0 110px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <label style={{ ...labelStyle, color: '#F87171' }}>Disable product</label>
+                        <div style={{ flex: '0 0 120px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700', color: '#F87171' }}>Disable Product</label>
                           <input type="checkbox" checked={tpl.is_final_reminder === true}
                             onChange={(e) => updateTemplate(offset, { is_final_reminder: e.target.checked })}
-                            style={{ width: '18px', height: '18px' }}
+                            style={{ width: '20px', height: '20px', cursor: 'pointer' }}
                             title="When this reminder fires, mark the product as inactive"
                           />
                         </div>
                         <button onClick={() => removeTemplate(offset)} style={{
-                          alignSelf: 'end', backgroundColor: 'transparent',
-                          color: '#F87171', border: 'none', cursor: 'pointer',
-                          padding: '8px 12px', fontSize: '12px',
-                        }}>Delete</button>
+                          alignSelf: 'end', backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          color: '#F87171', border: 'none', cursor: 'pointer', borderRadius: '8px',
+                          padding: '10px 16px', fontSize: '13px', fontWeight: '700', transition: 'all 0.2s', marginTop: '14px'
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; }}
+                        >Delete</button>
                       </div>
-                      <label style={labelStyle}>Message (HTML — use {`{{variables}}`})</label>
+                      <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Message Template (HTML — use {`{{variables}}`})</label>
                       <textarea
                         value={tpl.message || ''}
                         onChange={(e) => updateTemplate(offset, { message: e.target.value })}
-                        rows={3}
-                        style={{ ...inputStyle, fontFamily: 'monospace', resize: 'vertical' }}
+                        rows={4}
+                        style={{ ...inputStyle, padding: '12px 16px', borderRadius: '8px', fontFamily: 'monospace', resize: 'vertical', fontSize: '13px', backgroundColor: 'var(--bg-card)', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
                       />
-                      <div style={{ fontSize: '11px', marginTop: '4px' }}>
-                        <span style={{ color: 'var(--primary-accent)' }}>Negative = before due date.</span>
-                        <span style={{ color: '#FBBF24' }}> 0 = day of.</span>
-                        <span style={{ color: '#F87171' }}> Positive = after.</span>
-                        <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>Telegram HTML supported.</span>
+                      <div style={{ fontSize: '12px', marginTop: '8px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <span style={{ color: 'var(--primary-accent)', fontWeight: '600' }}>Negative</span> = before due date.<br/>
+                        <span style={{ color: '#FBBF24', fontWeight: '600' }}>0</span> = day of.<br/>
+                        <span style={{ color: '#F87171', fontWeight: '600' }}>Positive</span> = after.<br/>
+                        <span style={{ color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>Telegram HTML syntax is supported (e.g. &lt;b&gt;, &lt;i&gt;, &lt;a href="..."&gt;).</span>
                       </div>
                     </div>
                   );
                 })}
                 {Object.keys(templates).length === 0 && (
-                  <div style={{ color: 'var(--text-secondary)', padding: '16px', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--text-secondary)', padding: '32px', textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
                     No reminders configured. Add one to start sending messages.
                   </div>
                 )}
               </div>
-              <div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Available variables
+              <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', height: 'fit-content', position: 'sticky', top: '24px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', marginBottom: '16px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Available Variables
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {availableVars.map((v) => (
-                    <div key={v.key} style={{ fontSize: '11px', color: 'var(--text-primary)' }}>
-                      <code style={{ backgroundColor: 'var(--bg-main)', padding: '2px 6px', borderRadius: '3px' }}>{`{{${v.key}}}`}</code>
-                      <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{v.desc}</span>
+                    <div key={v.key} style={{ fontSize: '12px', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <code style={{ backgroundColor: 'var(--bg-main)', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', width: 'fit-content', fontWeight: '600', color: 'var(--primary-accent)' }}>{`{{${v.key}}}`}</code>
+                      <span style={{ color: 'var(--text-secondary)', lineHeight: '1.4' }}>{v.desc}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => saveTemplates(templates)} disabled={saving} className="btn-primary" style={{ opacity: saving ? 0.7 : 1 }}>
-                {saving ? 'Saving…' : 'Save templates'}
+            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-start', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
+              <button onClick={() => saveTemplates(templates)} disabled={saving} style={{
+                padding: '12px 24px', borderRadius: '10px', border: 'none',
+                backgroundColor: saving ? 'var(--border-color)' : 'var(--primary-accent)',
+                color: saving ? 'var(--text-secondary)' : '#000', fontSize: '14px', fontWeight: '700', cursor: saving ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s', boxShadow: saving ? 'none' : '0 4px 14px rgba(52, 211, 153, 0.2)'
+              }}
+              onMouseOver={(e) => { if (!saving) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 211, 153, 0.3)'; } }}
+              onMouseOut={(e) => { if (!saving) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(52, 211, 153, 0.2)'; } }}
+              >
+                {saving ? 'Saving…' : 'Save Templates'}
               </button>
             </div>
           </div>
 
           {/* Section C — Linked groups */}
-          <div className="card" style={{ marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 16px 0' }}>Linked groups</h2>
+          <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '32px', border: '1px solid var(--border-color)' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-secondary)' }}>Linked Groups</h2>
+            </div>
             <div className="table-responsive">
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '800px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '900px' }}>
                 <thead>
-                  <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Chat ID</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Group title</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Tele ID</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Client</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Status</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Last seen</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500', textAlign: 'right' }}>Actions</th>
+                  <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-main)' }}>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Chat ID</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Group Title</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Tele ID</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Client</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Status</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Last Seen</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px', textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -582,60 +637,64 @@ export default function BotPage() {
                     const teleMatches = titleTeleId && g.client_tele_id && titleTeleId === g.client_tele_id;
                     const teleMismatch = titleTeleId && g.client_tele_id && titleTeleId !== g.client_tele_id;
                     return (
-                    <tr key={g.chat_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    <tr key={g.chat_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background-color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                      <td style={{ padding: '16px 24px', fontFamily: 'monospace', fontSize: '13px', color: 'var(--text-secondary)' }}>
                         {g.chat_id}
                       </td>
-                      <td style={{ padding: '12px 16px' }}>{g.chat_title}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '12px' }}>
+                      <td style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-primary)' }}>{g.chat_title}</td>
+                      <td style={{ padding: '16px 24px' }}>
                         {titleTeleId ? (
                           <span style={{
-                            fontFamily: 'monospace', fontWeight: '600',
-                            color: teleMismatch ? '#F87171' : '#60A5FA',
-                            backgroundColor: teleMismatch ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.12)',
-                            padding: '2px 6px', borderRadius: '4px',
+                            fontFamily: 'monospace', fontWeight: '700', fontSize: '13px',
+                            color: teleMismatch ? '#F87171' : '#34D399',
+                            backgroundColor: teleMismatch ? 'rgba(239, 68, 68, 0.1)' : 'rgba(52, 211, 153, 0.1)',
+                            border: `1px solid ${teleMismatch ? 'rgba(239, 68, 68, 0.3)' : 'rgba(52, 211, 153, 0.3)'}`,
+                            padding: '4px 8px', borderRadius: '6px',
                             title: teleMismatch
                               ? `Group title says "Tele ${titleTeleId}" but client is linked to Tele ${g.client_tele_id}`
                               : (g.client_tele_id ? 'Match ✓' : 'Detected from group title, client not yet linked'),
                           }}>
                             {titleTeleId}
-                            {teleMatches && <span style={{ marginLeft: '4px', opacity: 0.7 }}>✓</span>}
-                            {teleMismatch && <span style={{ marginLeft: '4px' }}>⚠</span>}
+                            {teleMatches && <span style={{ marginLeft: '6px', opacity: 0.8 }}>✓</span>}
+                            {teleMismatch && <span style={{ marginLeft: '6px' }}>⚠</span>}
                           </span>
                         ) : (
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>—</span>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>—</span>
                         )}
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '16px 24px' }}>
                         {g.status === 'linked' ? (
-                          <span style={{ fontWeight: '500' }}>{g.client_name || `ID ${g.client_id}`}</span>
+                          <span style={{ fontWeight: '700', color: 'var(--primary-accent)' }}>{g.client_name || `ID ${g.client_id}`}</span>
                         ) : (
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Unassigned</span>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Unassigned</span>
                         )}
                       </td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '16px 24px' }}>
                         <span style={{
                           backgroundColor: g.status === 'linked' ? 'rgba(16, 185, 129, 0.1)' : g.status === 'pending' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                           color: g.status === 'linked' ? '#34D399' : g.status === 'pending' ? '#FBBF24' : '#F87171',
-                          padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700',
+                          padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px'
                         }}>{g.status}</span>
                       </td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                      <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', fontSize: '13px' }}>
                         {g.last_seen_at ? new Date(g.last_seen_at + 'Z').toLocaleString() : '—'}
                       </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      <td style={{ padding: '16px 24px', textAlign: 'right' }}>
                         {g.status === 'archived' ? (
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>—</span>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>—</span>
                         ) : (
-                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
                             {g.status === 'pending' && (
                               <AssignControl onAssign={(cid) => assignGroup(g.chat_id, cid)} />
                             )}
                             <button onClick={() => unlinkGroup(g.chat_id)} style={{
-                              backgroundColor: 'transparent', color: '#F87171',
-                              border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '4px',
-                              padding: '4px 8px', fontSize: '11px', cursor: 'pointer',
-                            }}>{g.status === 'pending' ? 'Reject' : 'Unlink'}</button>
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#F87171',
+                              border: 'none', borderRadius: '8px',
+                              padding: '8px 16px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                            >{g.status === 'pending' ? 'Reject' : 'Unlink'}</button>
                           </div>
                         )}
                       </td>
@@ -644,7 +703,7 @@ export default function BotPage() {
                   })}
                   {groups.length === 0 && (
                     <tr>
-                      <td colSpan="7" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <td colSpan="7" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         No groups yet. Add the bot to a Telegram group and type /start.
                       </td>
                     </tr>
@@ -655,51 +714,58 @@ export default function BotPage() {
           </div>
 
           {/* Section D — Recent reminders */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>Recent reminders</h2>
+          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-secondary)' }}>Recent Reminders Log</h2>
               <button onClick={clearLogs} style={{
-                backgroundColor: 'transparent', color: '#F87171',
-                padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.3)',
-                fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-              }}>Clear logs</button>
+                backgroundColor: 'rgba(239, 68, 68, 0.05)', color: '#F87171',
+                padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)',
+                fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.05)'; }}
+              >Clear Logs</button>
             </div>
-            <div className="table-responsive">
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '800px' }}>
-                <thead>
+            <div className="table-responsive" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '900px' }}>
+                <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-main)', zIndex: 10 }}>
                   <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>When</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Client</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Renewal</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Type</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Status</th>
-                    <th style={{ padding: '12px 16px', fontWeight: '500' }}>Message</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>When</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Client</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Renewal</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Type</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Status</th>
+                    <th style={{ padding: '16px 24px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Message Preview</th>
                   </tr>
                 </thead>
                 <tbody>
                   {logs.map((l) => (
-                    <tr key={l.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                    <tr key={l.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background-color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                      <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: 'nowrap', fontWeight: '500' }}>
                         {l.sent_at ? new Date(l.sent_at + 'Z').toLocaleString() : '—'}
                       </td>
-                      <td style={{ padding: '12px 16px' }}>{l.client_name || `#${l.client_id}`}</td>
-                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px' }}>{l.renewal_sr_no}</td>
-                      <td style={{ padding: '12px 16px' }}>{formatTypeChip(l.reminder_type)}</td>
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '16px 24px', fontWeight: '700', color: 'var(--text-primary)' }}>{l.client_name || `#${l.client_id}`}</td>
+                      <td style={{ padding: '16px 24px', fontFamily: 'monospace', fontSize: '13px', color: 'var(--primary-accent)' }}>{l.renewal_sr_no}</td>
+                      <td style={{ padding: '16px 24px' }}>{formatTypeChip(l.reminder_type)}</td>
+                      <td style={{ padding: '16px 24px' }}>
                         <span style={{
                           color: l.status === 'sent' ? '#34D399' : l.status === 'failed' ? '#F87171' : 'var(--text-secondary)',
-                          fontSize: '11px', fontWeight: '700',
+                          fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px',
+                          backgroundColor: l.status === 'sent' ? 'rgba(52, 211, 153, 0.1)' : l.status === 'failed' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.05)',
+                          padding: '4px 8px', borderRadius: '6px'
                         }}>{l.status}</span>
-                        {l.error && <div style={{ fontSize: '11px', color: '#F87171', marginTop: '2px' }}>{l.error}</div>}
+                        {l.error && <div style={{ fontSize: '12px', color: '#F87171', marginTop: '6px', maxWidth: '200px', wordBreak: 'break-word' }}>{l.error}</div>}
                       </td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-secondary)', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span dangerouslySetInnerHTML={{ __html: l.message }} />
+                      <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', maxWidth: '350px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ backgroundColor: 'var(--bg-main)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'inline-block', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span dangerouslySetInnerHTML={{ __html: l.message }} />
+                        </div>
                       </td>
                     </tr>
                   ))}
                   {logs.length === 0 && (
                     <tr>
-                      <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         No reminders sent yet.
                       </td>
                     </tr>
@@ -717,34 +783,42 @@ export default function BotPage() {
           onClick={() => setTestModal(false)}
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '16px',
           }}
         >
-          <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h3 style={{ margin: 0, fontSize: '16px' }}>Test send</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
-              Pick a chat ID from the Linked groups list above, paste it here, and send a test message.
-            </p>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '20px', padding: '32px', border: '1px solid var(--border-color)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
             <div>
-              <label style={labelStyle}>Chat ID</label>
-              <input value={testChatId} onChange={(e) => setTestChatId(e.target.value)} placeholder="e.g. -1001234567890" style={inputStyle} />
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '800' }}>Test Send Message</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.5' }}>
+                Pick a chat ID from the Linked Groups list above, paste it here, and send a test message to ensure the bot is working correctly.
+              </p>
             </div>
             <div>
-              <label style={labelStyle}>Message (HTML)</label>
-              <textarea value={testMessage} onChange={(e) => setTestMessage(e.target.value)} rows={4}
-                style={{ ...inputStyle, fontFamily: 'monospace', resize: 'vertical' }} />
+              <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Target Chat ID</label>
+              <input value={testChatId} onChange={(e) => setTestChatId(e.target.value)} placeholder="e.g. -1001234567890" style={{ ...inputStyle, padding: '12px 16px', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: 'var(--bg-main)' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
+            </div>
+            <div>
+              <label style={{ ...labelStyle, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>Message Body (HTML)</label>
+              <textarea value={testMessage} onChange={(e) => setTestMessage(e.target.value)} rows={5}
+                style={{ ...inputStyle, fontFamily: 'monospace', resize: 'vertical', padding: '12px 16px', borderRadius: '10px', fontSize: '14px', outline: 'none', backgroundColor: 'var(--bg-main)' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'} />
             </div>
             {testResult && !testResult.ok && (
-              <div style={{ fontSize: '12px', color: '#F87171' }}>{testResult.error}{testResult.detail ? ' — ' + testResult.detail : ''}</div>
+              <div style={{ fontSize: '13px', color: '#F87171', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                <strong>Error:</strong> {testResult.error}{testResult.detail ? ' — ' + testResult.detail : ''}
+              </div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
               <button onClick={() => setTestModal(false)} style={{
                 backgroundColor: 'transparent', color: 'var(--text-secondary)',
-                padding: '8px 16px', borderRadius: '6px', border: '1px solid var(--border-color)', cursor: 'pointer',
+                padding: '12px 24px', borderRadius: '10px', border: '1px solid var(--border-color)', cursor: 'pointer', fontWeight: '700'
               }}>Cancel</button>
-              <button onClick={sendTest} disabled={!testChatId || !testMessage} className="btn-primary">
-                Send
+              <button onClick={sendTest} disabled={!testChatId || !testMessage} style={{
+                backgroundColor: 'var(--primary-accent)', color: '#000',
+                padding: '12px 32px', borderRadius: '10px', border: 'none', cursor: (!testChatId || !testMessage) ? 'not-allowed' : 'pointer', fontWeight: '700',
+                opacity: (!testChatId || !testMessage) ? 0.5 : 1, boxShadow: '0 4px 14px rgba(52, 211, 153, 0.2)'
+              }}>
+                Send Test
               </button>
             </div>
           </div>
@@ -758,19 +832,21 @@ export default function BotPage() {
 function AssignControl({ onAssign }) {
   const [name, setName] = useState('');
   return (
-    <div style={{ display: 'inline-flex', gap: '6px' }}>
+    <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
       <input
         placeholder="Client name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        style={{ ...inputStyle, padding: '4px 8px', fontSize: '12px', width: '160px' }}
+        style={{ width: '160px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text-primary)', outline: 'none', fontSize: '13px' }} onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
       />
       <button
         onClick={() => { if (name.trim()) { onAssign(name.trim()); setName(''); } }}
         style={{
-          backgroundColor: 'var(--primary-accent)', color: '#0B111A',
-          border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+          backgroundColor: 'var(--primary-accent)', color: '#000',
+          border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(52, 211, 153, 0.2)'
         }}
+        onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
+        onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
       >Assign</button>
     </div>
   );

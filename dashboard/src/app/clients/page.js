@@ -106,94 +106,136 @@ export default function ClientsPage() {
   return (
     <div style={{ paddingBottom: '64px' }}>
       
-      {/* Header */}
-      <div className="flex-mobile-column" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', gap: '16px' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', gap: '20px', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px' }}>Clients</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{clients.length} total clients</p>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.5px' }}>Clients</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>
+            Manage your <span style={{ color: 'var(--text-primary)' }}>{clients.length}</span> active client relationships
+          </p>
         </div>
-        <button
-          style={{ backgroundColor: '#14b8a6', color: '#fff', padding: '10px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-          onClick={() => setAddClientOpen(true)}
-        >
-          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-          <span>Add Client</span>
-        </button>
-        <button
-          onClick={fixTeleIds}
-          style={{ backgroundColor: 'transparent', color: '#F87171', padding: '10px 16px', borderRadius: '8px', border: '1px solid #F87171', fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-          title="Fix missing Tele IDs so /start can link groups properly"
-        >
-          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.894.149c-.424.07-.764.383-.929.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.398.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.272-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 01.12-1.45l.772-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.149-.894z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          <span>Fix Tele IDs</span>
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={fixTeleIds}
+            style={{ 
+              backgroundColor: 'rgba(248, 113, 113, 0.05)', 
+              color: '#F87171', 
+              padding: '10px 16px', 
+              borderRadius: '10px', 
+              border: '1px solid rgba(248, 113, 113, 0.2)', 
+              fontWeight: '600', 
+              fontSize: '13px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.05)'}
+            title="Fix missing Tele IDs so /start can link groups properly"
+          >
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.894.149c-.424.07-.764.383-.929.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.398.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.272-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 01.12-1.45l.772-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.149-.894z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span>Fix Tele IDs</span>
+          </button>
+          <button
+            style={{ 
+              backgroundColor: 'var(--primary-accent)', 
+              color: '#000', 
+              padding: '10px 20px', 
+              borderRadius: '10px', 
+              border: 'none', 
+              fontWeight: '700', 
+              fontSize: '13px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(0, 242, 181, 0.2)',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 242, 181, 0.3)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 242, 181, 0.2)'; }}
+            onClick={() => setAddClientOpen(true)}
+          >
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            <span>Add Client</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="flex-mobile-column" style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
-        <div style={{ flex: 1, position: 'relative' }}>
-          <div style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-secondary)' }}>
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+      <div className="card" style={{ padding: '16px', marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: '14px', top: '12px', color: 'var(--text-secondary)' }}>
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
           <input 
             type="text" 
-            placeholder="Search by name, email or Pipedrive ID..."
+            placeholder="Search clients by name, email or Pipedrive ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ 
-              width: '100%', backgroundColor: 'transparent', border: '1px solid var(--border-color)', 
-              borderRadius: '8px', padding: '12px 16px 12px 40px', color: 'var(--text-primary)', outline: 'none' 
+              width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', 
+              borderRadius: '10px', padding: '12px 16px 12px 44px', color: 'var(--text-primary)', outline: 'none',
+              fontSize: '14px', transition: 'all 0.2s'
             }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
           />
         </div>
         
-        <select 
-          value={statusFilter} 
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={{ 
-            backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px', 
-            padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', appearance: 'none', minWidth: '160px'
-          }}
-        >
-          <option value="All statuses" style={{ color: '#000' }}>All statuses</option>
-          <option value="Active" style={{ color: '#000' }}>Active</option>
-          <option value="Inactive" style={{ color: '#000' }}>Inactive</option>
-        </select>
-        
-        <select 
-          value={channelFilter} 
-          onChange={(e) => setChannelFilter(e.target.value)}
-          style={{ 
-            backgroundColor: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px', 
-            padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', appearance: 'none', minWidth: '160px'
-          }}
-        >
-          {uniqueChannels.map((ch, idx) => (
-            <option key={idx} value={ch} style={{ color: '#000' }}>{ch}</option>
-          ))}
-        </select>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ 
+              backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', 
+              padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', appearance: 'none', minWidth: '150px',
+              fontSize: '14px'
+            }}
+          >
+            <option value="All statuses" style={{ color: '#000' }}>All Statuses</option>
+            <option value="Active" style={{ color: '#000' }}>Active</option>
+            <option value="Inactive" style={{ color: '#000' }}>Inactive</option>
+          </select>
+          
+          <select 
+            value={channelFilter} 
+            onChange={(e) => setChannelFilter(e.target.value)}
+            style={{ 
+              backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', 
+              padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', appearance: 'none', minWidth: '150px',
+              fontSize: '14px'
+            }}
+          >
+            {uniqueChannels.map((ch, idx) => (
+              <option key={idx} value={ch} style={{ color: '#000' }}>{ch === 'All channels' ? 'All Channels' : ch}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* Table Container */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
         {loading ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading clients...</div>
+          <div style={{ padding: '64px', textAlign: 'center' }}>
+            <div className="spinner" style={{ width: '32px', height: '32px', border: '3px solid var(--status-active-bg)', borderTopColor: 'var(--status-active)', borderRadius: '50%', margin: '0 auto 16px' }}></div>
+            <div style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>Loading client directory...</div>
+          </div>
         ) : (
           <div className="table-responsive">
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '900px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
               <thead>
-                <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Name</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Tele ID</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Email</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Product(s)</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Monthly</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Status</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Channel</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500' }}>Telegram</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'center' }}>Renewal</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Tenure</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>PD ID</th>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)' }}>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Client Info</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Tele ID</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Products</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Monthly CA</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Status</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Channel</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Telegram</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px', textAlign: 'right' }}>Tenure</th>
                 </tr>
               </thead>
               <tbody>
@@ -201,11 +243,17 @@ export default function ClientsPage() {
                   <tr 
                     key={client.id} 
                     onClick={() => openModal(client.id)}
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'background-color 0.2s' }}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'}
+                    style={{ borderBottom: '1px solid var(--border-color)', cursor: 'pointer', transition: 'all 0.2s' }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'}
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
-                    <td style={{ padding: '16px 24px', fontWeight: '500', color: 'var(--text-primary)' }}>{client.nom}</td>
+                    <td style={{ padding: '16px 24px' }}>
+                      <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px', fontSize: '14px' }}>{client.nom}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        {client.email || 'No email provided'}
+                      </div>
+                    </td>
                     <td style={{ padding: '16px 24px' }}>
                       <TeleIdBadge
                         teleId={client.tele_id}
@@ -213,12 +261,18 @@ export default function ClientsPage() {
                         conflict={client.tele_id_conflict}
                       />
                     </td>
-                    <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>{client.email}</td>
-                    <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>
-                      {client.produits.length > 25 ? client.produits.substring(0, 25) + '...' : client.produits}
+                    <td style={{ padding: '16px 24px' }}>
+                      <div style={{ color: 'var(--text-primary)', fontWeight: '500' }}>
+                        {client.produits.length > 30 ? client.produits.substring(0, 30) + '...' : client.produits}
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>
+                        Renewal: {client.renouvellement || '—'}
+                      </div>
                     </td>
-                    <td style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                      {client.mensuel > 0 ? formatCurrency(client.mensuel) : '—'}
+                    <td style={{ padding: '16px 24px' }}>
+                      <div style={{ fontWeight: '700', color: 'var(--primary-accent)', fontSize: '15px' }}>
+                        {client.mensuel > 0 ? formatCurrency(client.mensuel) : '—'}
+                      </div>
                     </td>
                     <td style={{ padding: '16px 24px' }}>
                       {getStatusBadge(client.statut)}
@@ -229,22 +283,19 @@ export default function ClientsPage() {
                     <td style={{ padding: '16px 24px' }}>
                       <TelegramBadge chatId={client.telegram_group_id} title="Primary linked group" />
                     </td>
-                    <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                      {client.renouvellement}
-                    </td>
-                    <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', textAlign: 'right' }}>
-                      {client.anciennete}
-                    </td>
-                    <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', textAlign: 'right', fontFamily: 'monospace' }}>
-                      {client.pd_id}
+                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                      <div style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{client.anciennete || '—'}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '11px', fontFamily: 'monospace' }}>ID: {client.pd_id}</div>
                     </td>
                   </tr>
                 ))}
                 
                 {filteredClients.length === 0 && (
                   <tr>
-                    <td colSpan="11" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      No clients match your search.
+                    <td colSpan="8" style={{ padding: '64px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔍</div>
+                      <div style={{ color: 'var(--text-primary)', fontWeight: '600', marginBottom: '4px' }}>No clients found</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Try adjusting your filters or search terms.</div>
                     </td>
                   </tr>
                 )}
