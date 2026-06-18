@@ -1190,6 +1190,22 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     </div>
 
                     <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>TIER</label>
+                      <select value={manualPaymentForm.tier} onChange={(e) => handlePaymentTierChange(e.target.value)} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
+                        <option value="">Select TIER</option>
+                        {TIER_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>SETUP</label>
+                      <select value={manualPaymentForm.setup_type} onChange={(e) => handlePaymentSetupTypeChange(e.target.value)} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
+                        <option value="">Select SETUP</option>
+                        {SETUP_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Bank</label>
                       <select value={manualPaymentForm.bank_name} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, bank_name: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
                         <option value="">Select Bank</option>
@@ -1198,13 +1214,33 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     </div>
 
                     <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Amount</label>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Amount Received</label>
                       <input type="text" value={manualPaymentForm.amount_received} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, amount_received: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
                     </div>
 
                     <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Reference</label>
                       <input type="text" value={manualPaymentForm.reference_no} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, reference_no: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Subscription Fee</label>
+                      <input type="text" value={manualPaymentForm.subscription_fee} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, subscription_fee: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Setup Fee</label>
+                      <input type="text" value={manualPaymentForm.setup_fee} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, setup_fee: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Discount</label>
+                      <input type="text" value={manualPaymentForm.discount} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, discount: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Valid Until</label>
+                      <input type="date" value={manualPaymentForm.valid_stopped_date} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, valid_stopped_date: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
                     </div>
                   </div>
 

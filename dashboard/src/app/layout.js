@@ -2,7 +2,7 @@ import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
 
 export const metadata = {
-  title: "PCA TRACKING",
+  title: "PCA TRACKING v2.1.0",
   description: "Dashboard de gestion des renouvellements",
 };
 
