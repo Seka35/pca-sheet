@@ -263,8 +263,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   };
 
   // Deduplicate products by tier + setup_type combination (one card per unique product)
+  // Use formProducts when in edit mode (has latest saved data), otherwise use history
+  const productSource = mode === 'edit' ? formProducts : (history || []);
   const uniqueProductsMap = {};
-  (history || []).forEach(p => {
+  productSource.forEach(p => {
     const key = `${p.tier || ''}|${p.setup_type || ''}|${p.sr_no || ''}`;
     if (key !== '||' && !uniqueProductsMap[key]) {
       uniqueProductsMap[key] = p;
@@ -355,7 +357,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   // Handle tier change - auto-fill subscription_fee
   const handlePaymentTierChange = (val) => {
     const updates = { tier: val };
-    if (val) updates.setup_type = ''; // clear old setup_type when picking a tier
     if (TIER_PRICING[val]) {
       updates.subscription_fee = TIER_PRICING[val];
     }
@@ -369,10 +370,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
 
-  // Handle setup type change - auto-fill setup_fee, clear tier
+  // Handle setup type change - auto-fill setup_fee
   const handlePaymentSetupTypeChange = (val) => {
     const updates = { setup_type: val };
-    if (val) updates.tier = ''; // clear old tier when picking a setup_type
     if (SETUP_PRICING[val]) {
       updates.setup_fee = SETUP_PRICING[val];
     }
@@ -487,39 +487,63 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     try {
       let updatedProducts;
       if (editingPayment === 'new') {
-        // Add new payment entry as a new product
         // Auto-generate month from payment_received_date if not set
         const monthFromDate = manualPaymentForm.month || (manualPaymentForm.payment_received_date
           ? new Date(manualPaymentForm.payment_received_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-')
           : '');
-        const newProduct = {
-          tier: manualPaymentForm.tier || '',
-          setup_type: manualPaymentForm.setup_type || '',
-          month: monthFromDate,
-          subscription_fee: manualPaymentForm.subscription_fee || '0',
-          setup_fee: manualPaymentForm.setup_fee || '0',
-          discount: manualPaymentForm.discount || '0',
-          cl_amount: '',
-          start_date: '',
-          valid_stopped_date: manualPaymentForm.valid_stopped_date || '',
-          client_ad_id_name: '',
-          ad_id_number: '',
-          ad_account_type: '',
-          ad_spend_limit: '',
-          referral_partner_name: '',
-          referral_amount: '',
-          bank_name: manualPaymentForm.bank_name,
-          payment_name: '',
-          amount_received: manualPaymentForm.amount_received,
-          payment_received_date: manualPaymentForm.payment_received_date,
-          payment_received_month: monthFromDate,
-          reference_no: manualPaymentForm.reference_no,
-          actual_balance_difference: '',
-          client_status_history: '',
-          notes: 'MANUAL_ENTRY',
-          active: true,
-        };
-        updatedProducts = [...formProducts, newProduct];
+        // If linked to existing product, update that product
+        if (selectedProductSrNo && selectedProductSrNo !== 'new') {
+          updatedProducts = formProducts.map((p) => {
+            if (p.sr_no === selectedProductSrNo) {
+              return {
+                ...p,
+                month: monthFromDate,
+                bank_name: manualPaymentForm.bank_name,
+                amount_received: manualPaymentForm.amount_received,
+                payment_received_date: manualPaymentForm.payment_received_date,
+                payment_received_month: monthFromDate,
+                reference_no: manualPaymentForm.reference_no,
+                tier: manualPaymentForm.tier || p.tier,
+                setup_type: manualPaymentForm.setup_type || p.setup_type,
+                subscription_fee: manualPaymentForm.subscription_fee || p.subscription_fee,
+                setup_fee: manualPaymentForm.setup_fee || p.setup_fee,
+                discount: manualPaymentForm.discount || p.discount,
+                valid_stopped_date: manualPaymentForm.valid_stopped_date || p.valid_stopped_date,
+              };
+            }
+            return p;
+          });
+        } else {
+          // Create new product for manual entry
+          const newProduct = {
+            tier: manualPaymentForm.tier || '',
+            setup_type: manualPaymentForm.setup_type || '',
+            month: monthFromDate,
+            subscription_fee: manualPaymentForm.subscription_fee || '0',
+            setup_fee: manualPaymentForm.setup_fee || '0',
+            discount: manualPaymentForm.discount || '0',
+            cl_amount: '',
+            start_date: '',
+            valid_stopped_date: manualPaymentForm.valid_stopped_date || '',
+            client_ad_id_name: '',
+            ad_id_number: '',
+            ad_account_type: '',
+            ad_spend_limit: '',
+            referral_partner_name: '',
+            referral_amount: '',
+            bank_name: manualPaymentForm.bank_name,
+            payment_name: '',
+            amount_received: manualPaymentForm.amount_received,
+            payment_received_date: manualPaymentForm.payment_received_date,
+            payment_received_month: monthFromDate,
+            reference_no: manualPaymentForm.reference_no,
+            actual_balance_difference: '',
+            client_status_history: '',
+            notes: 'MANUAL_ENTRY',
+            active: true,
+          };
+          updatedProducts = [...formProducts, newProduct];
+        }
       } else {
         // Update existing payment entry - match by sr_no
         updatedProducts = formProducts.map((p) => {
@@ -711,8 +735,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         setError(data.error || `Request failed (${res.status})`);
         return;
       }
-      onSaved && onSaved();
-      onClose();
+      // formProducts already contains the saved data - no need to update
+      // Just stay in edit mode and let user continue
+      setRemovedSrNos([]);
+      setSaving(false);
+      setError(null);
+      // Don't call onSaved or onClose - stay in modal to allow more edits
     } catch (e) {
       setError(e.message || 'Network error');
     } finally {
@@ -929,7 +957,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Total Revenue</span>
-                          <span style={{ fontWeight: '700', fontSize: '18px', color: 'var(--primary-accent)' }}>{formatCurrency(computedData?.totalCA)}</span>
+                          <span style={{ fontWeight: '700', fontSize: '18px', color: 'var(--primary-accent)' }}>{formatCurrency((history || []).reduce((sum, h) => sum + (parseFloat(String(h.amount_received || '0').replace(/[^0-9.]/g, '')) || 0), 0))}</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Total Spend (CL)</span>
