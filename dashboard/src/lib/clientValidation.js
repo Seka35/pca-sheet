@@ -53,6 +53,14 @@ function normalizeProduct(p, { allowSrNo = false } = {}) {
       out.active = p.active === false ? false : true; // default true
     } else if (f === 'is_trial') {
       out.is_trial = p.is_trial === true ? true : false; // preserve boolean
+    } else if (f === 'setup_type') {
+      // Sanitize: only keep valid setup_type values, otherwise clear
+      const val = trimOrEmpty(p[f]);
+      out[f] = VALID_SETUP_TYPES.includes(val) ? val : '';
+    } else if (f === 'tier') {
+      // Sanitize: only keep valid tier values, otherwise clear
+      const val = trimOrEmpty(p[f]);
+      out[f] = VALID_TIERS.includes(val) ? val : '';
     } else {
       out[f] = trimOrEmpty(p[f]);
     }

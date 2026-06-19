@@ -88,6 +88,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const [invoiceSending, setInvoiceSending] = useState(false);
   const [invoiceToast, setInvoiceToast] = useState(null); // { type: 'success'|'error', message: '' }
   const [sendingRowSrNo, setSendingRowSrNo] = useState(null); // tracks which row is sending
+  const [deletedPaymentSrNos, setDeletedPaymentSrNos] = useState([]); // tracks deleted payments for display
 
   // Refetch client detail to get computed fields when modal opens
   useEffect(() => {
@@ -99,6 +100,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       })
       .catch(() => {});
   }, [client?.id]);
+
+  // Reset deletedPaymentSrNos when selectedClient changes (e.g. after parent refetch)
+  useEffect(() => {
+    setDeletedPaymentSrNos([]);
+  }, [selectedClient?.client?.id]);
 
   const uploadContract = async (file) => {
     if (!file || saving) return;
@@ -259,8 +265,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   // Deduplicate products by tier + setup_type combination (one card per unique product)
   const uniqueProductsMap = {};
   (history || []).forEach(p => {
-    const key = `${p.tier || ''}|${p.setup_type || ''}`;
-    if (key !== '|' && !uniqueProductsMap[key]) {
+    const key = `${p.tier || ''}|${p.setup_type || ''}|${p.sr_no || ''}`;
+    if (key !== '||' && !uniqueProductsMap[key]) {
       uniqueProductsMap[key] = p;
     }
   });
@@ -349,6 +355,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   // Handle tier change - auto-fill subscription_fee
   const handlePaymentTierChange = (val) => {
     const updates = { tier: val };
+    if (val) updates.setup_type = ''; // clear old setup_type when picking a tier
     if (TIER_PRICING[val]) {
       updates.subscription_fee = TIER_PRICING[val];
     }
@@ -362,9 +369,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
 
-  // Handle setup type change - auto-fill setup_fee
+  // Handle setup type change - auto-fill setup_fee, clear tier
   const handlePaymentSetupTypeChange = (val) => {
     const updates = { setup_type: val };
+    if (val) updates.tier = ''; // clear old tier when picking a setup_type
     if (SETUP_PRICING[val]) {
       updates.setup_fee = SETUP_PRICING[val];
     }
@@ -442,6 +450,17 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     });
   };
 
+  const deletePayment = async (row) => {
+    if (!window.confirm(`Delete payment for ${row.month}?`)) return;
+    // Optimistically remove from display
+    setDeletedPaymentSrNos(prev => [...prev, row.sr_no]);
+    // Mark for removal in API call
+    setRemovedSrNos(prev => [...prev, row.sr_no]);
+    setFormProducts(prev => prev.filter(p => p.sr_no !== row.sr_no));
+    // Trigger parent refetch
+    onSaved && onSaved();
+  };
+
   const cancelPaymentEdit = () => {
     setEditingPayment(null);
     setSelectedProductSrNo('');
@@ -469,10 +488,14 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       let updatedProducts;
       if (editingPayment === 'new') {
         // Add new payment entry as a new product
+        // Auto-generate month from payment_received_date if not set
+        const monthFromDate = manualPaymentForm.month || (manualPaymentForm.payment_received_date
+          ? new Date(manualPaymentForm.payment_received_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-')
+          : '');
         const newProduct = {
-          tier: manualPaymentForm.tier || 'Standard',
-          setup_type: manualPaymentForm.setup_type || 'Monthly',
-          month: manualPaymentForm.month,
+          tier: manualPaymentForm.tier || '',
+          setup_type: manualPaymentForm.setup_type || '',
+          month: monthFromDate,
           subscription_fee: manualPaymentForm.subscription_fee || '0',
           setup_fee: manualPaymentForm.setup_fee || '0',
           discount: manualPaymentForm.discount || '0',
@@ -489,7 +512,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           payment_name: '',
           amount_received: manualPaymentForm.amount_received,
           payment_received_date: manualPaymentForm.payment_received_date,
-          payment_received_month: manualPaymentForm.month,
+          payment_received_month: monthFromDate,
           reference_no: manualPaymentForm.reference_no,
           actual_balance_difference: '',
           client_status_history: '',
@@ -509,8 +532,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               payment_received_date: manualPaymentForm.payment_received_date,
               payment_received_month: manualPaymentForm.month,
               reference_no: manualPaymentForm.reference_no,
-              tier: manualPaymentForm.tier || p.tier,
-              setup_type: manualPaymentForm.setup_type || p.setup_type,
+              tier: manualPaymentForm.tier,
+              setup_type: manualPaymentForm.setup_type,
               subscription_fee: manualPaymentForm.subscription_fee || p.subscription_fee,
               setup_fee: manualPaymentForm.setup_fee || p.setup_fee,
               discount: manualPaymentForm.discount || p.discount,
@@ -543,13 +566,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       }
       setEditingPayment(null);
       setSelectedProductSrNo('');
-      onSaved && onSaved();
       // Re-fetch client to refresh modal
       try {
         const refetch = await fetch(`/api/clients/${client.id}`);
         if (refetch.ok) {
           const fresh = await refetch.json();
-          // Update local state with fresh data
+          // Update local state with fresh data FIRST
           setFormProducts(
             (fresh.history || []).map((h) => ({
               sr_no: h.sr_no,
@@ -580,8 +602,14 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               active: h.visual_status === 'Active',
             }))
           );
+          // Then notify parent (triggers re-render with fresh history)
+          setDeletedPaymentSrNos([]); // reset deleted tracking
+          onSaved && onSaved();
         }
-      } catch {}
+      } catch {
+        // If refetch fails, still notify parent
+        onSaved && onSaved();
+      }
     } catch (e) {
       setError(e.message || 'Network error');
     } finally {
@@ -1258,22 +1286,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     
                     <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Period</label>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <select
-                          value={manualPaymentForm.month?.split('-')[0] || ''}
-                          onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: `${e.target.value}-${prev.month?.split('-')[1] || '2026'}` }))}
-                          style={{ flex: 1, backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', color: '#fff', fontSize: '12px' }}
-                        >
-                          {MONTH_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                        <select
-                          value={manualPaymentForm.month?.split('-')[1] || ''}
-                          onChange={(e) => setManualPaymentForm(prev => ({ ...prev, month: `${prev.month?.split('-')[0] || 'Jun'}-${e.target.value}` }))}
-                          style={{ flex: 1, backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', color: '#fff', fontSize: '12px' }}
-                        >
-                          {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
-                      </div>
+                      <input
+                        type="date"
+                        value={manualPaymentForm.payment_received_date}
+                        onChange={(e) => setManualPaymentForm(prev => ({ ...prev, payment_received_date: e.target.value, month: e.target.value ? new Date(e.target.value).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-') : prev.month }))}
+                        style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px', color: '#fff', fontSize: '12px' }}
+                      />
                     </div>
 
                     <div>
@@ -1354,7 +1372,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(history || []).map((row) => {
+                    {(formProducts.length > 0 ? formProducts : history || []).filter(row => !removedSrNos.includes(row.sr_no) && !deletedPaymentSrNos.includes(row.sr_no)).map((row) => {
                       const billing = getBillingInfo(row);
                       return (
                         <tr key={row.sr_no} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
@@ -1389,7 +1407,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                             </button>
                           </td>
                           <td style={{ padding: '16px 8px' }}>
-                            <button onClick={() => startEditPayment(row)} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent' }}>✏️</button>
+                            <button onClick={() => startEditPayment(row)} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent', marginRight: '8px' }}>✏️</button>
+                            <button onClick={() => deletePayment(row)} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent' }}>🗑️</button>
                           </td>
                         </tr>
                       );
