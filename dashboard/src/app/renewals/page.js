@@ -330,7 +330,6 @@ export default function RenewalsPage() {
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due Date</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Due</th>
                   <th style={{ padding: '16px 24px', fontWeight: '500' }}>Telegram</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '500', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -374,17 +373,11 @@ export default function RenewalsPage() {
                     <td style={{ padding: '16px 24px' }}>
                       <TelegramBadge chatId={row.telegram_chat_id} title={row.telegram_chats?.[0]?.chat_title} />
                     </td>
-                    <td style={{ padding: '16px 24px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
-                      <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'var(--status-active-bg)', color: 'var(--primary-accent)', fontSize: '12px', border: '1px solid var(--primary-accent)', fontWeight: '500' }}>
-                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        <span>Mark Paid</span>
-                      </button>
-                    </td>
                   </tr>
                 ))}
                 {paginatedList.length === 0 && (
                   <tr>
-                    <td colSpan="9" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No items in this category.</td>
+                    <td colSpan="8" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>No items in this category.</td>
                   </tr>
                 )}
               </tbody>

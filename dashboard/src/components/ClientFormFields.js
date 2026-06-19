@@ -127,9 +127,10 @@ export default function ClientFormFields({
 }) {
   const set = (key) => (val) => onChange({ ...product, [key]: val });
 
-  // Handle tier change - auto-fill subscription_fee and ad_spend_limit
+  // Handle tier change - auto-fill subscription_fee and ad_spend_limit, clear setup_type
   const handleTierChange = (val) => {
     const updates = { tier: val };
+    if (val) updates.setup_type = ''; // clear old setup_type when picking a tier
     if (TIER_PRICING[val]) {
       updates.subscription_fee = TIER_PRICING[val].subscription_fee;
       updates.ad_spend_limit = TIER_PRICING[val].ad_spend_limit;
@@ -137,9 +138,10 @@ export default function ClientFormFields({
     onChange({ ...product, ...updates });
   };
 
-  // Handle setup_type change - auto-fill setup_fee
+  // Handle setup_type change - auto-fill setup_fee, clear tier
   const handleSetupTypeChange = (val) => {
     const updates = { setup_type: val };
+    if (val) updates.tier = ''; // clear old tier when picking a setup_type
     if (SETUP_PRICING[val]) {
       updates.setup_fee = SETUP_PRICING[val].setup_fee;
     }
@@ -224,7 +226,7 @@ export default function ClientFormFields({
             />
             7 days trial
           </label>
-          {showRemove && onRemove && !isFirst && (
+          {showRemove && onRemove && (
             <button
               type="button"
               onClick={onRemove}
@@ -253,7 +255,7 @@ export default function ClientFormFields({
           gap: '12px',
         }}
       >
-        <Field label="Tier" required={isNew}>
+        <Field label="Tier">
           <Select
             value={product.tier}
             onChange={handleTierChange}
@@ -262,7 +264,7 @@ export default function ClientFormFields({
             disabled={disabled}
           />
         </Field>
-        <Field label="Setup type" required={isNew}>
+        <Field label="Setup type">
           <Select
             value={product.setup_type}
             onChange={handleSetupTypeChange}
