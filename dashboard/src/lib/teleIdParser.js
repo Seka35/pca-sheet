@@ -13,8 +13,8 @@
 // (space, dash, colon, paren, nothing) so the seller can name the group
 // however they want, as long as the numeric ID is somewhere in there.
 
-const TELE_RE = /\btele\s*[-:(\s]*\s*(\d{1,4})\b/i;
-const TELE_RE_GLOBAL = /\btele\s*[-:(\s]*\s*(\d{1,4})\b/gi;
+const TELE_RE = /\btele\s*[-:(\s]*\s*(\d{1,10})\b/i;
+const TELE_RE_GLOBAL = /\btele\s*[-:(\s]*\s*(\d{1,10})\b/gi;
 
 export function extractTeleId(input) {
   if (!input) return null;

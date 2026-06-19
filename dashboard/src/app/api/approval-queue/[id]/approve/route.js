@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
-import { get, run } from '@/lib/db';
+import { get, run, all } from '@/lib/db';
 import { getBot } from '@/lib/telegramBot';
+import { buildPaymentReminderKeyboard } from '@/lib/telegramInlineButtons';
+import { generateInvoicePdfBuffer } from '@/lib/invoicePdf';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 export async function POST(req) {
   // Extract ID from URL since params can be empty in Next.js 16
@@ -119,20 +124,89 @@ export async function POST(req) {
       run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
     }
 
-    // Send Telegram notification to the client
+    // Send Telegram notification + invoice to the client
     try {
       const link = get(`SELECT chat_id FROM bot_group_links WHERE client_id = ? AND status = 'linked' LIMIT 1`, [entry.client_id]);
-      if (link) {
-        const bot = getBot();
-        if (bot) {
-          await bot.sendMessage(
-            link.chat_id,
-            `✅ <b>Payment Approved!</b>\n\n` +
-            `<b>${entry.client_name}</b>, your payment of <b>${entry.amount_due}</b> has been<b>approved</b>!\n\n` +
-            `Transaction ID: <code>${entry.transaction_id || 'N/A'}</code>\n\n` +
-            `Your account is now active. Thank you for your payment!`,
-            { parse_mode: 'HTML' }
-          );
+      const bot = getBot();
+      if (link && bot) {
+        // Fetch bank details for PDF
+        const allBanks = all('SELECT bank_key, data_json FROM bank_details');
+        const bankDataMap = {};
+        for (const bank of allBanks) {
+          bankDataMap[bank.bank_key.toLowerCase()] = JSON.parse(bank.data_json || '{}');
+        }
+
+        // Fetch renewal row for PDF generation
+        const renewalRow = get(`
+          SELECT r.sr_no, r.client_id, r.client_name, r.tier, r.setup_type,
+                 r.subscription_fee, r.setup_fee, r.discount, r.amount_received,
+                 r.valid_stopped_date, r.reminders_sent_json, r.bank_name,
+                 r.referral_partner_name
+          FROM renewals r
+          WHERE r.sr_no = ?
+        `, [entry.sr_no]);
+
+        // Generate PDF invoice
+        let pdfPath = null;
+        try {
+          if (renewalRow) {
+            const bankKey = (renewalRow.bank_name || '').toLowerCase().trim();
+            const bankData = bankDataMap[bankKey] || {};
+
+            const parseMoney = (s) => parseFloat(String(s || '0').replace(/[^0-9.]/g, '')) || 0;
+            const subscriptionFee = parseMoney(renewalRow.subscription_fee);
+            const discountAmount = parseMoney(renewalRow.discount);
+
+            const pdfBuffer = await generateInvoicePdfBuffer({
+              sr_no: renewalRow.sr_no,
+              client_name: renewalRow.client_name,
+              bank_name: renewalRow.bank_name,
+              product_name: renewalRow.tier || 'Service',
+              subtotal: subscriptionFee.toFixed(2),
+              discount: discountAmount.toFixed(2),
+              invoice_date: renewalRow.valid_stopped_date || new Date().toISOString().split('T')[0],
+              invoice_no: renewalRow.sr_no ? renewalRow.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
+              bankData,
+              referral_partner_name: renewalRow.referral_partner_name || 'N.A.',
+              whop_link_type: 'tier',
+            });
+            pdfPath = path.join(os.tmpdir(), `invoice-${renewalRow.sr_no}-${Date.now()}.pdf`);
+            fs.writeFileSync(pdfPath, pdfBuffer);
+          }
+        } catch (pdfErr) {
+          console.error('[APPROVE] PDF generation failed:', pdfErr.message);
+        }
+
+        // Build payment reminder keyboard (Pay Now button)
+        const keyboard = buildPaymentReminderKeyboard(entry.sr_no, link.chat_id);
+
+        // Send payment reminder message with Pay Now button
+        await bot.sendMessage(
+          link.chat_id,
+          `✅ <b>Payment Approved!</b>\n\n` +
+          `<b>${entry.client_name}</b>, your payment of <b>${entry.amount_due}</b> has been <b>approved</b>!\n\n` +
+          `Transaction ID: <code>${entry.transaction_id || 'N/A'}</code>\n\n` +
+          `Your account is now active. Thank you for your payment!\n\n` +
+          `💳 Click <b>Pay Now</b> below to view payment details.`,
+          {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            reply_markup: JSON.stringify(keyboard.reply_markup),
+          }
+        );
+
+        // Send PDF invoice as document if available
+        if (pdfPath && fs.existsSync(pdfPath)) {
+          try {
+            await bot.sendDocument(link.chat_id, pdfPath, {
+              parse_mode: 'HTML',
+              caption: `📄 <b>Invoice</b> for ${entry.client_name} — ${renewalRow?.subscription_fee || entry.amount_due || '$0'}`,
+            });
+          } catch (docErr) {
+            console.error('[APPROVE] PDF send failed:', docErr.message);
+          } finally {
+            try { fs.unlinkSync(pdfPath); } catch {}
+          }
         }
       }
     } catch (e) {

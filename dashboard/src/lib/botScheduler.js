@@ -209,6 +209,11 @@ export async function runReminderSweepOnce(bot) {
         // No Telegram message sent yet — will be sent after admin approval
       } else {
         // No human verification: send directly
+        // Skip if no payment method configured (bank_name is empty)
+        if (!row.bank_name || row.bank_name.trim() === '') {
+          console.warn(`[sweep] Skipping reminder for ${row.sr_no} — no payment method configured (bank_name is empty)`);
+          continue;
+        }
         try {
           // Generate PDF invoice using Puppeteer (renders the exact HTML invoice)
           let pdfPath = null;
