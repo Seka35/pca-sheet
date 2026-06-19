@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from 'react';
 import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
 
 // A single product's editable form fields. Renders inside a card and is
@@ -199,6 +200,29 @@ export default function ClientFormFields({
               disabled={disabled}
             />
             Active
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: product.is_trial ? '#FBBF24' : 'var(--text-secondary)', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: product.is_trial ? '600' : '400' }}>
+            <input
+              type="checkbox"
+              checked={product.is_trial == 1}
+              onChange={(e) => {
+                const trial = e.target.checked;
+                let updates = { is_trial: trial };
+                if (trial) {
+                  // Calculate trial end date: use start_date if available, otherwise use today
+                  let baseDate = product.start_date ? new Date(product.start_date) : new Date();
+                  if (isNaN(baseDate.getTime())) baseDate = new Date();
+                  baseDate.setDate(baseDate.getDate() + 7);
+                  updates.valid_stopped_date = baseDate.toISOString().split('T')[0];
+                } else {
+                  // If trial is unchecked, clear the auto-set date
+                  updates.valid_stopped_date = '';
+                }
+                onChange({ ...product, ...updates });
+              }}
+              disabled={disabled}
+            />
+            7 days trial
           </label>
           {showRemove && onRemove && !isFirst && (
             <button

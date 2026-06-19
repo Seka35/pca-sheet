@@ -54,6 +54,7 @@ export async function GET(req) {
         client_email: r.client_email || 'No contact',
         tier: r.tier,
         setup_type: r.setup_type,
+        is_trial: r.is_trial === 1,
         amount: amount,
         channel: channel,
         status: isFailed ? 'Failed' : 'Paid',

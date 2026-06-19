@@ -34,9 +34,41 @@ export async function POST(req) {
       [entry.proof_id]
     );
 
-    const existingRenewal = get('SELECT id FROM renewals WHERE sr_no = ?', [entry.sr_no]);
+    const existingRenewal = get('SELECT * FROM renewals WHERE sr_no = ?', [entry.sr_no]);
+
+    // Get the payment method chosen by client (from payment_selections)
+    const paymentSelection = get('SELECT method FROM payment_selections WHERE sr_no = ? AND chat_id = (SELECT chat_id FROM bot_group_links WHERE client_id = ? LIMIT 1) ORDER BY selected_at DESC LIMIT 1', [entry.sr_no, entry.client_id]);
+
+    // Calculate amount_due: subscription + setup - discount
+    const amountDue = parseFloat(String(entry.amount_due || '0').replace(/[^0-9.]/g, '')) || 0;
+
+    // Calculate valid_stopped_date = start_date + 7 days (trial) or + 1 month (regular)
+    const isTrial = existingRenewal?.is_trial === 1;
+    let newValidStoppedDate = null;
+    if (existingRenewal && existingRenewal.start_date) {
+      const startDate = new Date(existingRenewal.start_date);
+      if (!isNaN(startDate.getTime())) {
+        if (isTrial) {
+          startDate.setDate(startDate.getDate() + 7);
+        } else {
+          startDate.setMonth(startDate.getMonth() + 1);
+        }
+        newValidStoppedDate = startDate.toISOString().split('T')[0];
+      }
+    }
 
     if (existingRenewal) {
+      // Determine the bank_name to store: use payment method if available, otherwise keep existing
+      const methodLabels = {
+        usdt_trc20: 'Crypto - USDT TRC20',
+        usdt_erc20: 'Crypto - USDT ERC20',
+        btc: 'Crypto - BTC',
+        lhv: 'LHV - SEPA',
+        slash: 'Slash - US Wire',
+        whop: 'WHOP'
+      };
+      const bankNameToStore = paymentSelection?.method ? (methodLabels[paymentSelection.method] || entry.bank_name) : entry.bank_name;
+
       run(
         `UPDATE renewals SET
           reference_no = ?,
@@ -45,18 +77,31 @@ export async function POST(req) {
           paid_at = CURRENT_TIMESTAMP,
           payment_received_date = DATE('now'),
           payment_received_month = strftime('%Y-%m', 'now'),
-          visual_status = 'paid'
+          amount_received = ?,
+          bank_name = ?,
+          valid_stopped_date = COALESCE(?, valid_stopped_date),
+          visual_status = 'Active'
         WHERE sr_no = ?`,
-        [entry.transaction_id, entry.transaction_id, entry.proof_image_url, entry.sr_no]
+        [entry.transaction_id, entry.transaction_id, entry.proof_image_url, amountDue, bankNameToStore, newValidStoppedDate, entry.sr_no]
       );
+
+      // Also activate the client if payment is approved
+      run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
     } else {
+      // Renewal doesn't exist - create it with the approval data
+      const startDate = new Date().toISOString().split('T')[0];
+      const validUntil = new Date();
+      validUntil.setMonth(validUntil.getMonth() + 1);
+      const validUntilStr = validUntil.toISOString().split('T')[0];
+
       run(
         `INSERT INTO renewals (
           sr_no, client_id, client_name, month,
           reference_no, transaction_id, payment_proof_url,
           paid_at, payment_received_date, payment_received_month,
-          visual_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, DATE('now'), strftime('%Y-%m', 'now'), 'paid')`,
+          visual_status, start_date, valid_stopped_date,
+          amount_received, bank_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, DATE('now'), strftime('%Y-%m', 'now'), 'Active', ?, ?, ?, ?)`,
         [
           entry.sr_no,
           entry.client_id,
@@ -65,8 +110,13 @@ export async function POST(req) {
           entry.transaction_id,
           entry.transaction_id,
           entry.proof_image_url,
+          startDate,
+          validUntilStr,
+          amountDue,
+          entry.bank_name,
         ]
       );
+      run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
     }
 
     // Send Telegram notification to the client

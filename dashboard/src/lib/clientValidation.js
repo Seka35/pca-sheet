@@ -18,6 +18,7 @@ const PRODUCT_FIELDS = [
   'client_status_history', 'notes',
   'sr_no', // only used by Edit Client
   'active', // UI-only flag, controls green vs beige background
+  'is_trial', // trial flag for 7 days trial period
 ];
 
 function trimOrEmpty(v) {
@@ -50,6 +51,8 @@ function normalizeProduct(p, { allowSrNo = false } = {}) {
     if (f === 'sr_no' && !allowSrNo) continue;
     if (f === 'active') {
       out.active = p.active === false ? false : true; // default true
+    } else if (f === 'is_trial') {
+      out.is_trial = p.is_trial === true ? true : false; // preserve boolean
     } else {
       out[f] = trimOrEmpty(p[f]);
     }

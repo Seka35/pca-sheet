@@ -31,7 +31,7 @@ function normName(s) {
 // priority over the full-name match because it's much more reliable
 // (emojis, "X Prime circle:" prefixes, "(...)" suffixes, casing variations
 // all break exact-name matching).
-function linkGroupByTitle(chatId, chatTitle) {
+async function linkGroupByTitle(chatId, chatTitle) {
   const title = String(chatTitle || '').trim();
   // Upsert the row.
   run(
@@ -59,9 +59,9 @@ function linkGroupByTitle(chatId, chatTitle) {
       return; // All clients linked
     }
     // Tele ID found in title but no client in DB has it. The seller has
-    // explicitly tagged the group, so propose to create a new client
-    // (header-only — they add products from the dashboard later).
-    return proposeAutoCreate(chatId, title, teleId);
+    // explicitly tagged the group, so auto-create silently (header-only —
+    // they add products from the dashboard later).
+    return await silentAutoCreate(chatId, title, teleId);
   }
 
   // 2) Fallback: exact case-insensitive match on the full name.
@@ -74,22 +74,19 @@ function linkGroupByTitle(chatId, chatTitle) {
 
   if (matches.length === 1) return finalizeLink(chatId, matches[0]);
   if (matches.length === 0) {
-    // No client at all matches the group name — propose to create a new one
+    // No client at all matches the group name — auto-create silently
     // with tele_id=null (the human can add "Tele NNN" via the dashboard).
-    return proposeAutoCreate(chatId, title, null);
+    return await silentAutoCreate(chatId, title, null);
   }
   // Multiple matches: ambiguous, fall back to /link for explicit disambiguation.
-  return {
-    reply:
-      `⚠️ Multiple clients match the group name "<b>${escapeHtml(title)}</b>".\n\n` +
-      `Please use: <code>/link &lt;exact client name&gt;</code> or <code>/link &lt;number&gt;</code>`,
-  };
+  // In this case we don't auto-create — just return (no message sent).
+  return;
 }
 
-// Persist a pending auto-create proposal in bot_group_links and return the
-// preview message + inline keyboard. The seller clicks "Create" or "Cancel";
-// the callback_query handler in handleCallbackQuery resolves it.
+// Persist a pending auto-create proposal in bot_group_links.
+// (The interactive proposal UI is deprecated — auto-create is now silent.)
 function proposeAutoCreate(chatId, title, teleId) {
+  console.error('[DEBUG] proposeAutoCreate called! This should NOT happen! chatId=', chatId);
   const safeTitle = String(title || '').trim() || '(unnamed group)';
   const safeTele = teleId ? String(teleId) : null;
 
@@ -104,19 +101,27 @@ function proposeAutoCreate(chatId, title, teleId) {
        pending_create_tele_id = excluded.pending_create_tele_id`,
     [chatId, safeTitle, safeTitle, safeTele]
   );
+}
 
-  const teleLine = safeTele
-    ? `\n  • <b>Tele ID</b>: ${escapeHtml(safeTele)} <i>(extracted from group title)</i>`
-    : `\n  • <b>Tele ID</b>: <i>none — add "Tele NNN" to the group title or the client name on the dashboard to enable auto-linking</i>`;
-  const reply =
-    `🆕 No client in the dashboard matches this group. I can create a new one with:\n` +
-    `\n  • <b>Name</b>: ${escapeHtml(safeTitle)}` +
-    teleLine +
-    `\n  • <b>Status</b>: Inactive (no products yet — add them from the dashboard)\n` +
-    `\nClick <b>Create this client</b> to confirm, or <b>Cancel</b> to abort. ` +
-    `You can also type <code>/cancel</code> to clear the proposal.`;
-
-  return { reply, options: buildCreateClientKeyboard(chatId) };
+// Silently auto-create a client without sending any message to the group.
+// Called when /start is issued and no matching client exists.
+async function silentAutoCreate(chatId, title, teleId) {
+  const safeTitle = String(title || '').trim() || '(unnamed group)';
+  try {
+    const result = await createClient({
+      name: safeTitle,
+      telegramGroupId: String(chatId),
+      products: [],
+      source: 'bot-auto-create',
+    });
+    if (result.ok && result.client_id) {
+      finalizeLink(chatId, { id: result.client_id, name: safeTitle });
+    } else {
+      console.warn('[bot] silentAutoCreate failed:', result.error);
+    }
+  } catch (e) {
+    console.error('[bot] silentAutoCreate exception:', e.message);
+  }
 }
 
 // Link by explicit Tele ID — used by /link <number> when the seller
@@ -266,16 +271,21 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
     const bankNames = { crypto: 'Crypto', lhv: 'AS LHV Pank', slash: 'Slash Bank', whop: 'WHOP' };
     const bankLabel = bankNames[bankKey] || renewal.bank_name || 'Payment';
 
+    // Calculate total due: subscription + setup - discount
+    const subAmt = parseFloat(String(renewal.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+    const setupAmt = parseFloat(String(renewal.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+    const discAmt = parseFloat(String(renewal.discount || '0').replace(/[^0-9.]/g, '')) || 0;
+    const totalDue = (subAmt + setupAmt - discAmt).toFixed(2);
+
     const msg =
       `💳 <b>${escapeHtml(renewal.client_name)}</b> — choose your payment method\n\n` +
-      `Amount: <b>${escapeHtml(renewal.subscription_fee || '$0')}</b>\n` +
+      `Amount: <b>$${totalDue}</b>\n` +
       `Bank: <b>${escapeHtml(bankLabel)}</b>\n\n` +
       `Select how you want to pay:`;
 
     const keyboard = buildPaymentMethodKeyboard(srNo, chatId, bankKey);
-    await TelegramBotInstance.editMessageText(msg, {
-      chat_id: query.message.chat.id,
-      message_id: query.message.message_id,
+    // Send a new message instead of editing (more reliable for document messages)
+    await TelegramBotInstance.sendMessage(chatId, msg, {
       parse_mode: 'HTML',
       reply_markup: JSON.stringify(keyboard.reply_markup),
     });
@@ -285,16 +295,26 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
 
   if (parsed.action === 'select_payment') {
     const { srNo, chatId, method } = parsed;
+    console.error('[bot] select_payment, srNo=', srNo, 'chatId=', chatId, 'method=', method);
     const renewal = get('SELECT r.*, c.tele_id FROM renewals r JOIN clients c ON c.id = r.client_id WHERE r.sr_no = ?', [srNo]);
     if (!renewal) {
       await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Renewal not found.', show_alert: true });
       return;
     }
 
-    // Get bank details from DB
+    // Get bank details from DB - use the SELECTED method to find the right bank
     const banks = all('SELECT bank_key, bank_name, data_json FROM bank_details');
-    const bankKey = (renewal.bank_name || '').toLowerCase().replace(/\s+/g, '_');
-    const bank = banks.find(b => b.bank_key === bankKey);
+    // Map method to bank_key: crypto methods -> 'crypto', lhv -> 'lhv', slash -> 'slash', whop -> 'whop'
+    const methodToBankKey = {
+      usdt_trc20: 'crypto',
+      usdt_erc20: 'crypto',
+      btc: 'crypto',
+      lhv: 'lhv',
+      slash: 'slash',
+      whop: 'whop',
+    };
+    const bankKeyToUse = methodToBankKey[method] || 'crypto';
+    const bank = banks.find(b => b.bank_key === bankKeyToUse);
     const bankData = bank ? JSON.parse(bank.data_json || '{}') : {};
 
     // Store the selection
@@ -304,7 +324,33 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
     else if (method === 'btc') address = bankData.btc || '';
     else if (method === 'lhv') address = `IBAN: ${bankData.iban || ''}\nBIC: ${bankData.bic_swift || ''}\nAccount: ${bankData.account_title || ''}`;
     else if (method === 'slash') address = `Account: ${bankData.account_number || ''}\nRouting: ${bankData.routing || ''}\nSWIFT: ${bankData.swift_bic || ''}`;
-    else if (method === 'whop') address = `WHOP subscription — link will be sent to your email`;
+    else if (method === 'whop') {
+      // Get WHOP links using the referral partner from renewal
+      const { getWhopLink } = await import('./whopLinks.js');
+      const referralPartner = renewal.referral_partner_name || 'N.A.';
+      const tier = renewal.tier || 'TIER 1';
+      const setupType = renewal.setup_type || '';
+
+      // Get tier payment link
+      const tierLink = getWhopLink({ referralPartner, tier, linkType: 'tier' }) || 'https://whop.com/wcaftm-llc/';
+
+      // Get setup link if setup_type exists
+      let setupLink = '';
+      if (setupType) {
+        const setupLinks = {
+          'Starter': 'https://whop.com/wcaftm-llc/pca-set-up-starter',
+          'Premium': 'https://whop.com/wcaftm-llc/pca-set-up-premium',
+          'VIP': 'https://whop.com/wcaftm-llc/pca-set-up-premium-4a',
+        };
+        setupLink = setupLinks[setupType] || '';
+      }
+
+      address = `🌐 WHOP Payment:\n\n` +
+        `Tier (${tier}):\n${tierLink}`;
+      if (setupLink) {
+        address += `\n\nSetup (${setupType}):\n${setupLink}`;
+      }
+    }
 
     // Save selection
     run(
@@ -313,6 +359,18 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
        ON CONFLICT(sr_no, chat_id) DO UPDATE SET method = excluded.method, address = excluded.address, selected_at = CURRENT_TIMESTAMP`,
       [srNo, chatId, method, address]
     );
+
+    // Also update bank_name on the renewal to reflect the chosen method
+    const bankNameMap = {
+      usdt_trc20: 'Crypto - USDT TRC20',
+      usdt_erc20: 'Crypto - USDT ERC20',
+      btc: 'Crypto - BTC',
+      lhv: 'LHV - SEPA',
+      slash: 'Slash - US Wire',
+      whop: 'WHOP'
+    };
+    const bankNameForRenewal = bankNameMap[method] || method;
+    run(`UPDATE renewals SET bank_name = ? WHERE sr_no = ?`, [bankNameForRenewal, srNo]);
 
     const methodLabels = {
       usdt_trc20: '🟡 USDT (TRC20)',
@@ -331,18 +389,23 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
       qrLine = `\n\n📱 <a href="${qrUrl}">QR Code</a>`;
     }
 
-    const feeNote = bankKey === 'crypto' && bankData.fee_note ? `\n\n⚠️ ${bankData.fee_note}` : '';
+    const feeNote = bankKeyToUse === 'crypto' && bankData.fee_note ? `\n\n⚠️ ${bankData.fee_note}` : '';
+
+    // Calculate total due
+    const subAmt = parseFloat(String(renewal.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+    const setupAmt = parseFloat(String(renewal.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+    const discAmt = parseFloat(String(renewal.discount || '0').replace(/[^0-9.]/g, '')) || 0;
+    const totalDue = (subAmt + setupAmt - discAmt).toFixed(2);
 
     const msg =
       `💳 <b>Payment Details</b>\n\n` +
       `Method: <b>${methodLabel}</b>\n` +
-      `Amount: <b>${escapeHtml(renewal.subscription_fee || '$0')}</b>\n\n` +
+      `Amount: <b>$${totalDue}</b>\n\n` +
       `<pre>${escapeHtml(address)}</pre>${qrLine}${feeNote}`;
 
     const keyboard = buildPaymentDetailsKeyboard(srNo, chatId);
-    await TelegramBotInstance.editMessageText(msg, {
-      chat_id: query.message.chat.id,
-      message_id: query.message.message_id,
+    // Send as a new message (more reliable than editing document messages)
+    await TelegramBotInstance.sendMessage(chatId, msg, {
       parse_mode: 'HTML',
       reply_markup: JSON.stringify(keyboard.reply_markup),
     });
@@ -562,8 +625,14 @@ async function handleMessage(msg, TelegramBotInstance) {
           [pending.sr_no, pending.client_id]
         );
 
-        // Get bank name from renewal
-        const renewalData = get('SELECT bank_name, valid_stopped_date, subscription_fee FROM renewals WHERE sr_no = ?', [pending.sr_no]);
+        // Get full renewal data to calculate total amount due
+        const renewalData = get('SELECT bank_name, valid_stopped_date, subscription_fee, setup_fee, discount, tier FROM renewals WHERE sr_no = ?', [pending.sr_no]);
+
+        // Calculate total amount due: subscription + setup - discount
+        const subAmt = parseFloat(String(renewalData?.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+        const setupAmt = parseFloat(String(renewalData?.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+        const discAmt = parseFloat(String(renewalData?.discount || '0').replace(/[^0-9.]/g, '')) || 0;
+        const amountDue = (subAmt + setupAmt - discAmt).toFixed(2);
 
         // Insert into approval_queue
         run(
@@ -576,7 +645,7 @@ async function handleMessage(msg, TelegramBotInstance) {
             client?.name || '',
             client?.tele_id || '',
             renewalData?.tier || '',
-            renewalData?.subscription_fee || '',
+            amountDue,
             renewalData?.valid_stopped_date || '',
             renewalData?.bank_name || '',
             pending.transaction_id,
@@ -720,11 +789,9 @@ async function handleMessage(msg, TelegramBotInstance) {
   }
 
   if (text.match(/^\/start(?:@\w+)?\s*$/)) {
-    const out = linkGroupByTitle(chatId, chat.title);
-    await TelegramBotInstance.sendMessage(chatId, out.reply, {
-      parse_mode: 'HTML',
-      ...(out.options || {}),
-    });
+    console.error('[DEBUG] /start received, chatId=', chatId, 'title=', chat.title);
+    await linkGroupByTitle(chatId, chat.title);
+    console.error('[DEBUG] linkGroupByTitle done');
     return;
   }
 

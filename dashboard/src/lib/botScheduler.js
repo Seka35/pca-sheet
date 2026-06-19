@@ -120,17 +120,21 @@ export async function runReminderSweepOnce(bot) {
   if (templateOffsets.length === 0) return { skipped: 'no_templates' };
 
   // Pull candidates: real renewals, active clients, valid date, unpaid, has a linked group.
+  // visual_status IS NULL means product is active (never deactivated).
+  // visual_status = '' means product was deactivated (after final reminder sent).
+  // We only send reminders for active products (visual_status IS NULL).
   const candidates = all(
     `SELECT r.sr_no, r.client_id, r.client_name, r.tier, r.setup_type,
             r.subscription_fee, r.setup_fee, r.discount, r.amount_received,
             r.valid_stopped_date, r.reminders_sent_json, r.bank_name,
-            r.referral_partner_name,
+            r.referral_partner_name, r.visual_status,
             g.chat_id, g.chat_title
        FROM renewals r
        JOIN clients c ON c.id = r.client_id AND c.status = 'Actif'
        JOIN bot_group_links g ON g.client_id = c.id AND g.status = 'linked'
       WHERE COALESCE(r.valid_stopped_date,'') <> ''
-        AND COALESCE(r.reference_no,'') = ''`
+        AND COALESCE(r.reference_no,'') = ''
+        AND r.visual_status IS NULL`
   );
 
   const today = new Date();

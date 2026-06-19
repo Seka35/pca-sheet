@@ -11,7 +11,7 @@ import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
 // Constants for dropdowns
 const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
 const SETUP_OPTIONS = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
-const BANK_OPTIONS = ['Airxalex', 'Crypto', 'Slash Bank', 'Revolut', 'WHOP'];
+const BANK_OPTIONS = ['Crypto', 'LHV', 'Slash Bank', 'WHOP'];
 const MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const YEAR_OPTIONS = ['2024', '2025', '2026', '2027', '2028', '2029', '2030'];
 const REFERRAL_OPTIONS = ['N.A.', 'Chris', 'No Limit', '8 Labs', 'Master', 'Mathias'];
@@ -47,6 +47,7 @@ function emptyProduct() {
     reference_no: '', actual_balance_difference: '',
     client_status_history: '', notes: '',
     active: true,
+    is_trial: false,
   };
 }
 
@@ -54,6 +55,14 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   if (!selectedClient) return null;
 
   const formatCurrency = (val) => '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  // Calculate total amount due: subscription_fee + setup_fee - discount
+  const calcTotalDue = (row) => {
+    const sub = parseFloat(String(row.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+    const setup = parseFloat(String(row.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+    const disc = parseFloat(String(row.discount || '0').replace(/[^0-9.]/g, '')) || 0;
+    return Math.max(0, sub + setup - disc);
+  };
 
   const { client, history } = selectedClient;
   const [linkedGroups, setLinkedGroups] = useState([]);
@@ -76,6 +85,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const [formChurnReason, setFormChurnReason] = useState(client?.churn_reason || '');
   const [uploadingContract, setUploadingContract] = useState(false);
   const [computedData, setComputedData] = useState(selectedClient?.computed || null);
+  const [invoiceSending, setInvoiceSending] = useState(false);
+  const [invoiceToast, setInvoiceToast] = useState(null); // { type: 'success'|'error', message: '' }
+  const [sendingRowSrNo, setSendingRowSrNo] = useState(null); // tracks which row is sending
 
   // Refetch client detail to get computed fields when modal opens
   useEffect(() => {
@@ -201,6 +213,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         client_status_history: h.client_status_history || '',
         notes: h.notes || '',
         active: h.visual_status === 'Active',
+        is_trial: Boolean(h.is_trial),
       }))
     );
   }, [client?.id, client?.name, client?.first_name, client?.last_name, client?.email, client?.address, client?.telegram_group_id, client?.status, history]);
@@ -233,6 +246,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const calculateProductDue = (p) => {
     const isPaid = p.reference_no && p.reference_no.trim() !== '';
     if (isPaid) return 0;
+    // Trial products have $0 due
+    if (p.is_trial === true || p.is_trial === 1) return 0;
     const sub = parseAmount(p.subscription_fee);
     const setup = parseAmount(p.setup_fee);
     const disc = parseAmount(p.discount);
@@ -306,6 +321,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         reference_no: h.reference_no || '', actual_balance_difference: h.actual_balance_difference || '',
         client_status_history: h.client_status_history || '', notes: h.notes || '',
         active: h.visual_status === 'Active',
+        is_trial: Boolean(h.is_trial),
       }))
     );
   };
@@ -573,6 +589,61 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     }
   };
 
+  // Send invoice via Telegram to the linked group
+  const sendInvoiceViaTelegram = async (row) => {
+    if (invoiceSending) return;
+    setInvoiceSending(true);
+    setInvoiceToast(null);
+    setSendingRowSrNo(row.sr_no);
+
+    try {
+      const chatId = client.telegram_group_id;
+      if (!chatId) {
+        setInvoiceToast({ type: 'error', message: 'No Telegram group linked to this client.' });
+        return;
+      }
+
+      const billing = getBillingInfo(row);
+
+      // Amount = subscription + setup - discount
+      const subAmt = parseFloat(String(row.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+      const setupAmt = parseFloat(String(row.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+      const discAmt = parseFloat(String(row.discount || '0').replace(/[^0-9.]/g, '')) || 0;
+      const totalAmt = (subAmt + setupAmt - discAmt).toFixed(2);
+
+      const res = await fetch('/api/bot/send-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId,
+          srNo: row.sr_no,
+          clientId: client.id,
+          clientName: client.name,
+          bankName: row.bank_name || 'crypto',
+          productName: row.tier ? row.tier + (row.setup_type ? ' - ' + row.setup_type : '') : 'Service',
+          subtotal: totalAmt,
+          discount: '0',
+          invoiceDate: row.valid_stopped_date || new Date().toISOString().split('T')[0],
+          invoiceNo: row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
+          billing,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setInvoiceToast({ type: 'error', message: data.error || 'Failed to send invoice.' });
+      } else {
+        setInvoiceToast({ type: 'success', message: 'Invoice sent to Telegram group!' });
+      }
+    } catch (e) {
+      setInvoiceToast({ type: 'error', message: e.message || 'Network error.' });
+    } finally {
+      setInvoiceSending(false);
+      setSendingRowSrNo(null);
+      setTimeout(() => setInvoiceToast(null), 4000);
+    }
+  };
+
   const saveEdit = async () => {
     if (saving) return;
     setError(null);
@@ -651,6 +722,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       const fActive = f.active !== false;
       const oActive = o.visual_status === 'Active';
       if (fActive !== oActive) return true;
+      const fTrial = f.is_trial === true;
+      const oTrial = o.is_trial === 1;
+      if (fTrial !== oTrial) return true;
     }
     return false;
   }, [mode, formName, formFirstName, formLastName, formEmail, formAddress, formTelegramGroupId, formStatus, formTrustpilotReviewed, formChurnReason, formProducts, removedSrNos, client, history]);
@@ -1015,7 +1089,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
                           <div>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '700' }}>Product Bundle</div>
-                            <ProductBadge tier={product.tier} setup_type={product.setup_type} />
+                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
                           </div>
                           <div style={{ textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px', fontWeight: '700' }}>Billing Status</div>
@@ -1152,6 +1226,19 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 </button>
               </div>
 
+              {invoiceToast && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: invoiceToast.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: invoiceToast.type === 'success' ? '#34D399' : '#F87171',
+                  fontWeight: '500',
+                  fontSize: '13px',
+                }}>
+                  {invoiceToast.message}
+                </div>
+              )}
+
               {editingPayment && (
                 <div style={{ backgroundColor: 'rgba(0, 242, 181, 0.05)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(0, 242, 181, 0.2)' }}>
                   <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '16px', color: 'var(--primary-accent)' }}>
@@ -1272,7 +1359,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       return (
                         <tr key={row.sr_no} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
                           <td style={{ padding: '16px 8px', fontWeight: '600' }}>{row.month}</td>
-                          <td style={{ padding: '16px 8px' }}><ProductBadge tier={row.tier} setup_type={row.setup_type} /></td>
+                          <td style={{ padding: '16px 8px' }}><ProductBadge tier={row.tier} setup_type={row.setup_type} is_trial={row.is_trial} /></td>
                           <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                               <span>Sub: {row.subscription_fee || '0'}</span>
@@ -1286,12 +1373,20 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{row.reference_no || '—'}</td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
                             <a
-                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(row.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(row.bank_name || 'crypto')}&product_name=${encodeURIComponent(row.tier ? row.tier + (row.setup_type ? ' - ' + row.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent(row.amount_received ? String(row.amount_received).replace(/[^0-9.]/g, '') : '0')}&discount=${encodeURIComponent(row.discount ? row.discount.replace(/[^0-9.]/g, '') : '0')}&invoice_date=${encodeURIComponent(row.payment_received_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}`}
+                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(row.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(row.bank_name || 'crypto')}&product_name=${encodeURIComponent(row.tier ? row.tier + (row.setup_type ? ' - ' + row.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(row.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(row.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(row.discount || '0')}&invoice_date=${encodeURIComponent(row.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}`}
                               target="_blank" rel="noopener noreferrer"
                               style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '11px', fontWeight: '600' }}
                             >
                               PDF
                             </a>
+                            <button
+                              onClick={() => sendInvoiceViaTelegram(row)}
+                              disabled={sendingRowSrNo === row.sr_no}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', backgroundColor: sendingRowSrNo === row.sr_no ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)', color: sendingRowSrNo === row.sr_no ? '#14b8a6' : '#14b8a6', fontSize: '11px', fontWeight: '600', border: 'none', cursor: sendingRowSrNo === row.sr_no ? 'not-allowed' : 'pointer', marginLeft: '4px' }}
+                              title="Send invoice to linked Telegram group"
+                            >
+                              {sendingRowSrNo === row.sr_no ? '⏳ Sending…' : 'Send'}
+                            </button>
                           </td>
                           <td style={{ padding: '16px 8px' }}>
                             <button onClick={() => startEditPayment(row)} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent' }}>✏️</button>

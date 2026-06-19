@@ -73,10 +73,17 @@ function buildPaymentMethodKeyboard(srNo, chatId, bankKey) {
       },
     };
   }
-  // Default fallback
+  // Default fallback - show all payment methods when bank is not yet set
   return {
     reply_markup: {
-      inline_keyboard: [row('💳 Pay Now', 'default')],
+      inline_keyboard: [
+        row('🟡 USDT (TRC20)', 'usdt_trc20'),
+        row('🔵 USDT (ERC20)', 'usdt_erc20'),
+        row('🟠 Bitcoin (BTC)', 'btc'),
+        row('🏦 SEPA / LHV', 'lhv'),
+        row('🏦 US Wire / Slash', 'slash'),
+        row('🌐 WHOP', 'whop'),
+      ],
     },
   };
 }

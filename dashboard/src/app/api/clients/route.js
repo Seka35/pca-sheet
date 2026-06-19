@@ -49,15 +49,30 @@ export async function GET(req) {
 
       let mrr = 0;
       let produits = [];
+      let productDetails = [];
       let canal = null;
       let renewalDay = null;
 
-      activeProducts.forEach(p => {
+      // Collect product details from ALL history entries, not just latest month
+      h.forEach(p => {
         mrr += parseAmount(p.subscription_fee) + parseAmount(p.setup_fee);
 
-        let pName = p.setup_type && p.setup_type.trim() !== '' ? p.setup_type : p.tier;
+        // Use tier as primary product name; append setup_type if present and different
+        let pName = p.tier || '';
+        if (p.setup_type && p.setup_type.trim() !== '' && p.setup_type !== p.tier) {
+          pName = pName ? pName + ' - ' + p.setup_type : p.setup_type;
+        }
         if (pName && !produits.includes(pName)) {
           produits.push(pName);
+        }
+
+        // Collect product details for colored badges (from all products)
+        if (p.tier || p.setup_type) {
+          productDetails.push({
+            tier: p.tier,
+            setup_type: p.setup_type,
+            is_trial: p.is_trial === 1,
+          });
         }
 
         if (!canal && p.bank_name) canal = p.bank_name;
@@ -102,6 +117,7 @@ export async function GET(req) {
         parsed_tele_id: parsedTeleId,
         tele_id_conflict: teleIdConflict,
         produits: produits.length > 0 ? produits.join(', ') : '—',
+        productDetails: productDetails,
         mensuel: mrr,
         statut: client.status === 'Actif' ? 'Active' : 'Inactive',
         canal: canal || '—',

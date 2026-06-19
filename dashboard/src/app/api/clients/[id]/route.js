@@ -222,8 +222,8 @@ export async function PUT(req, { params }) {
       referral_partner_name, referral_amount, valid_stopped_date,
       payment_name, bank_name, amount_received, payment_received_date,
       payment_received_month, reference_no, actual_balance_difference,
-      notes, visual_status
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      notes, visual_status, is_trial
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
     run('BEGIN');
     try {
@@ -285,6 +285,7 @@ export async function PUT(req, { params }) {
           p.actual_balance_difference || '',
           p.notes || '',
           p.active === false ? '' : 'Active',
+          p.is_trial ? 1 : 0,
         ]);
       }
       run('COMMIT');

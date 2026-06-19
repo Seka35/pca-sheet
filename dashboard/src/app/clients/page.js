@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import ClientModal from '@/components/ClientModal';
 import AddClientModal from '@/components/AddClientModal';
+import ProductBadge from '@/components/ProductBadge';
 import TelegramBadge from '@/components/TelegramBadge';
 import TeleIdBadge from '@/components/TeleIdBadge';
 
@@ -14,6 +15,7 @@ export default function ClientsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [channelFilter, setChannelFilter] = useState('All channels');
+  const [productFilter, setProductFilter] = useState('All Products');
 
   // Modals
   const [selectedClientData, setSelectedClientData] = useState(null);
@@ -63,16 +65,34 @@ export default function ClientsPage() {
                         c.pd_id?.toString().includes(searchLower) ||
                         c.telegram_group_id?.toLowerCase().includes(searchLower) ||
                         c.tele_id?.toString().includes(searchLower);
-    
+
     // Status Filter
-    const matchStatus = statusFilter === 'All statuses' || 
-                        (statusFilter === 'Active' && c.statut === 'Active') || 
+    const matchStatus = statusFilter === 'All statuses' ||
+                        (statusFilter === 'Active' && c.statut === 'Active') ||
                         (statusFilter === 'Inactive' && c.statut !== 'Active');
 
     // Channel Filter
     const matchChannel = channelFilter === 'All channels' || c.canal?.toLowerCase() === channelFilter.toLowerCase();
 
-    return matchSearch && matchStatus && matchChannel;
+    // Product Filter
+    const matchProduct = productFilter === 'All Products' ||
+                        (c.productDetails && c.productDetails.some(p =>
+                          (p.tier && p.tier === productFilter) ||
+                          (p.setup_type && p.setup_type === productFilter)
+                        ));
+
+    return matchSearch && matchStatus && matchChannel && matchProduct;
+  });
+
+  // Extract unique products for the dropdown
+  const uniqueProducts = ['All Products'];
+  clients.forEach(c => {
+    if (c.productDetails) {
+      c.productDetails.forEach(p => {
+        if (p.tier && !uniqueProducts.includes(p.tier)) uniqueProducts.push(p.tier);
+        if (p.setup_type && !uniqueProducts.includes(p.setup_type)) uniqueProducts.push(p.setup_type);
+      });
+    }
   });
 
   const formatCurrency = (val) => '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -200,17 +220,31 @@ export default function ClientsPage() {
             <option value="Inactive" style={{ color: '#000' }}>Inactive</option>
           </select>
           
-          <select 
-            value={channelFilter} 
+          <select
+            value={channelFilter}
             onChange={(e) => setChannelFilter(e.target.value)}
-            style={{ 
-              backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px', 
+            style={{
+              backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px',
               padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', appearance: 'none', minWidth: '150px',
               fontSize: '14px'
             }}
           >
             {uniqueChannels.map((ch, idx) => (
               <option key={idx} value={ch} style={{ color: '#000' }}>{ch === 'All channels' ? 'All Channels' : ch}</option>
+            ))}
+          </select>
+
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            style={{
+              backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px',
+              padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', appearance: 'none', minWidth: '150px',
+              fontSize: '14px'
+            }}
+          >
+            {uniqueProducts.map((prod, idx) => (
+              <option key={idx} value={prod} style={{ color: '#000' }}>{prod}</option>
             ))}
           </select>
         </div>
@@ -228,7 +262,7 @@ export default function ClientsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
               <thead>
                 <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)' }}>
-                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Client Info</th>
+                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Telegram Group Name</th>
                   <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Tele ID</th>
                   <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Products</th>
                   <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Monthly CA</th>
@@ -262,9 +296,17 @@ export default function ClientsPage() {
                       />
                     </td>
                     <td style={{ padding: '16px 24px' }}>
-                      <div style={{ color: 'var(--text-primary)', fontWeight: '500' }}>
-                        {client.produits.length > 30 ? client.produits.substring(0, 30) + '...' : client.produits}
-                      </div>
+                      {client.productDetails && client.productDetails.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {client.productDetails.map((p, i) => (
+                            <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} is_trial={p.is_trial} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--text-primary)', fontWeight: '500' }}>
+                          {client.produits.length > 30 ? client.produits.substring(0, 30) + '...' : client.produits}
+                        </div>
+                      )}
                       <div style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>
                         Renewal: {client.renouvellement || '—'}
                       </div>

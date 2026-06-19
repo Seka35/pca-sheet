@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import ClientModal from '@/components/ClientModal';
 import InvoiceTab from '@/components/InvoiceTab';
+import ProductBadge from '@/components/ProductBadge';
 import { WHOP_REFERRAL_PARTNERS, WHOP_TIER_LINKS, WHOP_DISCOUNT_BY_PARTNER, WHOP_SETUP_LINKS } from '@/lib/whopLinks';
 
 export default function PaymentsPage() {
@@ -16,6 +17,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [channelFilter, setChannelFilter] = useState('All Channels');
+  const [productFilter, setProductFilter] = useState('All Products');
   const [selectedClient, setSelectedClient] = useState(null);
   const [activeTab, setActiveTab] = useState('payments'); // 'payments', 'banks', or 'invoice'
   const [banks, setBanks] = useState([]);
@@ -123,14 +125,18 @@ export default function PaymentsPage() {
   };
 
   const filteredPayments = payments.filter(p => {
-    const matchesSearch = (p.client_name || '').toLowerCase().includes(search.toLowerCase()) || 
+    const matchesSearch = (p.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
                           (p.period || '').toLowerCase().includes(search.toLowerCase()) ||
                           (p.link || '').toLowerCase().includes(search.toLowerCase());
     const matchesChannel = channelFilter === 'All Channels' || p.channel === channelFilter;
-    return matchesSearch && matchesChannel;
+    const matchesProduct = productFilter === 'All Products' ||
+                          (p.tier && p.tier === productFilter) ||
+                          (p.setup_type && p.setup_type === productFilter);
+    return matchesSearch && matchesChannel && matchesProduct;
   });
 
   const uniqueChannels = ['All Channels', ...new Set(payments.map(p => p.channel).filter(Boolean))];
+  const uniqueProducts = ['All Products', ...new Set(payments.map(p => p.tier).filter(Boolean)), ...new Set(payments.map(p => p.setup_type).filter(Boolean))].filter(Boolean);
 
   return (
     <div style={{ paddingBottom: '64px' }}>
@@ -254,6 +260,20 @@ export default function PaymentsPage() {
                 <option key={idx} value={ch} style={{ color: '#000' }}>{ch === 'All Channels' ? 'All Channels' : ch}</option>
               ))}
             </select>
+
+            <select
+              value={productFilter}
+              onChange={(e) => setProductFilter(e.target.value)}
+              style={{
+                backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '10px',
+                padding: '12px 16px', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', appearance: 'none', minWidth: '180px',
+                fontSize: '14px'
+              }}
+            >
+              {uniqueProducts.map((prod, idx) => (
+                <option key={idx} value={prod} style={{ color: '#000' }}>{prod === 'All Products' ? 'All Products' : prod}</option>
+              ))}
+            </select>
           </div>
 
           {/* Transactions Table */}
@@ -292,7 +312,7 @@ export default function PaymentsPage() {
                         </td>
                         <td style={{ padding: '16px 24px' }}>
                           <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>{row.client_name}</div>
-                          <div style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{row.tier || 'Standard Service'}</div>
+                          <ProductBadge tier={row.tier} setup_type={row.setup_type} is_trial={row.is_trial} />
                         </td>
                         <td style={{ padding: '16px 24px' }}>
                           <div style={{ fontWeight: '800', color: row.amount > 0 ? 'var(--primary-accent)' : '#F87171', fontSize: '15px' }}>

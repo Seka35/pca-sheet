@@ -25,7 +25,7 @@ function formatDateTime(dateStr) {
 }
 
 export default function RenewalsPage() {
-  const [data, setData] = useState({ late: [], today: [], thisWeek: [], thisMonth: [], allActive: [] });
+  const [data, setData] = useState({ late: [], today: [], thisWeek: [], thisMonth: [], upcoming: [], allActive: [] });
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedMessageLog, setSelectedMessageLog] = useState(null);
@@ -45,6 +45,7 @@ export default function RenewalsPage() {
   const [todayPage, setTodayPage] = useState(1);
   const [thisWeekPage, setThisWeekPage] = useState(1);
   const [thisMonthPage, setThisMonthPage] = useState(1);
+  const [upcomingPage, setUpcomingPage] = useState(1);
 
   const formatCurrency = (val) => '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -351,7 +352,7 @@ export default function RenewalsPage() {
                     </td>
                     <td style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {Array.isArray(row.products) && row.products.filter(p => !String(p.tier || '').toLowerCase().includes('top') && !String(p.setup_type || '').toLowerCase().includes('top')).map((p, i) => (
-                        <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} />
+                        <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} is_trial={p.is_trial} />
                       ))}
                     </td>
                     <td style={{ padding: '16px 24px' }}>
@@ -597,6 +598,7 @@ export default function RenewalsPage() {
           {data.today.length > 0 && <RenewalTable title="Today" list={data.today} color="#FBBF24" borderColor="rgba(245, 158, 11, 0.2)" page={todayPage} setPage={setTodayPage} />}
           <RenewalTable title="This Week" list={data.thisWeek} color="#60A5FA" borderColor="rgba(59, 130, 246, 0.2)" page={thisWeekPage} setPage={setThisWeekPage} />
           <RenewalTable title="This Month" list={data.thisMonth} color="var(--primary-accent)" borderColor="rgba(0, 242, 181, 0.2)" page={thisMonthPage} setPage={setThisMonthPage} />
+          {data.upcoming && data.upcoming.length > 0 && <RenewalTable title="Upcoming (7+ days)" list={data.upcoming} color="#A78BFA" borderColor="rgba(139, 92, 246, 0.2)" page={upcomingPage} setPage={setUpcomingPage} />}
         </>
       )}
 

@@ -22,7 +22,7 @@ import {
 } from './googleSheets.js';
 
 // Reused INSERT statement, same shape as src/app/api/sync/route.js:213-221
-// and src/app/api/webhook/sheets/route.js:83-127. 28 columns (sr_no + 27 RENEWAL_COLUMNS).
+// and src/app/api/webhook/sheets/route.js:83-127. 29 columns (sr_no + 28 RENEWAL_COLUMNS).
 const INSERT_RENEWAL_SQL = `INSERT OR REPLACE INTO renewals (
   sr_no, client_id, client_name, client_status_history, month, start_date,
   client_ad_id_name, ad_id_number, ad_account_type, tier, ad_spend_limit,
@@ -30,8 +30,8 @@ const INSERT_RENEWAL_SQL = `INSERT OR REPLACE INTO renewals (
   referral_partner_name, referral_amount, valid_stopped_date,
   payment_name, bank_name, amount_received, payment_received_date,
   payment_received_month, reference_no, actual_balance_difference,
-  notes, visual_status
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+  notes, visual_status, is_trial
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 /**
  * Create a new client in the Sheet and the DB.
@@ -149,6 +149,7 @@ export async function createClient({
           p.actual_balance_difference || '',
           p.notes || '',
           p.active === false ? '' : 'Active',
+          p.is_trial ? 1 : 0,
         ]);
       }
       run('COMMIT');
