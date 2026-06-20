@@ -56,6 +56,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
 
   const formatCurrency = (val) => '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
+  const parseAmount = (val) => {
+    if (!val) return 0;
+    const parsed = parseFloat(val.toString().replace(/[^0-9.-]+/g, ''));
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   // Calculate total amount due: subscription_fee + setup_fee - discount
   const calcTotalDue = (row) => {
     const sub = parseFloat(String(row.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -145,9 +151,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   // Individual payments for Payment History tab (from payments table)
   const [clientPayments, setClientPayments] = useState([]);
 
-  // Fetch individual payments when payments tab is active
+  // Fetch individual payments when payments tab is active or client changes
   useEffect(() => {
     if (activeTab === 'payments' && client?.id) {
+      setClientPayments([]); // clear first to avoid showing stale data
       fetch(`/api/payments?client_id=${client.id}`)
         .then(res => res.json())
         .then(data => {
@@ -159,12 +166,77 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     }
   }, [activeTab, client?.id]);
 
+  // Build unified payment list: new payments table + old renewals payments
+  // Both sources combined for complete payment history
+  const allDisplayPayments = useMemo(() => {
+    const rows = [];
+
+    // 1. New payments from payments table
+    clientPayments.forEach(p => {
+      rows.push({
+        key: `new-${p.id}`,
+        id: p.id,
+        renewal_sr_no: p.renewal_sr_no,
+        month: p.payment_received_month || p.period || '',
+        tier: p.tier || '',
+        setup_type: p.setup_type || '',
+        subscription_fee: p.subscription_fee || '',
+        setup_fee: p.setup_fee || '',
+        discount: p.discount || '',
+        valid_stopped_date: p.valid_stopped_date || '',
+        bank_name: p.bank_name || '',
+        amount_received: p.amount_received || '',
+        reference_no: p.reference_no || '',
+        payment_received_date: p.payment_received_date || '',
+        source: 'new',
+      });
+    });
+
+    // 2. Old payments from renewals (no entry in payments table but has ref or amount)
+    const newPaymentSrNos = new Set(clientPayments.map(p => p.renewal_sr_no));
+    (history || []).forEach(h => {
+      const amt = h.amount_received ? parseFloat(h.amount_received.toString().replace(/[^0-9.-]+/g, '')) || 0 : 0;
+      const hasOldPayment = (h.reference_no && h.reference_no.trim() !== '') || amt > 0;
+      if (hasOldPayment && !newPaymentSrNos.has(h.sr_no)) {
+        rows.push({
+          key: `old-${h.sr_no}`,
+          id: null,
+          renewal_sr_no: h.sr_no,
+          month: h.month || '',
+          tier: h.tier || '',
+          setup_type: h.setup_type || '',
+          subscription_fee: h.subscription_fee || '',
+          setup_fee: h.setup_fee || '',
+          discount: h.discount || '',
+          valid_stopped_date: h.valid_stopped_date || '',
+          bank_name: h.bank_name || '',
+          amount_received: h.amount_received || '',
+          reference_no: h.reference_no || '',
+          payment_received_date: h.payment_received_date || '',
+          source: 'old',
+        });
+      }
+    });
+
+    // Sort by payment date descending
+    rows.sort((a, b) => {
+      const da = a.payment_received_date ? new Date(a.payment_received_date) : new Date(0);
+      const db = b.payment_received_date ? new Date(b.payment_received_date) : new Date(0);
+      return db - da;
+    });
+
+    return rows;
+  }, [clientPayments, history]);
+
   // Selected product filter for payment history view
   const [selectedPaymentProduct, setSelectedPaymentProduct] = useState(null); // null = all products
 
   // Unpaid products - for linking payments
+  // A product is paid if it has BOTH a reference_no AND amount_received > 0
   const unpaidProducts = (history || []).filter(p => {
-    const isPaid = p.reference_no && p.reference_no.trim() !== '';
+    const hasRef = p.reference_no && p.reference_no.trim() !== '';
+    const hasAmount = parseAmount(p.amount_received) > 0;
+    const isPaid = hasRef || hasAmount;
     const isActive = p.visual_status === 'Active' || p.active !== false;
     return !isPaid && isActive;
   });
@@ -259,12 +331,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [saving, onClose]);
-
-  const parseAmount = (val) => {
-    if (!val) return 0;
-    const parsed = parseFloat(val.toString().replace(/[^0-9.-]+/g, ''));
-    return isNaN(parsed) ? 0 : parsed;
-  };
 
   const calculateProductDue = (p) => {
     // Trial products have $0 due
@@ -463,21 +529,23 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     }
   };
 
-  const startEditPayment = (row) => {
-    setEditingPayment({ srNo: row.sr_no, row });
-    setSelectedProductSrNo(row.sr_no || '');
+  const startEditPayment = (payment) => {
+    // Find the linked product to get full product details
+    const product = history?.find(h => h.sr_no === payment.renewal_sr_no);
+    setEditingPayment({ srNo: payment.renewal_sr_no, row: payment });
+    setSelectedProductSrNo(payment.renewal_sr_no || '');
     setManualPaymentForm({
-      month: row.month || '',
-      bank_name: row.bank_name || '',
-      amount_received: row.amount_received || '',
-      payment_received_date: row.payment_received_date || '',
-      reference_no: row.reference_no || '',
-      tier: row.tier || '',
-      setup_type: row.setup_type || '',
-      subscription_fee: row.subscription_fee || '',
-      setup_fee: row.setup_fee || '',
-      discount: row.discount || '',
-      valid_stopped_date: row.valid_stopped_date || '',
+      month: payment.payment_received_month || payment.period || '',
+      bank_name: payment.bank_name || '',
+      amount_received: payment.amount_received || '',
+      payment_received_date: payment.payment_received_date || '',
+      reference_no: payment.reference_no || '',
+      tier: product?.tier || payment.tier || '',
+      setup_type: product?.setup_type || payment.setup_type || '',
+      subscription_fee: product?.subscription_fee || '',
+      setup_fee: product?.setup_fee || '',
+      discount: product?.discount || '',
+      valid_stopped_date: product?.valid_stopped_date || '',
     });
   };
 
@@ -546,17 +614,19 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       // Determine the renewal_sr_no to link the payment to
       let renewalSrNo = selectedProductSrNo;
 
-      // If "Manual Entry" is selected and tier/setup is provided, we need to find or create a renewal
-      // But for now, we require a linked product
       if (!renewalSrNo || renewalSrNo === 'new') {
         setError('Please select a product to link this payment to, or create a product first.');
         setSaving(false);
         return;
       }
 
-      // Use the new payments API
-      const res = await fetch('/api/payments', {
-        method: 'POST',
+      const isEditing = editingPayment && editingPayment !== 'new' && editingPayment.row?.id;
+
+      // Use PUT for editing, POST for creating
+      const url = isEditing ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
+      const method = isEditing ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client_id: client.id,
@@ -1484,17 +1554,63 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                               PDF
                             </a>
                           </td>
-                          <td style={{ padding: '16px 8px' }}>
-                            <button onClick={() => deletePaymentEntry(payment.id)} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent' }}>🗑️</button>
+                          <td style={{ padding: '16px 8px', display: 'flex', gap: '6px' }}>
+                            <button onClick={() => startEditPayment(payment)} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(20,184,166,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>✏️</button>
+                            <button onClick={() => deletePaymentEntry(payment.id)} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>🗑️</button>
                           </td>
                         </tr>
                       );
                     })}
-                    {/* Then: show unpaid products (products with no payments) */}
+                    {/* Then: show old paid products (have reference_no or amount_received in renewals, but NOT in payments table) */}
                     {(history || []).filter(product => {
-                      // Check if this product has any payments
-                      const hasPayments = clientPayments.some(p => p.renewal_sr_no === product.sr_no);
-                      return !hasPayments && !removedSrNos.includes(product.sr_no) && !deletedPaymentSrNos.includes(product.sr_no);
+                      const hasPaymentsInTable = clientPayments.some(p => p.renewal_sr_no === product.sr_no);
+                      const hasOldPayment = (product.reference_no && product.reference_no.trim() !== '') || parseAmount(product.amount_received) > 0;
+                      return !hasPaymentsInTable && hasOldPayment && !removedSrNos.includes(product.sr_no) && !deletedPaymentSrNos.includes(product.sr_no);
+                    }).map((product) => {
+                      const billing = getBillingInfo(product);
+                      const billingStatus = getProductBillingStatus(product);
+                      return (
+                        <tr key={`oldpaid-${product.sr_no}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: 'rgba(16, 185, 129, 0.03)' }}>
+                          <td style={{ padding: '16px 8px' }}>
+                            <span style={{ color: billingStatus.color, fontWeight: '700', fontSize: '11px' }}>{billingStatus.status === 'FULLY PAID' ? 'PAID' : billingStatus.status}</span>
+                          </td>
+                          <td style={{ padding: '16px 8px', fontWeight: '600' }}>{product.month || '—'}</td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
+                          </td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span>Sub: {product.subscription_fee || '0'}</span>
+                              {product.setup_fee && <span>Setup: {product.setup_fee}</span>}
+                              {product.discount && <span>Disc: {product.discount}</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 8px' }}>{product.bank_name || '—'}</td>
+                          <td style={{ padding: '16px 8px', color: billingStatus.color, fontWeight: '700' }}>{product.amount_received || '—'}</td>
+                          <td style={{ padding: '16px 8px' }}>{product.valid_stopped_date || '—'}</td>
+                          <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{product.reference_no || '—'}</td>
+                          <td style={{ padding: '16px 8px', textAlign: 'center' }}>
+                            <a
+                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(product.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(product.bank_name || 'crypto')}&product_name=${encodeURIComponent(product.tier ? product.tier + (product.setup_type ? ' - ' + product.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product.discount || '0')}&invoice_date=${encodeURIComponent(product.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(product.sr_no ? product.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}`}
+                              target="_blank" rel="noopener noreferrer"
+                              style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '11px', fontWeight: '600' }}
+                            >
+                              PDF
+                            </a>
+                          </td>
+                          <td style={{ padding: '16px 8px', display: 'flex', gap: '6px' }}>
+                            <button onClick={() => startEditPayment({ ...product, renewal_sr_no: product.sr_no, id: null })} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(20,184,166,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>✏️</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Then: show unpaid products (products with no entries in payments table AND no/partial payment in renewals) */}
+                    {(history || []).filter(product => {
+                      // Check if this product has entries in the payments table
+                      const hasPaymentsInTable = clientPayments.some(p => p.renewal_sr_no === product.sr_no);
+                      // Also skip if it has reference + amount (paid via old method)
+                      const hasOldPayment = (product.reference_no && product.reference_no.trim() !== '') || parseAmount(product.amount_received) > 0;
+                      return !hasPaymentsInTable && !hasOldPayment && !removedSrNos.includes(product.sr_no) && !deletedPaymentSrNos.includes(product.sr_no);
                     }).map((product) => {
                       const billing = getBillingInfo(product);
                       return (
@@ -1534,8 +1650,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                               {sendingRowSrNo === product.sr_no ? '⏳' : '📤'}
                             </button>
                           </td>
-                          <td style={{ padding: '16px 8px' }}>
-                            <button onClick={() => removeProductAt(history.indexOf(product))} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent' }}>🗑️</button>
+                          <td style={{ padding: '16px 8px', display: 'flex', gap: '6px' }}>
+                            <button onClick={() => startEditPayment({ ...product, renewal_sr_no: product.sr_no, id: null })} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(20,184,166,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>✏️</button>
+                            <button onClick={() => removeProductAt(history.indexOf(product))} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>🗑️</button>
                           </td>
                         </tr>
                       );

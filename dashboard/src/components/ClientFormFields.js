@@ -3,12 +3,6 @@
 import { useEffect } from 'react';
 import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
 
-// A single product's editable form fields. Renders inside a card and is
-// reused by AddClientModal (new product) and ClientModal in edit mode
-// (existing product). All updates flow through onChange; this component
-// holds no state of its own.
-
-// Tier pricing - auto-fills subscription_fee and ad_spend_limit for TIER 1-6
 const TIER_PRICING = {
   'TIER 1': { subscription_fee: '199', ad_spend_limit: '2500' },
   'TIER 2': { subscription_fee: '299', ad_spend_limit: '5000' },
@@ -18,7 +12,6 @@ const TIER_PRICING = {
   'TIER 6': { subscription_fee: '1999', ad_spend_limit: 'Unlimited' },
 };
 
-// Setup pricing - auto-fills setup_fee for the 5 products
 const SETUP_PRICING = {
   'Top-up': { setup_fee: '0' },
   'Invincible set up (old)': { setup_fee: '299' },
@@ -29,7 +22,7 @@ const SETUP_PRICING = {
 
 const inputStyle = {
   width: '100%',
-  backgroundColor: 'transparent',
+  backgroundColor: 'var(--bg-main)',
   border: '1px solid var(--border-color)',
   borderRadius: '6px',
   padding: '8px 10px',
@@ -51,13 +44,10 @@ const labelStyle = {
 
 const fieldWrapStyle = { display: 'flex', flexDirection: 'column' };
 
-function Field({ label, children, required }) {
+function Field({ label, children }) {
   return (
     <div style={fieldWrapStyle}>
-      <label style={labelStyle}>
-        {label}
-        {required && <span style={{ color: 'var(--status-cut)', marginLeft: '2px' }}>*</span>}
-      </label>
+      <label style={labelStyle}>{label}</label>
       {children}
     </div>
   );
@@ -72,19 +62,6 @@ function TextInput({ value, onChange, placeholder, type = 'text', disabled, styl
       placeholder={placeholder}
       disabled={disabled}
       style={{ ...inputStyle, ...style }}
-    />
-  );
-}
-
-function TextArea({ value, onChange, placeholder, rows = 2, disabled }) {
-  return (
-    <textarea
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      disabled={disabled}
-      style={{ ...inputStyle, resize: 'vertical', minHeight: '40px', fontFamily: 'inherit' }}
     />
   );
 }
@@ -113,6 +90,25 @@ function Select({ value, onChange, options, placeholder = '—', disabled }) {
   );
 }
 
+const sectionHeaderStyle = {
+  fontSize: '11px',
+  color: 'var(--text-secondary)',
+  fontWeight: '700',
+  textTransform: 'uppercase',
+  letterSpacing: '1px',
+  marginBottom: '12px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+};
+
+const sectionCardStyle = {
+  backgroundColor: 'rgba(255,255,255,0.02)',
+  padding: '16px',
+  borderRadius: '12px',
+  border: '1px solid var(--border-color)',
+};
+
 export default function ClientFormFields({
   product,
   onChange,
@@ -122,12 +118,10 @@ export default function ClientFormFields({
   disabled = false,
   showRemove = true,
   headerLabel,
-  // For new products (no sr_no) we mark the product type fields as required.
   isNew = false,
 }) {
   const set = (key) => (val) => onChange({ ...product, [key]: val });
 
-  // Handle tier change - auto-fill subscription_fee and ad_spend_limit
   const handleTierChange = (val) => {
     const updates = { tier: val };
     if (TIER_PRICING[val]) {
@@ -137,7 +131,6 @@ export default function ClientFormFields({
     onChange({ ...product, ...updates });
   };
 
-  // Handle setup_type change - auto-fill setup_fee
   const handleSetupTypeChange = (val) => {
     const updates = { setup_type: val };
     if (SETUP_PRICING[val]) {
@@ -146,52 +139,55 @@ export default function ClientFormFields({
     onChange({ ...product, ...updates });
   };
 
-  // Handle referral partner change - auto-fill discount based on partner
   const handleReferralPartnerChange = (val) => {
     const updates = { referral_partner_name: val };
-    // Auto-fill discount based on partner (can be overridden manually)
     if (val && WHOP_DISCOUNT_BY_PARTNER[val] !== undefined) {
       updates.discount = String(WHOP_DISCOUNT_BY_PARTNER[val]);
     }
     onChange({ ...product, ...updates });
   };
 
-  // Tier options
   const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
-
-  // Setup type options - the 5 products
   const SETUP_OPTIONS = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
 
   return (
     <div
       style={{
         backgroundColor: 'var(--bg-main)',
-        padding: '16px',
-        borderRadius: '8px',
+        padding: '24px',
+        borderRadius: '16px',
         border: '1px solid var(--border-color)',
-        position: 'relative',
+        borderLeft: '6px solid var(--primary-accent)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '24px',
       }}
     >
-      {/* Header row: product #N, sr_no (if any), Active toggle, Remove */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '12px',
-          flexWrap: 'wrap',
-          gap: '8px',
-        }}
-      >
-        <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
-          {headerLabel || `Product #${index + 1}`}
-          {product.sr_no && (
-            <span style={{ marginLeft: '8px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
-              (sr_no: {product.sr_no})
-            </span>
-          )}
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '10px',
+            backgroundColor: 'rgba(20, 184, 166, 0.15)',
+            border: '1px solid rgba(20, 184, 166, 0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '14px', fontWeight: '800', color: 'var(--primary-accent)'
+          }}>
+            {index + 1}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>
+              {product.tier || 'Product'} {product.setup_type ? `- ${product.setup_type}` : ''}
+            </div>
+            {product.sr_no && (
+              <div style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                {product.sr_no}
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', cursor: disabled ? 'not-allowed' : 'pointer' }}>
             <input
               type="checkbox"
@@ -209,13 +205,11 @@ export default function ClientFormFields({
                 const trial = e.target.checked;
                 let updates = { is_trial: trial };
                 if (trial) {
-                  // Calculate trial end date: use start_date if available, otherwise use today
                   let baseDate = product.start_date ? new Date(product.start_date) : new Date();
                   if (isNaN(baseDate.getTime())) baseDate = new Date();
                   baseDate.setDate(baseDate.getDate() + 7);
                   updates.valid_stopped_date = baseDate.toISOString().split('T')[0];
                 } else {
-                  // If trial is unchecked, clear the auto-set date
                   updates.valid_stopped_date = '';
                 }
                 onChange({ ...product, ...updates });
@@ -246,13 +240,8 @@ export default function ClientFormFields({
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: '12px',
-        }}
-      >
+      {/* Product Identity */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
         <Field label="Tier">
           <Select
             value={product.tier}
@@ -271,51 +260,72 @@ export default function ClientFormFields({
             disabled={disabled}
           />
         </Field>
-        <Field label="Subscription fee">
-          <TextInput value={product.subscription_fee} onChange={set('subscription_fee')} placeholder="0" disabled={disabled} />
-        </Field>
-        <Field label="Setup fee">
-          <TextInput value={product.setup_fee} onChange={set('setup_fee')} placeholder="0" disabled={disabled} />
-        </Field>
-        <Field label="Discount">
-          <TextInput value={product.discount} onChange={set('discount')} placeholder="0" disabled={disabled} />
-        </Field>
-        <Field label="CL amount">
-          <TextInput value={product.cl_amount} onChange={set('cl_amount')} placeholder="—" disabled={disabled} />
-        </Field>
-        <Field label="Start date">
-          <TextInput value={product.start_date} onChange={set('start_date')} type="date" disabled={disabled} />
-        </Field>
-        <Field label="Ad ID number">
-          <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} />
-        </Field>
-        <Field label="Ad account type">
-          <Select
-            value={product.ad_account_type}
-            onChange={set('ad_account_type')}
-            options={['CC', 'CL']}
-            placeholder="—"
-            disabled={disabled}
-          />
-        </Field>
-        <Field label="Ad spend limit">
-          <TextInput value={product.ad_spend_limit} onChange={set('ad_spend_limit')} placeholder="—" disabled={disabled} />
-        </Field>
-        <Field label="Referral partner">
-          <Select
-            value={product.referral_partner_name}
-            onChange={handleReferralPartnerChange}
-            options={['Chris', 'Master', 'N.A.', 'No Limit', '8 Labs', 'Mathias']}
-            placeholder="—"
-            disabled={disabled}
-          />
-        </Field>
-        <Field label="Referral amount">
-          <TextInput value={product.referral_amount} onChange={set('referral_amount')} placeholder="0" disabled={disabled} />
-        </Field>
-        <Field label="Balance diff">
-          <TextInput value={product.actual_balance_difference} onChange={set('actual_balance_difference')} placeholder="0" disabled={disabled} />
-        </Field>
+      </div>
+
+      {/* Financials section */}
+      <div style={sectionCardStyle}>
+        <div style={sectionHeaderStyle}>💰 Financials</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+          <Field label="Subscription fee">
+            <TextInput value={product.subscription_fee} onChange={set('subscription_fee')} placeholder="0" disabled={disabled} />
+          </Field>
+          <Field label="Setup fee">
+            <TextInput value={product.setup_fee} onChange={set('setup_fee')} placeholder="0" disabled={disabled} />
+          </Field>
+          <Field label="Discount">
+            <TextInput value={product.discount} onChange={set('discount')} placeholder="0" disabled={disabled} />
+          </Field>
+          <Field label="CL amount">
+            <TextInput value={product.cl_amount} onChange={set('cl_amount')} placeholder="—" disabled={disabled} />
+          </Field>
+        </div>
+      </div>
+
+      {/* Ad Account section */}
+      <div style={sectionCardStyle}>
+        <div style={sectionHeaderStyle}>📈 Ad Account</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+          <Field label="Ad ID number">
+            <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} />
+          </Field>
+          <Field label="Ad account type">
+            <Select
+              value={product.ad_account_type}
+              onChange={set('ad_account_type')}
+              options={['CC', 'CL']}
+              placeholder="—"
+              disabled={disabled}
+            />
+          </Field>
+          <Field label="Ad spend limit">
+            <TextInput value={product.ad_spend_limit} onChange={set('ad_spend_limit')} placeholder="—" disabled={disabled} />
+          </Field>
+        </div>
+      </div>
+
+      {/* Lifecycle & Referral section */}
+      <div style={sectionCardStyle}>
+        <div style={sectionHeaderStyle}>📅 Lifecycle & Referral</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+          <Field label="Start date">
+            <TextInput value={product.start_date} onChange={set('start_date')} type="date" disabled={disabled} />
+          </Field>
+          <Field label="Valid until">
+            <TextInput value={product.valid_stopped_date} onChange={set('valid_stopped_date')} type="date" disabled={disabled} />
+          </Field>
+          <Field label="Referral partner">
+            <Select
+              value={product.referral_partner_name}
+              onChange={handleReferralPartnerChange}
+              options={['Chris', 'Master', 'N.A.', 'No Limit', '8 Labs', 'Mathias']}
+              placeholder="—"
+              disabled={disabled}
+            />
+          </Field>
+          <Field label="Referral amount">
+            <TextInput value={product.referral_amount} onChange={set('referral_amount')} placeholder="0" disabled={disabled} />
+          </Field>
+        </div>
       </div>
     </div>
   );
