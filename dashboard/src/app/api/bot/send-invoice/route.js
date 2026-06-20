@@ -47,13 +47,19 @@ export async function POST(req) {
       console.error('[send-invoice] PDF generation failed:', e.message);
     }
 
-    const dueAmount = (parseFloat(subtotal || '0') - parseFloat(discount || '0')).toFixed(2);
+    const subTotal = parseFloat(subtotal || '0');
+    const discAmt = parseFloat(discount || '0');
+    const paidAmt = parseFloat(billing?.amount_received || '0');
+    const dueAmount = Math.max(0, subTotal - discAmt - paidAmt).toFixed(2);
 
     // Build the message with invoice info and Pay Now button only
     const message =
       `📄 <b>Invoice for ${clientName}</b>\n\n` +
       `<b>Product:</b> ${productName}\n` +
-      `<b>Amount Due:</b> $${dueAmount}\n` +
+      `<b>Subtotal:</b> $${subTotal.toFixed(2)}\n` +
+      `<b>Discount:</b> $${discAmt.toFixed(2)}\n` +
+      `<b>Amount Paid:</b> $${paidAmt.toFixed(2)}\n` +
+      `<b>Balance Due:</b> $${dueAmount}\n` +
       `<b>Due Date:</b> ${invoiceDate || 'N/A'}\n\n` +
       `Click <b>Pay Now</b> to select your payment method.`;
 

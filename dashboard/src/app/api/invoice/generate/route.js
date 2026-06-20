@@ -23,8 +23,29 @@ export async function GET(req) {
     const referral_partner_name = searchParams.get('referral_partner_name') || 'N.A.';
     const whop_link_type = searchParams.get('whop_link_type') || 'tier';
     const currency = searchParams.get('currency') || '$';
+    // Amount received (already paid)
+    const amount_received = searchParams.get('amount_received') || '0';
 
-    return generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type, currency });
+    // If sr_no provided, fetch ONLY that specific renewal for the invoice
+    let allRenewals = [];
+    if (sr_no) {
+      allRenewals = all(`
+        SELECT r.*, c.first_name, c.last_name, c.email, c.address
+        FROM renewals r
+        LEFT JOIN clients c ON c.id = r.client_id
+        WHERE r.sr_no = ?
+        LIMIT 1
+      `, [sr_no]);
+    }
+
+    return generateInvoiceResponse({
+      sr_no, client_id, client_name, bank_name, product_name,
+      subtotal, discount, invoice_date, invoice_no,
+      first_name, last_name, email, address,
+      referral_partner_name, whop_link_type, currency,
+      amount_received,
+      allRenewals: allRenewals.length > 0 ? allRenewals : null
+    });
   } catch (error) {
     console.error('Error generating invoice:', error);
     return new NextResponse('Error generating invoice', { status: 500 });
@@ -52,7 +73,7 @@ function getWhopPaymentLink(referralPartner, tier, linkType = 'tier') {
   return getWhopLink({ referralPartner, tier: normalizedTier });
 }
 
-function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type, currency }) {
+function generateInvoiceResponse({ sr_no, client_id, client_name, bank_name, product_name, subtotal, discount, invoice_date, invoice_no, first_name, last_name, email, address, referral_partner_name, whop_link_type, currency, amount_received, allRenewals }) {
   // Get invoice template
   const templateRow = get('SELECT data_json FROM invoice_settings WHERE id = 1');
   const template = templateRow ? JSON.parse(templateRow.data_json) : {};
@@ -183,6 +204,7 @@ Please contact us for payment details.`;
 
   const parsedSubtotal = Number(subtotal) || 0;
   const parsedDiscount = Number(discount) || 0;
+  const parsedReceived = Number(amount_received) || 0;
 
   const metaRows = meta.map(row =>
     `<div class="meta-row">
@@ -191,14 +213,68 @@ Please contact us for payment details.`;
     </div>`
   ).join('');
 
-  const itemTotal = parsedSubtotal;
-  const itemsHtml = `
-    <tr>
-      <td class="desc">${escapeHtml(product_name || 'Service')}</td>
-      <td class="qty">1</td>
-      <td class="num">${fmt(itemTotal)}</td>
-      <td class="num">${fmt(itemTotal)}</td>
-    </tr>`;
+  // Build items - either from allRenewals or single product
+  let itemsHtml = '';
+  let invoiceSubtotal = 0;
+  let invoiceDiscount = 0;
+  let invoiceReceived = 0;
+  let billingFirstName = first_name;
+  let billingLastName = last_name;
+  let billingEmail = email;
+  let billingAddress = address;
+
+  if (allRenewals && allRenewals.length > 0) {
+    // Use the renewal data (most reliable source)
+    const r = allRenewals[0]; // sr_no is specific, so we get 1 renewal
+
+    const sub = Number(r.subscription_fee || 0);
+    const setup = Number(r.setup_fee || 0);
+    invoiceSubtotal = sub + setup;
+    invoiceDiscount = Number(r.discount || 0);
+    // Use URL param if DB value is empty (old payments), otherwise use DB value
+    const dbReceived = Number(r.amount_received || 0);
+    invoiceReceived = dbReceived > 0 ? dbReceived : (Number(amount_received) || 0);
+
+    // Build 1 or 2 lines depending on tier/setup
+    const lines = [];
+    if (r.tier) {
+      const tierNum = r.tier.replace(/\D/g, '') || '0';
+      const tierPrice = Number(r.subscription_fee || 0);
+      lines.push({ desc: r.tier, price: tierPrice });
+    }
+    if (r.setup_type) {
+      lines.push({ desc: r.setup_type, price: Number(r.setup_fee || 0) });
+    }
+
+    itemsHtml = lines.map(line => `
+      <tr>
+        <td class="desc">${escapeHtml(line.desc)}</td>
+        <td class="qty">1</td>
+        <td class="num">${fmt(line.price)}</td>
+        <td class="num">${fmt(line.price)}</td>
+      </tr>`).join('');
+
+    // Use billing info from renewal if available
+    if (r.first_name || r.last_name) billingFirstName = r.first_name || '';
+    if (r.last_name) billingLastName = r.last_name || '';
+    if (r.email) billingEmail = r.email || '';
+    if (r.address) billingAddress = r.address || '';
+  } else {
+    // Single product fallback - use URL params
+    invoiceSubtotal = parsedSubtotal;
+    invoiceDiscount = parsedDiscount;
+    invoiceReceived = parsedReceived;
+    const itemTotal = parsedSubtotal;
+    itemsHtml = `
+      <tr>
+        <td class="desc">${escapeHtml(product_name || 'Service')}</td>
+        <td class="qty">1</td>
+        <td class="num">${fmt(itemTotal)}</td>
+        <td class="num">${fmt(itemTotal)}</td>
+      </tr>`;
+  }
+
+  const balanceDue = Math.max(0, invoiceSubtotal - invoiceDiscount - invoiceReceived);
 
   const payInstParagraphs = paymentInstructions.split('\n').map(p =>
     `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`
@@ -207,15 +283,15 @@ Please contact us for payment details.`;
   // Logo handling - use local URL for the logo
   const logoHtml = `<div class="logo-box"><img src="/PCA.png" alt="Prime Circle Agency" onerror="this.parentElement.innerHTML='<div style=\'width:280px;padding:10px 0 6px;text-align:center;margin-bottom:10px;\'><div style=\'font-size:32px;font-style:italic;color:#111;\'>Prime Circle</div><div style=\'font-size:8px;letter-spacing:5px;color:#444;margin-top:2px;\'>AGENCY</div></div>'"></div>`;
 
-  // Build billing info - use personal info if provided, otherwise fall back to client_name
-  const billingName = (first_name || last_name) ? `${first_name} ${last_name}`.trim() : (client_name || '');
-  const billingEmail = email || '';
-  const billingAddress = address || '';
+  // Build billing info - use personal info from renewal or fallback to URL params or nothing
+  const billingName = (billingFirstName || billingLastName) ? `${billingFirstName} ${billingLastName}`.trim() : '';
+  const billtoEmail = billingEmail || '';
+  const billtoAddress = billingAddress || '';
 
   const billtoLines = [];
-  if (billingEmail) billtoLines.push(escapeHtml(billingEmail));
-  if (billingAddress) billtoLines.push(escapeHtml(billingAddress));
-  if (!billingEmail && !billingAddress) billtoLines.push(`Ref: ${sr_no || 'N/A'}`);
+  if (billingName) billtoLines.push(escapeHtml(billingName));
+  if (billtoEmail) billtoLines.push(escapeHtml(billtoEmail));
+  if (billtoAddress) billtoLines.push(escapeHtml(billtoAddress));
 
   const html = `<!DOCTYPE html>
 <html>
@@ -308,12 +384,13 @@ Please contact us for payment details.`;
           ${payInstParagraphs}
         </div>
         <div class="totals">
-          <div class="t-row"><div class="t-label">SUBTOTAL</div><div class="t-value">${template.currency || '$'}${fmt(parsedSubtotal)}</div></div>
-          <div class="t-row"><div class="t-label">DISCOUNT</div><div class="t-value">-${template.currency || '$'}${fmt(parsedDiscount)}</div></div>
+          <div class="t-row"><div class="t-label">SUBTOTAL</div><div class="t-value">${template.currency || '$'}${fmt(invoiceSubtotal)}</div></div>
+          <div class="t-row"><div class="t-label">DISCOUNT</div><div class="t-value">-${template.currency || '$'}${fmt(invoiceDiscount)}</div></div>
+          <div class="t-row"><div class="t-label">AMOUNT PAID</div><div class="t-value" style="color:#10B981;">-${template.currency || '$'}${fmt(invoiceReceived)}</div></div>
           <div class="t-row"><div class="t-label">TAX RATE</div><div class="t-value">0%</div></div>
           <div class="t-row"><div class="t-label">TOTAL TAX</div><div class="t-value">${template.currency || '$'}0.00</div></div>
           <div class="t-row"><div class="t-label">SHIPPING</div><div class="t-value">${template.currency || '$'}0.00</div></div>
-          <div class="t-row balance"><div class="t-label">Balance Due</div><div class="t-value">${template.currency || '$'}${fmt(parsedSubtotal - parsedDiscount)}</div></div>
+          <div class="t-row balance"><div class="t-label">Balance Due</div><div class="t-value">${template.currency || '$'}${fmt(balanceDue)}</div></div>
         </div>
       </div>
     </div>

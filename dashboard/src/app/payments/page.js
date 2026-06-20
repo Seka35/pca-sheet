@@ -115,9 +115,9 @@ export default function PaymentsPage() {
       sr_no: paymentRow.sr_no || paymentRow.period || 'N/A',
       client_id: paymentRow.client_id || '',
       client_name: paymentRow.client_name || '',
-      bank_name: paymentRow.channel || 'crypto',  // channel is the bank_name in payments API
-      product_name: paymentRow.tier || 'Service',
-      amount: paymentRow.amount || 0,
+      bank_name: paymentRow.channel || 'crypto',
+      product_name: [paymentRow.tier, paymentRow.setup_type].filter(Boolean).join(' + ') || 'Service',
+      amount_received: paymentRow.amount || 0,
       invoice_date: paymentRow.date || new Date().toISOString().split('T')[0],
       invoice_no: paymentRow.sr_no ? paymentRow.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001'
     });
