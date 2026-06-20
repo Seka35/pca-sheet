@@ -160,10 +160,21 @@ export async function GET(req) {
       });
     });
 
-    // Sort by date descending
+    // Sort by date descending, but put future dates at the end
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     allPayments.sort((a, b) => {
-      const da = a.date && a.date !== '—' ? new Date(a.date.split('/').reverse().join('-')) : new Date(0);
-      const db = b.date && b.date !== '—' ? new Date(b.date.split('/').reverse().join('-')) : new Date(0);
+      const parseSortDate = (str) => {
+        if (!str || str === '—') return new Date(0);
+        const d = new Date(str.split('/').reverse().join('-'));
+        return isNaN(d.getTime()) ? new Date(0) : d;
+      };
+      const da = parseSortDate(a.date);
+      const db = parseSortDate(b.date);
+      const aIsFuture = da > today;
+      const bIsFuture = db > today;
+      if (aIsFuture && !bIsFuture) return 1;
+      if (!aIsFuture && bIsFuture) return -1;
       return db - da;
     });
 
