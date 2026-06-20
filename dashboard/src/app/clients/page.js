@@ -22,13 +22,20 @@ export default function ClientsPage() {
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [fixResult, setFixResult] = useState(null);
 
-  const loadClients = useCallback(() => {
+  const loadClients = useCallback((refetchClientId) => {
     setLoading(true);
     fetch('/api/clients')
       .then(res => res.json())
       .then(data => {
         setClients(data);
         setLoading(false);
+        // Also refetch the currently open client so modal sees fresh data
+        if (refetchClientId) {
+          fetch(`/api/clients/${refetchClientId}`)
+            .then(r => r.json())
+            .then(fresh => setSelectedClientData(fresh))
+            .catch(() => {});
+        }
       })
       .catch(() => setLoading(false));
   }, []);

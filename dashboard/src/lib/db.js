@@ -105,6 +105,24 @@ function initDatabase() {
     )
   `);
 
+  // Payments table - stores individual payments linked to a renewal (product)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER,
+      renewal_sr_no TEXT,
+      amount_received TEXT,
+      payment_received_date TEXT,
+      payment_received_month TEXT,
+      reference_no TEXT,
+      bank_name TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(client_id) REFERENCES clients(id),
+      FOREIGN KEY(renewal_sr_no) REFERENCES renewals(sr_no)
+    )
+  `);
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS pending_updates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

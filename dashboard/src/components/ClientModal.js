@@ -142,6 +142,23 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   // Active products from history for dropdown selection
   const activeProducts = (history || []).filter(p => p.visual_status === 'Active' || p.active !== false);
 
+  // Individual payments for Payment History tab (from payments table)
+  const [clientPayments, setClientPayments] = useState([]);
+
+  // Fetch individual payments when payments tab is active
+  useEffect(() => {
+    if (activeTab === 'payments' && client?.id) {
+      fetch(`/api/payments?client_id=${client.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setClientPayments(data);
+          }
+        })
+        .catch(err => console.error('Error fetching payments:', err));
+    }
+  }, [activeTab, client?.id]);
+
   // Selected product filter for payment history view
   const [selectedPaymentProduct, setSelectedPaymentProduct] = useState(null); // null = all products
 
@@ -250,21 +267,35 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   };
 
   const calculateProductDue = (p) => {
-    const isPaid = p.reference_no && p.reference_no.trim() !== '';
-    if (isPaid) return 0;
     // Trial products have $0 due
     if (p.is_trial === true || p.is_trial === 1) return 0;
     const sub = parseAmount(p.subscription_fee);
     const setup = parseAmount(p.setup_fee);
     const disc = parseAmount(p.discount);
     const received = parseAmount(p.amount_received);
-    const due = (sub + setup) - disc - received;
-    return Math.max(0, due);
+    const totalDue = (sub + setup) - disc;
+    // If received >= total due, it's fully paid
+    if (received >= totalDue) return 0;
+    // Otherwise return what's still due
+    return totalDue - received;
+  };
+
+  // Get billing status for a product
+  const getProductBillingStatus = (p) => {
+    if (p.is_trial === true || p.is_trial === 1) return { status: 'TRIAL', color: '#A78BFA' };
+    const sub = parseAmount(p.subscription_fee);
+    const setup = parseAmount(p.setup_fee);
+    const disc = parseAmount(p.discount);
+    const received = parseAmount(p.amount_received);
+    const totalDue = (sub + setup) - disc;
+    if (received >= totalDue) return { status: 'FULLY PAID', color: '#10B981' };
+    if (received > 0) return { status: 'PARTIALLY PAID', color: '#F59E0B' };
+    return { status: 'UNPAID', color: '#EF4444' };
   };
 
   // Deduplicate products by tier + setup_type combination (one card per unique product)
-  // Use formProducts when in edit mode (has latest saved data), otherwise use history
-  const productSource = mode === 'edit' ? formProducts : (history || []);
+  // Always prefer formProducts (has latest saved data), fall back to history only if empty
+  const productSource = formProducts.length > 0 ? formProducts : (history || []);
   const uniqueProductsMap = {};
   productSource.forEach(p => {
     const key = `${p.tier || ''}|${p.setup_type || ''}|${p.sr_no || ''}`;
@@ -461,6 +492,28 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     onSaved && onSaved();
   };
 
+  // Delete a payment entry from the payments table
+  const deletePaymentEntry = async (paymentId) => {
+    if (!window.confirm('Delete this payment entry?')) return;
+    try {
+      const res = await fetch(`/api/payments/${paymentId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        // Refresh the payments list
+        const refresh = await fetch(`/api/payments?client_id=${client.id}`);
+        const data = await refresh.json();
+        if (Array.isArray(data)) {
+          setClientPayments(data);
+        }
+        // Also refresh the client data to update totals
+        onSaved && onSaved(client.id);
+      }
+    } catch (err) {
+      console.error('Error deleting payment:', err);
+    }
+  };
+
   const cancelPaymentEdit = () => {
     setEditingPayment(null);
     setSelectedProductSrNo('');
@@ -485,117 +538,53 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setSaving(true);
 
     try {
-      let updatedProducts;
-      if (editingPayment === 'new') {
-        // Auto-generate month from payment_received_date if not set
-        const monthFromDate = manualPaymentForm.month || (manualPaymentForm.payment_received_date
-          ? new Date(manualPaymentForm.payment_received_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-')
-          : '');
-        // If linked to existing product, update that product
-        if (selectedProductSrNo && selectedProductSrNo !== 'new') {
-          updatedProducts = formProducts.map((p) => {
-            if (p.sr_no === selectedProductSrNo) {
-              return {
-                ...p,
-                month: monthFromDate,
-                bank_name: manualPaymentForm.bank_name,
-                amount_received: manualPaymentForm.amount_received,
-                payment_received_date: manualPaymentForm.payment_received_date,
-                payment_received_month: monthFromDate,
-                reference_no: manualPaymentForm.reference_no,
-                tier: manualPaymentForm.tier || p.tier,
-                setup_type: manualPaymentForm.setup_type || p.setup_type,
-                subscription_fee: manualPaymentForm.subscription_fee || p.subscription_fee,
-                setup_fee: manualPaymentForm.setup_fee || p.setup_fee,
-                discount: manualPaymentForm.discount || p.discount,
-                valid_stopped_date: manualPaymentForm.valid_stopped_date || p.valid_stopped_date,
-              };
-            }
-            return p;
-          });
-        } else {
-          // Create new product for manual entry
-          const newProduct = {
-            tier: manualPaymentForm.tier || '',
-            setup_type: manualPaymentForm.setup_type || '',
-            month: monthFromDate,
-            subscription_fee: manualPaymentForm.subscription_fee || '0',
-            setup_fee: manualPaymentForm.setup_fee || '0',
-            discount: manualPaymentForm.discount || '0',
-            cl_amount: '',
-            start_date: '',
-            valid_stopped_date: manualPaymentForm.valid_stopped_date || '',
-            client_ad_id_name: '',
-            ad_id_number: '',
-            ad_account_type: '',
-            ad_spend_limit: '',
-            referral_partner_name: '',
-            referral_amount: '',
-            bank_name: manualPaymentForm.bank_name,
-            payment_name: '',
-            amount_received: manualPaymentForm.amount_received,
-            payment_received_date: manualPaymentForm.payment_received_date,
-            payment_received_month: monthFromDate,
-            reference_no: manualPaymentForm.reference_no,
-            actual_balance_difference: '',
-            client_status_history: '',
-            notes: 'MANUAL_ENTRY',
-            active: true,
-          };
-          updatedProducts = [...formProducts, newProduct];
-        }
-      } else {
-        // Update existing payment entry - match by sr_no
-        updatedProducts = formProducts.map((p) => {
-          if (p.sr_no === editingPayment.srNo) {
-            return {
-              ...p,
-              month: manualPaymentForm.month,
-              bank_name: manualPaymentForm.bank_name,
-              amount_received: manualPaymentForm.amount_received,
-              payment_received_date: manualPaymentForm.payment_received_date,
-              payment_received_month: manualPaymentForm.month,
-              reference_no: manualPaymentForm.reference_no,
-              tier: manualPaymentForm.tier,
-              setup_type: manualPaymentForm.setup_type,
-              subscription_fee: manualPaymentForm.subscription_fee || p.subscription_fee,
-              setup_fee: manualPaymentForm.setup_fee || p.setup_fee,
-              discount: manualPaymentForm.discount || p.discount,
-              valid_stopped_date: manualPaymentForm.valid_stopped_date || p.valid_stopped_date,
-            };
-          }
-          return p;
-        });
+      // Auto-generate month from payment_received_date if not set
+      const monthFromDate = manualPaymentForm.month || (manualPaymentForm.payment_received_date
+        ? new Date(manualPaymentForm.payment_received_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-')
+        : '');
+
+      // Determine the renewal_sr_no to link the payment to
+      let renewalSrNo = selectedProductSrNo;
+
+      // If "Manual Entry" is selected and tier/setup is provided, we need to find or create a renewal
+      // But for now, we require a linked product
+      if (!renewalSrNo || renewalSrNo === 'new') {
+        setError('Please select a product to link this payment to, or create a product first.');
+        setSaving(false);
+        return;
       }
 
-      const res = await fetch(`/api/clients/${client.id}`, {
-        method: 'PUT',
+      // Use the new payments API
+      const res = await fetch('/api/payments', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: formName.trim(),
-          first_name: formFirstName.trim(),
-          last_name: formLastName.trim(),
-          email: formEmail.trim(),
-          address: formAddress.trim(),
-          telegram_group_id: formTelegramGroupId.trim(),
-          status: formStatus,
-          products: updatedProducts,
-          removed_sr_nos: removedSrNos,
+          client_id: client.id,
+          renewal_sr_no: renewalSrNo,
+          amount_received: manualPaymentForm.amount_received || '0',
+          payment_received_date: manualPaymentForm.payment_received_date || '',
+          payment_received_month: monthFromDate,
+          reference_no: manualPaymentForm.reference_no || '',
+          bank_name: manualPaymentForm.bank_name || '',
+          notes: 'MANUAL_ENTRY',
         }),
       });
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || `Request failed (${res.status})`);
+        setSaving(false);
         return;
       }
+
       setEditingPayment(null);
       setSelectedProductSrNo('');
-      // Re-fetch client to refresh modal
+
+      // Re-fetch client to refresh modal data
       try {
         const refetch = await fetch(`/api/clients/${client.id}`);
         if (refetch.ok) {
           const fresh = await refetch.json();
-          // Update local state with fresh data FIRST
           setFormProducts(
             (fresh.history || []).map((h) => ({
               sr_no: h.sr_no,
@@ -624,15 +613,21 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               client_status_history: h.client_status_history || '',
               notes: h.notes || '',
               active: h.visual_status === 'Active',
+              is_trial: Boolean(h.is_trial),
             }))
           );
-          // Then notify parent (triggers re-render with fresh history)
-          setDeletedPaymentSrNos([]); // reset deleted tracking
-          onSaved && onSaved();
+          setDeletedPaymentSrNos([]);
+          // Also refresh the individual payments list
+          try {
+            const paymentsRes = await fetch(`/api/payments?client_id=${client.id}`);
+            const paymentsData = await paymentsRes.json();
+            if (Array.isArray(paymentsData)) {
+              setClientPayments(paymentsData);
+            }
+          } catch {}
         }
       } catch {
-        // If refetch fails, still notify parent
-        onSaved && onSaved();
+        // Refetch failed but payment was saved
       }
     } catch (e) {
       setError(e.message || 'Network error');
@@ -641,7 +636,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     }
   };
 
-  // Send invoice via Telegram to the linked group
+  // Send invoice via Telegram to the linked group (just the Pay Now message, NO PDF)
+  // PDF will only be sent after admin approval
   const sendInvoiceViaTelegram = async (row) => {
     if (invoiceSending) return;
     setInvoiceSending(true);
@@ -655,29 +651,28 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         return;
       }
 
-      const billing = getBillingInfo(row);
-
       // Amount = subscription + setup - discount
       const subAmt = parseFloat(String(row.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
       const setupAmt = parseFloat(String(row.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
       const discAmt = parseFloat(String(row.discount || '0').replace(/[^0-9.]/g, '')) || 0;
       const totalAmt = (subAmt + setupAmt - discAmt).toFixed(2);
 
-      const res = await fetch('/api/bot/send-invoice', {
+      // Amount already received for this product
+      const receivedAmt = parseFloat(String(row.amount_received || '0').replace(/[^0-9.]/g, '')) || 0;
+      const dueAmt = Math.max(0, parseFloat(totalAmt) - receivedAmt).toFixed(2);
+
+      const res = await fetch('/api/bot/send-invoice-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chatId,
           srNo: row.sr_no,
-          clientId: client.id,
           clientName: client.name,
-          bankName: row.bank_name || 'crypto',
           productName: row.tier ? row.tier + (row.setup_type ? ' - ' + row.setup_type : '') : 'Service',
           subtotal: totalAmt,
           discount: '0',
           invoiceDate: row.valid_stopped_date || new Date().toISOString().split('T')[0],
-          invoiceNo: row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
-          billing,
+          receivedAmt: receivedAmt.toString(),
         }),
       });
 
@@ -685,7 +680,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       if (!res.ok) {
         setInvoiceToast({ type: 'error', message: data.error || 'Failed to send invoice.' });
       } else {
-        setInvoiceToast({ type: 'success', message: 'Invoice sent to Telegram group!' });
+        setInvoiceToast({ type: 'success', message: 'Invoice sent! Client can now pay. PDF will be sent after approval.' });
       }
     } catch (e) {
       setInvoiceToast({ type: 'error', message: e.message || 'Network error.' });
@@ -735,12 +730,55 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         setError(data.error || `Request failed (${res.status})`);
         return;
       }
-      // formProducts already contains the saved data - no need to update
-      // Just stay in edit mode and let user continue
+      // Re-fetch client to refresh modal data, then switch to view mode
+      try {
+        const refetch = await fetch(`/api/clients/${client.id}`);
+        if (refetch.ok) {
+          const fresh = await refetch.json();
+          setFormProducts(
+            (fresh.history || []).map((h) => ({
+              sr_no: h.sr_no,
+              tier: h.tier || '',
+              setup_type: h.setup_type || '',
+              month: h.month || '',
+              subscription_fee: h.subscription_fee || '',
+              setup_fee: h.setup_fee || '',
+              discount: h.discount || '',
+              cl_amount: h.cl_amount || '',
+              start_date: h.start_date || '',
+              valid_stopped_date: h.valid_stopped_date || '',
+              client_ad_id_name: h.client_ad_id_name || '',
+              ad_id_number: h.ad_id_number || '',
+              ad_account_type: h.ad_account_type || '',
+              ad_spend_limit: h.ad_spend_limit || '',
+              referral_partner_name: h.referral_partner_name || '',
+              referral_amount: h.referral_amount || '',
+              bank_name: h.bank_name || '',
+              payment_name: h.payment_name || '',
+              amount_received: h.amount_received || '',
+              payment_received_date: h.payment_received_date || '',
+              payment_received_month: h.payment_received_month || '',
+              reference_no: h.reference_no || '',
+              actual_balance_difference: h.actual_balance_difference || '',
+              client_status_history: h.client_status_history || '',
+              notes: h.notes || '',
+              active: h.visual_status === 'Active',
+              is_trial: Boolean(h.is_trial),
+            }))
+          );
+          setDeletedPaymentSrNos([]);
+          // Also update computed data (for Overview totals)
+          if (fresh.computed) {
+            setComputedData(fresh.computed);
+          }
+        }
+      } catch {}
+      // Clear edit state and switch to view mode after successful save
+      setMode('view');
       setRemovedSrNos([]);
-      setSaving(false);
       setError(null);
-      // Don't call onSaved or onClose - stay in modal to allow more edits
+      // Refresh parent data with this client's fresh data
+      onSaved && onSaved(client.id);
     } catch (e) {
       setError(e.message || 'Network error');
     } finally {
@@ -957,7 +995,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Total Revenue</span>
-                          <span style={{ fontWeight: '700', fontSize: '18px', color: 'var(--primary-accent)' }}>{formatCurrency((history || []).reduce((sum, h) => sum + (parseFloat(String(h.amount_received || '0').replace(/[^0-9.]/g, '')) || 0), 0))}</span>
+                          <span style={{ fontWeight: '700', fontSize: '18px', color: 'var(--primary-accent)' }}>{formatCurrency(computedData?.totalCA || 0)}</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Total Spend (CL)</span>
@@ -981,7 +1019,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <span style={{ color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '600' }}>Relationship Dates</span>
                       <div style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <div>Started: <span style={{ fontWeight: '600' }}>{computedData?.earliestStartDate || '—'}</span></div>
-                        <div>Next Renewal: <span style={{ fontWeight: '600' }}>{computedData?.latestRenewalDate || '—'}</span></div>
+                        <div>Next Renewal: <span style={{ fontWeight: '600' }}>{computedData?.nextRenewalDate || '—'}</span></div>
                       </div>
                     </div>
                     {client.status !== 'Actif' && client.churn_reason && (
@@ -1133,11 +1171,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                   {displayProducts.length > 0 ? displayProducts.map((product, idx) => {
                     const productDue = calculateProductDue(product);
-                    const isPaid = product.reference_no && product.reference_no.trim() !== '';
+                    const billingStatus = getProductBillingStatus(product);
+                    const isPaid = billingStatus.status === 'FULLY PAID';
                     return (
-                      <div key={idx} style={{ 
-                        backgroundColor: 'var(--bg-main)', padding: '24px', borderRadius: '16px', 
-                        border: '1px solid var(--border-color)', borderLeft: `6px solid ${isPaid ? 'var(--status-active)' : 'var(--status-cut)'}`,
+                      <div key={idx} style={{
+                        backgroundColor: 'var(--bg-main)', padding: '24px', borderRadius: '16px',
+                        border: '1px solid var(--border-color)', borderLeft: `6px solid ${billingStatus.color}`,
                         display: 'flex', flexDirection: 'column', gap: '24px',
                         boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
                       }}>
@@ -1149,8 +1188,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           </div>
                           <div style={{ textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px', fontWeight: '700' }}>Billing Status</div>
-                            <div style={{ fontSize: '20px', fontWeight: '800', color: productDue > 0 ? 'var(--status-cut)' : 'var(--status-active)' }}>
-                              {isPaid ? '✅ Fully Paid' : `⚠️ Due: ${formatCurrency(productDue)}`}
+                            <div style={{ fontSize: '20px', fontWeight: '800', color: billingStatus.color }}>
+                              {billingStatus.status === 'FULLY PAID' ? '✅ Fully Paid' : billingStatus.status === 'PARTIALLY PAID' ? `⚠️ ${billingStatus.status}` : billingStatus.status === 'TRIAL' ? `🎁 Trial` : `⚠️ Due: ${formatCurrency(productDue)}`}
                             </div>
                           </div>
                         </div>
@@ -1185,6 +1224,15 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                                   </div>
                                 </>
                               )}
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '4px 0' }}></div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Received</span>
+                                <span style={{ fontWeight: '600', color: 'var(--primary-accent)' }}>{formatCurrency(parseAmount(product.amount_received))}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Due</span>
+                                <span style={{ fontWeight: '700', color: productDue > 0 ? '#EF4444' : 'var(--status-active)' }}>{formatCurrency(productDue)}</span>
+                              </div>
                             </div>
                           </div>
 
@@ -1388,6 +1436,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+                      <th style={{ padding: '12px 8px' }}>Status</th>
                       <th style={{ padding: '12px 8px' }}>Period</th>
                       <th style={{ padding: '12px 8px' }}>Product</th>
                       <th style={{ padding: '12px 8px' }}>Fees & Disc.</th>
@@ -1400,47 +1449,104 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(formProducts.length > 0 ? formProducts : history || []).filter(row => !removedSrNos.includes(row.sr_no) && !deletedPaymentSrNos.includes(row.sr_no)).map((row) => {
-                      const billing = getBillingInfo(row);
+                    {/* First: show all products that have payments - each payment as a separate row */}
+                    {clientPayments.length > 0 && clientPayments.map((payment) => {
+                      const product = history?.find(h => h.sr_no === payment.renewal_sr_no);
+                      const billing = getBillingInfo(product || {});
                       return (
-                        <tr key={row.sr_no} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                          <td style={{ padding: '16px 8px', fontWeight: '600' }}>{row.month}</td>
-                          <td style={{ padding: '16px 8px' }}><ProductBadge tier={row.tier} setup_type={row.setup_type} is_trial={row.is_trial} /></td>
+                        <tr key={`payment-${payment.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: 'rgba(16, 185, 129, 0.03)' }}>
+                          <td style={{ padding: '16px 8px' }}>
+                            <span style={{ color: '#10B981', fontWeight: '700', fontSize: '11px' }}>PAID</span>
+                          </td>
+                          <td style={{ padding: '16px 8px', fontWeight: '600' }}>{payment.payment_received_month || payment.period || '—'}</td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <ProductBadge tier={payment.tier} setup_type={payment.setup_type} is_trial={false} />
+                          </td>
                           <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span>Sub: {row.subscription_fee || '0'}</span>
-                              {row.setup_fee && <span>Setup: {row.setup_fee}</span>}
-                              {row.discount && <span>Disc: {row.discount}</span>}
+                              {product && <>
+                                <span>Sub: {product.subscription_fee || '0'}</span>
+                                {product.setup_fee && <span>Setup: {product.setup_fee}</span>}
+                                {product.discount && <span>Disc: {product.discount}</span>}
+                              </>}
                             </div>
                           </td>
-                          <td style={{ padding: '16px 8px' }}>{row.bank_name || '—'}</td>
-                          <td style={{ padding: '16px 8px', color: 'var(--primary-accent)', fontWeight: '700' }}>{row.amount_received}</td>
-                          <td style={{ padding: '16px 8px' }}>{row.valid_stopped_date || '—'}</td>
-                          <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{row.reference_no || '—'}</td>
+                          <td style={{ padding: '16px 8px' }}>{payment.bank_name || '—'}</td>
+                          <td style={{ padding: '16px 8px', color: 'var(--primary-accent)', fontWeight: '700' }}>{payment.amount_received}</td>
+                          <td style={{ padding: '16px 8px' }}>{product?.valid_stopped_date || '—'}</td>
+                          <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
                             <a
-                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(row.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(row.bank_name || 'crypto')}&product_name=${encodeURIComponent(row.tier ? row.tier + (row.setup_type ? ' - ' + row.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(row.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(row.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(row.discount || '0')}&invoice_date=${encodeURIComponent(row.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(row.sr_no ? row.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}`}
+                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(payment.renewal_sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(payment.bank_name || 'crypto')}&product_name=${encodeURIComponent(payment.tier ? payment.tier + (payment.setup_type ? ' - ' + payment.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product?.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product?.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product?.discount || '0')}&invoice_date=${encodeURIComponent(product?.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(payment.renewal_sr_no ? payment.renewal_sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}`}
+                              target="_blank" rel="noopener noreferrer"
+                              style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '11px', fontWeight: '600' }}
+                            >
+                              PDF
+                            </a>
+                          </td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <button onClick={() => deletePaymentEntry(payment.id)} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent' }}>🗑️</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Then: show unpaid products (products with no payments) */}
+                    {(history || []).filter(product => {
+                      // Check if this product has any payments
+                      const hasPayments = clientPayments.some(p => p.renewal_sr_no === product.sr_no);
+                      return !hasPayments && !removedSrNos.includes(product.sr_no) && !deletedPaymentSrNos.includes(product.sr_no);
+                    }).map((product) => {
+                      const billing = getBillingInfo(product);
+                      return (
+                        <tr key={`unpaid-${product.sr_no}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+                          <td style={{ padding: '16px 8px' }}>
+                            <span style={{ color: '#EF4444', fontWeight: '700', fontSize: '11px' }}>UNPAID</span>
+                          </td>
+                          <td style={{ padding: '16px 8px', fontWeight: '600' }}>{product.month || '—'}</td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
+                          </td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span>Sub: {product.subscription_fee || '0'}</span>
+                              {product.setup_fee && <span>Setup: {product.setup_fee}</span>}
+                              {product.discount && <span>Disc: {product.discount}</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 8px' }}>{product.bank_name || '—'}</td>
+                          <td style={{ padding: '16px 8px', color: '#EF4444', fontWeight: '700' }}>{(parseFloat(String(product.subscription_fee || '0').replace(/[^0-9.]/g, '')) + parseFloat(String(product.setup_fee || '0').replace(/[^0-9.]/g, '')) - parseFloat(String(product.discount || '0').replace(/[^0-9.]/g, ''))).toFixed(2)}</td>
+                          <td style={{ padding: '16px 8px' }}>{product.valid_stopped_date || '—'}</td>
+                          <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{product.reference_no || '—'}</td>
+                          <td style={{ padding: '16px 8px', textAlign: 'center' }}>
+                            <a
+                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(product.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(product.bank_name || 'crypto')}&product_name=${encodeURIComponent(product.tier ? product.tier + (product.setup_type ? ' - ' + product.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product.discount || '0')}&invoice_date=${encodeURIComponent(product.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(product.sr_no ? product.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}`}
                               target="_blank" rel="noopener noreferrer"
                               style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '11px', fontWeight: '600' }}
                             >
                               PDF
                             </a>
                             <button
-                              onClick={() => sendInvoiceViaTelegram(row)}
-                              disabled={sendingRowSrNo === row.sr_no}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', backgroundColor: sendingRowSrNo === row.sr_no ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)', color: sendingRowSrNo === row.sr_no ? '#14b8a6' : '#14b8a6', fontSize: '11px', fontWeight: '600', border: 'none', cursor: sendingRowSrNo === row.sr_no ? 'not-allowed' : 'pointer', marginLeft: '4px' }}
+                              onClick={() => sendInvoiceViaTelegram(product)}
+                              disabled={sendingRowSrNo === product.sr_no}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', backgroundColor: sendingRowSrNo === product.sr_no ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)', color: '#14b8a6', fontSize: '11px', fontWeight: '600', border: 'none', cursor: sendingRowSrNo === product.sr_no ? 'not-allowed' : 'pointer', marginLeft: '4px' }}
                               title="Send invoice to linked Telegram group"
                             >
-                              {sendingRowSrNo === row.sr_no ? '⏳ Sending…' : 'Send'}
+                              {sendingRowSrNo === product.sr_no ? '⏳' : '📤'}
                             </button>
                           </td>
                           <td style={{ padding: '16px 8px' }}>
-                            <button onClick={() => startEditPayment(row)} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent', marginRight: '8px' }}>✏️</button>
-                            <button onClick={() => deletePayment(row)} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent' }}>🗑️</button>
+                            <button onClick={() => removeProductAt(history.indexOf(product))} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent' }}>🗑️</button>
                           </td>
                         </tr>
                       );
                     })}
+                    {clientPayments.length === 0 && (history || []).filter(p => !removedSrNos.includes(p.sr_no) && !deletedPaymentSrNos.includes(p.sr_no)).length === 0 && (
+                      <tr>
+                        <td colSpan="10" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                          No payments recorded yet. Click "Record Payment" to add a payment.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

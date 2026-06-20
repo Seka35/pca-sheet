@@ -90,6 +90,13 @@ export async function POST(req) {
         [entry.transaction_id, entry.transaction_id, entry.proof_image_url, amountDue, bankNameToStore, newValidStoppedDate, entry.sr_no]
       );
 
+      // Also record this payment in the payments table (for multiple payments per product)
+      run(
+        `INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes)
+         VALUES (?, ?, ?, DATE('now'), strftime('%Y-%m', 'now'), ?, ?, ?)`,
+        [entry.client_id, entry.sr_no, amountDue, entry.transaction_id, bankNameToStore, 'Approved payment - Telegram bot']
+      );
+
       // Also activate the client if payment is approved
       run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
     } else {
@@ -122,6 +129,13 @@ export async function POST(req) {
         ]
       );
       run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
+
+      // Also record this payment in the payments table (for newly created renewal)
+      run(
+        `INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes)
+         VALUES (?, ?, ?, DATE('now'), strftime('%Y-%m', 'now'), ?, ?, ?)`,
+        [entry.client_id, entry.sr_no, amountDue, entry.transaction_id, entry.bank_name, 'Approved payment - Telegram bot (new renewal)']
+      );
     }
 
     // Send Telegram notification + invoice to the client

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { all, run, get } from '@/lib/db';
 import { extractTeleId } from '@/lib/teleIdParser';
-import { getSheetsClient, overwriteClientBlock } from '@/lib/googleSheets';
+// Google Sheets integration removed - using DB only
 import { validateUpdateClientPayload } from '@/lib/clientValidation';
 import { createBackup } from '@/lib/backup';
 import { requirePermission } from '@/lib/apiAuth';
@@ -97,8 +97,17 @@ export async function GET(req, { params }) {
     // Earliest start date (from oldest renewal)
     const earliestStartDate = history.length > 0 ? history[history.length - 1].start_date : null;
 
-    // Latest renewal date: the month of the most recent renewal
-    const latestRenewalDate = history.length > 0 ? history[0].month : null;
+    // Next renewal date: the valid_stopped_date of the product expiring soonest (earliest valid_until date)
+    const activeProducts = history.filter(r => r.visual_status === 'Active' || r.active !== false);
+    let nextRenewalDate = null;
+    if (activeProducts.length > 0) {
+      const sortedByValidUntil = [...activeProducts].sort((a, b) => {
+        if (!a.valid_stopped_date) return 1;
+        if (!b.valid_stopped_date) return -1;
+        return new Date(a.valid_stopped_date) - new Date(b.valid_stopped_date);
+      });
+      nextRenewalDate = sortedByValidUntil[0].valid_stopped_date;
+    }
 
     // Latest tier & setup_type
     const latestTier = history.length > 0 ? history[0].tier : null;
@@ -121,7 +130,7 @@ export async function GET(req, { params }) {
         totalCA: parseFloat(totalCA.toFixed(2)),
         renewalCount,
         earliestStartDate,
-        latestRenewalDate,
+        nextRenewalDate,
         latestTier,
         latestSetupType,
         isInvincible,
@@ -176,33 +185,10 @@ export async function PUT(req, { params }) {
       console.warn(`[PUT /api/clients/${clientId}] backup failed (continuing):`, e.message);
     }
 
-    // 4. Write to the Sheet first. If this fails, the DB stays untouched.
-    try {
-      const sheets = await getSheetsClient();
-      sheetResult = await overwriteClientBlock({
-        clientId,
-        name,
-        products,
-        removed_sr_nos,
-      });
-    } catch (e) {
-      console.error(`[PUT /api/clients/${clientId}] Sheets client init failed:`, e);
-      return NextResponse.json(
-        { error: 'Failed to reach Google Sheets', details: e.message, code: 'SHEETS_FAIL' },
-        { status: 500 }
-      );
-    }
-    if (!sheetResult.ok) {
-      console.error(`[PUT /api/clients/${clientId}] Sheet write failed:`, sheetResult.error);
-      return NextResponse.json(
-        { error: 'Failed to write to Google Sheet', details: sheetResult.error, code: 'SHEETS_FAIL' },
-        { status: 500 }
-      );
-    }
-    console.log(
-      `[PUT /api/clients/${clientId}] Sheet written: added=${sheetResult.added.length}, ` +
-      `updated=${sheetResult.updated.length}, removed=${sheetResult.removed.length}`
-    );
+    // 4. Google Sheets integration disabled - DB-only mode
+    // Mock sheetResult for code that depends on it
+    sheetResult = { ok: true, added: [], updated: [], removed: [] };
+    console.log(`[PUT /api/clients/${clientId}] DB-only mode (Sheet sync disabled)`);
 
     // 5. Write to the DB in a transaction.
     const tele_id = extractTeleId(name);
@@ -242,19 +228,30 @@ export async function PUT(req, { params }) {
         );
       }
 
-      // Upsert each product. Existing products (with sr_no) are updated
-      // in place; new products (no sr_no) are inserted with sr_nos
-      // assigned from `sheetResult.added` in order.
+      // Upsert each product. Existing products (with sr_no) are updated in place.
+      // New products (no sr_no) get an auto-generated sr_no (DB-only mode).
       const addedSrNos = sheetResult.added || [];
       let addedIdx = 0;
+      // Pre-compute next available sr_no suffix for new products
+      const existingSrNos = products.map(p => p.sr_no).filter(Boolean);
+      let nextSuffix = 1;
       for (const p of products) {
         let sr_no = p.sr_no;
         if (!sr_no) {
-          if (addedIdx >= addedSrNos.length) {
-            console.warn(`[PUT /api/clients/${clientId}] missing sr_no for new product, skipping`);
-            continue;
+          // Auto-generate sr_no in DB-only mode
+          if (addedIdx < addedSrNos.length) {
+            sr_no = addedSrNos[addedIdx++];
+          } else {
+            // Find a unique sr_no: clientId followed by .1, .2, etc.
+            let candidate = `${clientId}.${nextSuffix}`;
+            while (existingSrNos.includes(candidate)) {
+              nextSuffix++;
+              candidate = `${clientId}.${nextSuffix}`;
+            }
+            sr_no = candidate;
+            existingSrNos.push(sr_no);
+            nextSuffix++;
           }
-          sr_no = addedSrNos[addedIdx++];
         }
         run(insertRenewal, [
           sr_no,
