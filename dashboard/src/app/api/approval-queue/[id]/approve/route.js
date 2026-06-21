@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { get, run, all } from '@/lib/db';
 import { getBot } from '@/lib/telegramBot';
-import { buildPaymentReminderKeyboard } from '@/lib/telegramInlineButtons';
 import { generateInvoicePdfBuffer } from '@/lib/invoicePdf';
 import fs from 'fs';
 import path from 'path';
@@ -191,21 +190,16 @@ export async function POST(req) {
           console.error('[APPROVE] PDF generation failed:', pdfErr.message);
         }
 
-        // Build payment reminder keyboard (Pay Now button)
-        const keyboard = buildPaymentReminderKeyboard(entry.sr_no, link.chat_id);
-
-        // Send payment reminder message with Pay Now button
+        // Send payment confirmation without buttons (approved = no more action needed)
         await bot.sendMessage(
           link.chat_id,
           `✅ <b>Payment Approved!</b>\n\n` +
           `<b>${entry.client_name}</b>, your payment of <b>${entry.amount_due}</b> has been <b>approved</b>!\n\n` +
           `Transaction ID: <code>${entry.transaction_id || 'N/A'}</code>\n\n` +
-          `Your account is now active. Thank you for your payment!\n\n` +
-          `💳 Click <b>Pay Now</b> below to view payment details.`,
+          `Your account is now active. Thank you for your payment!`,
           {
             parse_mode: 'HTML',
             disable_web_page_preview: true,
-            reply_markup: JSON.stringify(keyboard.reply_markup),
           }
         );
 

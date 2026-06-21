@@ -308,6 +308,12 @@ function initDatabase() {
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_proofs_status ON payment_proofs(status)`);
 
+  // Auto-verification columns for payment proofs
+  try { db.exec(`ALTER TABLE payment_proofs ADD COLUMN auto_verification_status TEXT DEFAULT 'PENDING'`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE payment_proofs ADD COLUMN auto_verification_result TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE payment_proofs ADD COLUMN auto_verification_checked_at DATETIME`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE payment_proofs ADD COLUMN fraud_notes TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
   // --- Approvals Sync (dashboard review queue) ---
   db.exec(`
     CREATE TABLE IF NOT EXISTS approval_queue (
@@ -333,6 +339,12 @@ function initDatabase() {
     )
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_approval_queue_status ON approval_queue(status)`);
+
+  // Auto-verification columns for approval queue
+  try { db.exec(`ALTER TABLE approval_queue ADD COLUMN auto_verification_status TEXT DEFAULT 'PENDING'`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE approval_queue ADD COLUMN auto_verification_result TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE approval_queue ADD COLUMN auto_verification_checked_at DATETIME`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE approval_queue ADD COLUMN fraud_notes TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   // --- Telegram Message Approvals (human verification gate) ---
   db.exec(`

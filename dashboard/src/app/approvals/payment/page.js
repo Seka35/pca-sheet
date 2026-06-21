@@ -158,7 +158,24 @@ export default function ApprovalQueuePage() {
 }
 
 function ApprovalCard({ approval, onApprove, onReject }) {
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const verif = approval.verificationDisplay;
+  const verifBadge = verif?.badge || '⚪';
+  const verifText = verif?.text || 'En attente de vérification...';
+  const verifColor = verif?.color || 'gray';
+
+  const badgeBg = {
+    green: '#22c55e15',
+    red: '#ef444415',
+    orange: '#f9731615',
+    gray: '#6b728015',
+  }[verifColor] || '#6b728015';
+
+  const badgeColor = {
+    green: '#22c55e',
+    red: '#ef4444',
+    orange: '#f97316',
+    gray: '#6b7280',
+  }[verifColor] || '#6b7280';
 
   return (
     <div className="card" style={{ padding: '20px' }}>
@@ -191,28 +208,70 @@ function ApprovalCard({ approval, onApprove, onReject }) {
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Transaction ID</span>
             <div style={{ fontSize: '14px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{approval.transaction_id || 'N/A'}</div>
           </div>
+
+          {/* Bot Verification Result */}
+          <div style={{
+            marginBottom: '12px',
+            padding: '10px 12px',
+            borderRadius: '8px',
+            background: badgeBg,
+            border: `1px solid ${badgeColor}30`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '16px' }}>{verifBadge}</span>
+              <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: badgeColor, letterSpacing: '0.5px' }}>
+                Vérification Bot
+              </span>
+            </div>
+            <div style={{ fontSize: '13px', color: badgeColor, lineHeight: '1.4' }}>
+              {verifText}
+            </div>
+            {verif?.foundAmount !== undefined && verif.foundAmount !== null && (
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                Montant trouvé: <b>{verif.foundAmount} {approval.bank_name?.toLowerCase().includes('btc') ? 'BTC' : 'USDT'}</b>
+              </div>
+            )}
+            {approval.auto_verification_checked_at && (
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                Vérifié il y a: {Math.round((Date.now() - new Date(approval.auto_verification_checked_at).getTime()) / 60000)} min
+              </div>
+            )}
+          </div>
+
           <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
             Submitted {approval.submitted_at ? new Date(approval.submitted_at).toLocaleString() : 'N/A'}
           </div>
         </div>
 
-        {/* Right: Screenshot */}
+        {/* Right: Bot Verification Detail */}
         <div>
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Proof of Payment</span>
-          {approval.proof_image_url ? (
-            <div style={{ marginTop: '8px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-              {!imgLoaded && <div style={{ height: '200px', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>Loading...</div>}
-              <img
-                src={approval.proof_image_url}
-                alt="Proof of payment"
-                onLoad={() => setImgLoaded(true)}
-                style={{ width: '100%', display: imgLoaded ? 'block' : 'none', cursor: 'pointer' }}
-                onClick={() => window.open(approval.proof_image_url, '_blank')}
-              />
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Verification Detail</span>
+          {verif?.foundAmount !== undefined && verif?.foundAmount !== null ? (
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
+                {verif.foundAmount} {approval.bank_name?.toLowerCase().includes('btc') ? 'BTC' : 'USDT'}
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                TX: <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{approval.transaction_id?.slice(0, 12)}...</span>
+              </div>
+              {verif.txDate && (
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  Date: {new Date(verif.txDate).toLocaleDateString('fr-FR')}
+                </div>
+              )}
+              {approval.fraud_notes && (
+                <div style={{ marginTop: '8px', padding: '8px', borderRadius: '6px', background: '#ef444415', fontSize: '12px', color: '#ef4444' }}>
+                  ⚠️ {approval.fraud_notes}
+                </div>
+              )}
             </div>
           ) : (
-            <div style={{ marginTop: '8px', padding: '40px', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '8px', color: 'var(--text-secondary)' }}>
-              No screenshot uploaded
+            <div style={{ marginTop: '8px', padding: '20px', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+              {approval.auto_verification_status === 'PENDING' || !approval.auto_verification_status
+                ? 'En attente de vérification...'
+                : approval.auto_verification_status === 'ERROR'
+                ? 'Erreur de vérification'
+                : 'Non trouvé sur le réseau'}
             </div>
           )}
         </div>

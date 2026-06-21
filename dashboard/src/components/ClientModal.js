@@ -11,7 +11,7 @@ import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
 // Constants for dropdowns
 const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
 const SETUP_OPTIONS = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
-const BANK_OPTIONS = ['Crypto', 'LHV', 'Slash Bank', 'WHOP'];
+const BANK_OPTIONS = ['Crypto - USDT TRC20', 'Crypto - USDT ERC20', 'Crypto - BTC', 'LHV', 'Slash Bank', 'WHOP'];
 const MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const YEAR_OPTIONS = ['2024', '2025', '2026', '2027', '2028', '2029', '2030'];
 const REFERRAL_OPTIONS = ['N.A.', 'Chris', 'No Limit', '8 Labs', 'Master', 'Mathias'];
