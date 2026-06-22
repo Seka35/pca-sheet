@@ -31,7 +31,8 @@ export async function PUT(req, { params }) {
         payment_received_date = ?,
         payment_received_month = ?,
         reference_no = ?,
-        bank_name = ?
+        bank_name = ?,
+        is_topup = ?
       WHERE id = ?
     `, [
       amount_received || '0',
@@ -39,42 +40,57 @@ export async function PUT(req, { params }) {
       payment_received_month || '',
       reference_no || '',
       bank_name || '',
+      body.is_topup ? 1 : 0,
       id
     ]);
 
-    // Recalculate the renewal's amount_received from all its payments
+    // Recalculate the renewal based on payment type (top-up vs regular)
+    const isTopUp = payment.is_topup === 1;
     if (payment.renewal_sr_no) {
-      const paymentSum = get(`
-        SELECT SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL)) as total
-        FROM payments WHERE renewal_sr_no = ?
-      `, [payment.renewal_sr_no]);
-      const totalAmount = paymentSum?.total || 0;
+      const linkedRenewal = get('SELECT * FROM renewals WHERE sr_no = ?', [payment.renewal_sr_no]);
 
-      const latestPayment = get(`
-        SELECT payment_received_date, payment_received_month, reference_no, bank_name
-        FROM payments
-        WHERE renewal_sr_no = ?
-        ORDER BY COALESCE(payment_received_date, '1900-01-01') DESC, id DESC
-        LIMIT 1
-      `, [payment.renewal_sr_no]);
+      if (isTopUp) {
+        // Top-up: recalculate cl_amount = SUM of all payments for this renewal
+        const paymentSum = get(`
+          SELECT SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL)) as total
+          FROM payments WHERE renewal_sr_no = ?
+        `, [payment.renewal_sr_no]);
+        const totalCl = paymentSum?.total || 0;
+        run(`UPDATE renewals SET cl_amount = ? WHERE sr_no = ?`, [totalCl.toString(), payment.renewal_sr_no]);
+      } else {
+        // Regular payment: recalculate amount_received = SUM of all payments
+        const paymentSum = get(`
+          SELECT SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL)) as total
+          FROM payments WHERE renewal_sr_no = ?
+        `, [payment.renewal_sr_no]);
+        const totalAmount = paymentSum?.total || 0;
 
-      if (latestPayment) {
-        run(`
-          UPDATE renewals SET
-            amount_received = ?,
-            payment_received_date = ?,
-            payment_received_month = ?,
-            reference_no = ?,
-            bank_name = ?
-          WHERE sr_no = ?
-        `, [
-          totalAmount.toString(),
-          latestPayment.payment_received_date,
-          latestPayment.payment_received_month,
-          latestPayment.reference_no || '',
-          latestPayment.bank_name || '',
-          payment.renewal_sr_no
-        ]);
+        const latestPayment = get(`
+          SELECT payment_received_date, payment_received_month, reference_no, bank_name
+          FROM payments
+          WHERE renewal_sr_no = ?
+          ORDER BY COALESCE(payment_received_date, '1900-01-01') DESC, id DESC
+          LIMIT 1
+        `, [payment.renewal_sr_no]);
+
+        if (latestPayment) {
+          run(`
+            UPDATE renewals SET
+              amount_received = ?,
+              payment_received_date = ?,
+              payment_received_month = ?,
+              reference_no = ?,
+              bank_name = ?
+            WHERE sr_no = ?
+          `, [
+            totalAmount.toString(),
+            latestPayment.payment_received_date,
+            latestPayment.payment_received_month,
+            latestPayment.reference_no || '',
+            latestPayment.bank_name || '',
+            payment.renewal_sr_no
+          ]);
+        }
       }
     }
 
@@ -109,51 +125,63 @@ export async function DELETE(req, { params }) {
     // Delete the payment
     run('DELETE FROM payments WHERE id = ?', [id]);
 
-    // Recalculate the renewal's amount_received from remaining payments
+    // Recalculate the renewal based on payment type (top-up vs regular)
+    const isTopUp = payment.is_topup === 1;
     if (payment.renewal_sr_no) {
-      const paymentSum = get(`
-        SELECT SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL)) as total
-        FROM payments WHERE renewal_sr_no = ?
-      `, [payment.renewal_sr_no]);
-      const totalAmount = paymentSum?.total || 0;
 
-      // Get the most recent payment for date/reference/bank info
-      const latestPayment = get(`
-        SELECT payment_received_date, payment_received_month, reference_no, bank_name
-        FROM payments
-        WHERE renewal_sr_no = ?
-        ORDER BY COALESCE(payment_received_date, '1900-01-01') DESC, id DESC
-        LIMIT 1
-      `, [payment.renewal_sr_no]);
-
-      if (latestPayment) {
-        run(`
-          UPDATE renewals SET
-            amount_received = ?,
-            payment_received_date = ?,
-            payment_received_month = ?,
-            reference_no = ?,
-            bank_name = ?
-          WHERE sr_no = ?
-        `, [
-          totalAmount.toString(),
-          latestPayment.payment_received_date,
-          latestPayment.payment_received_month,
-          latestPayment.reference_no || '',
-          latestPayment.bank_name || '',
-          payment.renewal_sr_no
-        ]);
-      } else {
-        // No more payments - reset to 0
-        run(`
-          UPDATE renewals SET
-            amount_received = '0',
-            payment_received_date = '',
-            payment_received_month = '',
-            reference_no = '',
-            bank_name = ''
-          WHERE sr_no = ?
+      if (isTopUp) {
+        // Top-up: recalculate cl_amount = SUM of remaining payments
+        const paymentSum = get(`
+          SELECT SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL)) as total
+          FROM payments WHERE renewal_sr_no = ?
         `, [payment.renewal_sr_no]);
+        const totalCl = paymentSum?.total || 0;
+        run(`UPDATE renewals SET cl_amount = ? WHERE sr_no = ?`, [totalCl.toString(), payment.renewal_sr_no]);
+      } else {
+        // Regular payment: recalculate amount_received = SUM of remaining payments
+        const paymentSum = get(`
+          SELECT SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL)) as total
+          FROM payments WHERE renewal_sr_no = ?
+        `, [payment.renewal_sr_no]);
+        const totalAmount = paymentSum?.total || 0;
+
+        const latestPayment = get(`
+          SELECT payment_received_date, payment_received_month, reference_no, bank_name
+          FROM payments
+          WHERE renewal_sr_no = ?
+          ORDER BY COALESCE(payment_received_date, '1900-01-01') DESC, id DESC
+          LIMIT 1
+        `, [payment.renewal_sr_no]);
+
+        if (latestPayment) {
+          run(`
+            UPDATE renewals SET
+              amount_received = ?,
+              payment_received_date = ?,
+              payment_received_month = ?,
+              reference_no = ?,
+              bank_name = ?
+            WHERE sr_no = ?
+          `, [
+            totalAmount.toString(),
+            latestPayment.payment_received_date,
+            latestPayment.payment_received_month,
+            latestPayment.reference_no || '',
+            latestPayment.bank_name || '',
+            payment.renewal_sr_no
+          ]);
+        } else {
+          // No more payments - reset to 0
+          run(`
+            UPDATE renewals SET
+              amount_received = '0',
+              payment_received_date = '',
+              payment_received_month = '',
+              reference_no = '',
+              bank_name = ''
+            WHERE sr_no = ?
+          `, [payment.renewal_sr_no]);
+        }
       }
     }
 

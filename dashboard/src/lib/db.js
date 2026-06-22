@@ -117,11 +117,15 @@ function initDatabase() {
       reference_no TEXT,
       bank_name TEXT,
       notes TEXT,
+      is_topup INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(client_id) REFERENCES clients(id),
       FOREIGN KEY(renewal_sr_no) REFERENCES renewals(sr_no)
     )
   `);
+
+  // Migration: add is_topup column to payments table if not exists
+  try { db.exec(`ALTER TABLE payments ADD COLUMN is_topup INTEGER DEFAULT 0`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS pending_updates (

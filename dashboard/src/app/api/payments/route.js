@@ -198,15 +198,18 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes } = body;
+    const { client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes, is_topup } = body;
 
     if (!client_id || !renewal_sr_no) {
       return NextResponse.json({ error: 'client_id and renewal_sr_no are required' }, { status: 400 });
     }
 
+    // Determine if this is a top-up payment
+    const isTopUp = is_topup === 1 || is_topup === true;
+
     const result = run(`
-      INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes, is_topup)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       client_id, renewal_sr_no,
       amount_received || '',
@@ -214,32 +217,44 @@ export async function POST(req) {
       payment_received_month || '',
       reference_no || '',
       bank_name || '',
-      notes || ''
+      notes || '',
+      isTopUp ? 1 : 0
     ]);
 
-    // Update renewal's amount_received = SUM of all payments
+    // Update renewal: top-up payments accumulate in cl_amount, regular payments update amount_received
     const existingRenewal = get('SELECT * FROM renewals WHERE sr_no = ?', [renewal_sr_no]);
     if (existingRenewal) {
-      const paymentSum = get(`
-        SELECT SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL)) as total
-        FROM payments WHERE renewal_sr_no = ?
-      `, [renewal_sr_no]);
-      const totalAmount = paymentSum?.total || 0;
+      if (isTopUp) {
+        // Top-up: accumulate payment into cl_amount
+        const currentCl = parseAmount(existingRenewal.cl_amount);
+        const paymentAmt = parseAmount(amount_received);
+        run(`UPDATE renewals SET cl_amount = ? WHERE sr_no = ?`, [
+          (currentCl + paymentAmt).toString(),
+          renewal_sr_no
+        ]);
+      } else {
+        // Regular payment: amount_received = SUM of all payments
+        const paymentSum = get(`
+          SELECT SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL)) as total
+          FROM payments WHERE renewal_sr_no = ?
+        `, [renewal_sr_no]);
+        const totalAmount = paymentSum?.total || 0;
 
-      const latestPayment = get(`
-        SELECT payment_received_date, payment_received_month, reference_no, bank_name
-        FROM payments WHERE renewal_sr_no = ?
-        ORDER BY COALESCE(payment_received_date, '1900-01-01') DESC, id DESC LIMIT 1
-      `, [renewal_sr_no]);
+        const latestPayment = get(`
+          SELECT payment_received_date, payment_received_month, reference_no, bank_name
+          FROM payments WHERE renewal_sr_no = ?
+          ORDER BY COALESCE(payment_received_date, '1900-01-01') DESC, id DESC LIMIT 1
+        `, [renewal_sr_no]);
 
-      run(`UPDATE renewals SET amount_received = ?, payment_received_date = ?, payment_received_month = ?, reference_no = ?, bank_name = ? WHERE sr_no = ?`, [
-        totalAmount.toString(),
-        latestPayment?.payment_received_date || existingRenewal.payment_received_date,
-        latestPayment?.payment_received_month || existingRenewal.payment_received_month,
-        latestPayment?.reference_no || existingRenewal.reference_no,
-        latestPayment?.bank_name || existingRenewal.bank_name,
-        renewal_sr_no
-      ]);
+        run(`UPDATE renewals SET amount_received = ?, payment_received_date = ?, payment_received_month = ?, reference_no = ?, bank_name = ? WHERE sr_no = ?`, [
+          totalAmount.toString(),
+          latestPayment?.payment_received_date || existingRenewal.payment_received_date,
+          latestPayment?.payment_received_month || existingRenewal.payment_received_month,
+          latestPayment?.reference_no || existingRenewal.reference_no,
+          latestPayment?.bank_name || existingRenewal.bank_name,
+          renewal_sr_no
+        ]);
+      }
     }
 
     logActivity(auth.user?.id, auth.user?.username || 'system', 'CREATE', 'payments', result.lastInsertRowid, `Payment for renewal ${renewal_sr_no}`);

@@ -5,7 +5,7 @@
 const VALID_TIERS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
 
 // Valid setup_type values (the 5 products)
-const VALID_SETUP_TYPES = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
+const VALID_SETUP_TYPES = ['Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
 
 const PRODUCT_FIELDS = [
   'tier', 'setup_type', 'subscription_fee', 'setup_fee', 'discount', 'cl_amount',

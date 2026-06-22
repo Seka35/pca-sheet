@@ -13,7 +13,6 @@ const TIER_PRICING = {
 };
 
 const SETUP_PRICING = {
-  'Top-up': { setup_fee: '0' },
   'Invincible set up (old)': { setup_fee: '299' },
   'Starter': { setup_fee: '399' },
   'Premium': { setup_fee: '499' },
@@ -148,7 +147,7 @@ export default function ClientFormFields({
   };
 
   const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
-  const SETUP_OPTIONS = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
+  const SETUP_OPTIONS = ['Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
 
   return (
     <div

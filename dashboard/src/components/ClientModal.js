@@ -10,7 +10,7 @@ import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
 
 // Constants for dropdowns
 const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
-const SETUP_OPTIONS = ['Top-up', 'Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
+const SETUP_OPTIONS = ['Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
 const BANK_OPTIONS = ['Crypto - USDT TRC20', 'Crypto - USDT ERC20', 'Crypto - BTC', 'LHV', 'Slash Bank', 'WHOP'];
 const MONTH_OPTIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const YEAR_OPTIONS = ['2024', '2025', '2026', '2027', '2028', '2029', '2030'];
@@ -28,7 +28,6 @@ const TIER_PRICING = {
 
 // Setup pricing - auto-fills setup_fee
 const SETUP_PRICING = {
-  'Top-up': '0',
   'Invincible set up (old)': '299',
   'Starter': '399',
   'Premium': '499',
@@ -448,6 +447,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       discount: '',
       referral_partner_name: '',
       valid_stopped_date: '',
+      is_topup: false,
     });
   };
 
@@ -637,6 +637,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           reference_no: manualPaymentForm.reference_no || '',
           bank_name: manualPaymentForm.bank_name || '',
           notes: 'MANUAL_ENTRY',
+          is_topup: manualPaymentForm.is_topup === true ? 1 : 0,
         }),
       });
 
@@ -1469,6 +1470,20 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <input type="text" value={manualPaymentForm.amount_received} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, amount_received: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
                     </div>
 
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
+                      <input
+                        type="checkbox"
+                        id="topup-checkbox"
+                        checked={manualPaymentForm.is_topup === true}
+                        onChange={(e) => setManualPaymentForm(prev => ({ ...prev, is_topup: e.target.checked }))}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="topup-checkbox" style={{ fontSize: '13px', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        Top-up
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>(adds to product's CL Amount)</span>
+                      </label>
+                    </div>
+
                     <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Reference</label>
                       <input type="text" value={manualPaymentForm.reference_no} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, reference_no: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
@@ -1489,15 +1504,19 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <input type="text" value={manualPaymentForm.discount} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, discount: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
                     </div>
 
-                    <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Valid Until</label>
-                      <input type="date" value={manualPaymentForm.valid_stopped_date} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, valid_stopped_date: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
-                    </div>
+                    {manualPaymentForm.is_topup !== true && (
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Valid Until</label>
+                        <input type="date" value={manualPaymentForm.valid_stopped_date} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, valid_stopped_date: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
                     <button type="button" onClick={cancelPaymentEdit} style={{ padding: '8px 16px', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>Cancel</button>
-                    <button type="button" onClick={saveManualPayment} style={{ padding: '8px 16px', backgroundColor: 'var(--primary-accent)', color: '#000', borderRadius: '8px', fontWeight: '600' }}>Save Payment</button>
+                    <button type="button" onClick={saveManualPayment} disabled={saving} style={{ padding: '8px 16px', backgroundColor: saving ? 'var(--border-color)' : 'var(--primary-accent)', color: '#000', borderRadius: '8px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>
+                      {saving ? 'Saving...' : 'Save Payment'}
+                    </button>
                   </div>
                 </div>
               )}
@@ -1526,7 +1545,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       return (
                         <tr key={`payment-${payment.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: 'rgba(16, 185, 129, 0.03)' }}>
                           <td style={{ padding: '16px 8px' }}>
-                            <span style={{ color: '#10B981', fontWeight: '700', fontSize: '11px' }}>PAID</span>
+                            {payment.is_topup === 1 ? (
+                              <span style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#A78BFA', fontWeight: '700', fontSize: '11px', padding: '2px 8px', borderRadius: '4px' }}>TOP-UP</span>
+                            ) : (
+                              <span style={{ color: '#10B981', fontWeight: '700', fontSize: '11px' }}>PAID</span>
+                            )}
                           </td>
                           <td style={{ padding: '16px 8px', fontWeight: '600' }}>{payment.payment_received_month || payment.period || '—'}</td>
                           <td style={{ padding: '16px 8px' }}>
