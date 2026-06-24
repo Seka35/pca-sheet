@@ -3,6 +3,26 @@
 import { useEffect } from 'react';
 import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
 
+// SVG Icons matching sidebar style
+const IconDollar = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+  </svg>
+);
+
+const IconChart = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 20V10M12 20V4M6 20v-6" />
+  </svg>
+);
+
+const IconCalendar = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <path d="M16 2v4M8 2v4M3 10h18" />
+  </svg>
+);
+
 const TIER_PRICING = {
   'TIER 1': { subscription_fee: '199', ad_spend_limit: '2500' },
   'TIER 2': { subscription_fee: '299', ad_spend_limit: '5000' },
@@ -263,7 +283,7 @@ export default function ClientFormFields({
 
       {/* Financials section */}
       <div style={sectionCardStyle}>
-        <div style={sectionHeaderStyle}>💰 Financials</div>
+        <div style={sectionHeaderStyle}><IconDollar size={14} /> Financials</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
           <Field label="Subscription fee">
             <TextInput value={product.subscription_fee} onChange={set('subscription_fee')} placeholder="0" disabled={disabled} />
@@ -282,7 +302,7 @@ export default function ClientFormFields({
 
       {/* Ad Account section */}
       <div style={sectionCardStyle}>
-        <div style={sectionHeaderStyle}>📈 Ad Account</div>
+        <div style={sectionHeaderStyle}><IconChart size={14} /> Ad Account</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
           <Field label="Ad ID number">
             <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} />
@@ -304,7 +324,7 @@ export default function ClientFormFields({
 
       {/* Lifecycle & Referral section */}
       <div style={sectionCardStyle}>
-        <div style={sectionHeaderStyle}>📅 Lifecycle & Referral</div>
+        <div style={sectionHeaderStyle}><IconCalendar size={14} /> Lifecycle & Referral</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
           <Field label="Start date">
             <TextInput value={product.start_date} onChange={set('start_date')} type="date" disabled={disabled} />
