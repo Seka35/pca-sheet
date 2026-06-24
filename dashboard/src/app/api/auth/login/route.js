@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getUserByUsername, verifyPassword } from '@/lib/auth';
+import { logActivity } from '@/lib/db';
 
 export async function POST(req) {
   try {
@@ -14,6 +15,9 @@ export async function POST(req) {
     if (!user || !verifyPassword(password, user.password_hash)) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
+
+    // Log successful login
+    logActivity(user.id, username, 'LOGIN', 'auth', user.id, 'User logged in');
 
     const response = NextResponse.json({ ok: true, userId: user.id, username: user.username });
 

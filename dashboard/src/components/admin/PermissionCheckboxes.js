@@ -2,6 +2,61 @@
 
 import { PERMISSIONS } from '@/lib/permissions';
 
+// SVG Icons matching sidebar style
+const IconClients = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+  </svg>
+);
+
+const IconPayments = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+    <line x1="1" y1="10" x2="23" y2="10" />
+  </svg>
+);
+
+const IconRenewals = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 2v6h-6" />
+    <path d="M3 12a9 9 0 0115-6.7L21 8" />
+    <path d="M3 22v-6h6" />
+    <path d="M21 12a9 9 0 01-15 6.7L3 16" />
+  </svg>
+);
+
+const IconApprovals = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 6L9 17l-5-5" />
+  </svg>
+);
+
+const IconBot = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="10" rx="2" />
+    <circle cx="12" cy="5" r="2" />
+    <path d="M12 7v4" />
+    <line x1="8" y1="16" x2="8" y2="16" strokeLinecap="round" />
+    <line x1="16" y1="16" x2="16" y2="16" strokeLinecap="round" />
+  </svg>
+);
+
+const IconBackup = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+);
+
+const IconUsers = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
 const PERMISSION_LABELS = {
   [PERMISSIONS.READ_CLIENTS]:    'View',
   [PERMISSIONS.CREATE_CLIENTS]: 'Add',
@@ -31,7 +86,7 @@ const PERMISSION_LABELS = {
 const PERMISSION_GROUPS = [
   {
     label: 'CLIENTS',
-    icon: '👥',
+    Icon: IconClients,
     permissions: [
       PERMISSIONS.READ_CLIENTS,
       PERMISSIONS.CREATE_CLIENTS,
@@ -41,7 +96,7 @@ const PERMISSION_GROUPS = [
   },
   {
     label: 'PAYMENTS',
-    icon: '💳',
+    Icon: IconPayments,
     permissions: [
       PERMISSIONS.READ_PAYMENTS,
       PERMISSIONS.CREATE_PAYMENTS,
@@ -52,7 +107,7 @@ const PERMISSION_GROUPS = [
   },
   {
     label: 'RENEWALS',
-    icon: '🔄',
+    Icon: IconRenewals,
     permissions: [
       PERMISSIONS.READ_RENEWALS,
       PERMISSIONS.UPDATE_RENEWALS,
@@ -60,7 +115,7 @@ const PERMISSION_GROUPS = [
   },
   {
     label: 'APPROVALS',
-    icon: '✅',
+    Icon: IconApprovals,
     permissions: [
       PERMISSIONS.READ_APPROVALS,
       PERMISSIONS.APPROVE_APPROVALS,
@@ -69,7 +124,7 @@ const PERMISSION_GROUPS = [
   },
   {
     label: 'BOT TELEGRAM',
-    icon: '🤖',
+    Icon: IconBot,
     permissions: [
       PERMISSIONS.READ_BOT,
       PERMISSIONS.UPDATE_BOT,
@@ -77,7 +132,7 @@ const PERMISSION_GROUPS = [
   },
   {
     label: 'BACKUP',
-    icon: '💾',
+    Icon: IconBackup,
     permissions: [
       PERMISSIONS.READ_BACKUP,
       PERMISSIONS.CREATE_BACKUP,
@@ -86,7 +141,7 @@ const PERMISSION_GROUPS = [
   },
   {
     label: 'USERS (Admin)',
-    icon: '🔐',
+    Icon: IconUsers,
     permissions: [
       PERMISSIONS.READ_USERS,
       PERMISSIONS.CREATE_USERS,
@@ -124,7 +179,7 @@ export default function PermissionCheckboxes({ permissions = [], onChange, disab
         <div key={group.label} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '14px' }}>{group.icon}</span>
+              <group.Icon size={14} color="var(--text-secondary)" />
               <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 {group.label}
               </span>

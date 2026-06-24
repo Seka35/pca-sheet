@@ -6,11 +6,46 @@ import Link from 'next/link';
 import AdminUserList from '@/components/admin/AdminUserList';
 import ActivityLogList from '@/components/admin/ActivityLogList';
 
+// SVG Icons matching sidebar style
+const IconUsers = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+  </svg>
+);
+
+const IconActivity = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+    <rect x="9" y="3" width="6" height="4" rx="1" />
+    <path d="M9 12h6M9 16h6" />
+  </svg>
+);
+
+const IconBackup = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+);
+
+const IconBot = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="10" rx="2" />
+    <circle cx="12" cy="5" r="2" />
+    <path d="M12 7v4" />
+    <line x1="8" y1="16" x2="8" y2="16" strokeLinecap="round" />
+    <line x1="16" y1="16" x2="16" y2="16" strokeLinecap="round" />
+  </svg>
+);
+
 const TABS = [
-  { id: 'users', label: 'Users', icon: '👥' },
-  { id: 'activity', label: 'Activity', icon: '📋' },
-  { id: 'backup', label: 'Backup', icon: '💾' },
-  { id: 'bot', label: 'Bot Telegram', icon: '🤖' },
+  { id: 'users', label: 'Users', Icon: IconUsers },
+  { id: 'activity', label: 'Activity', Icon: IconActivity },
+  { id: 'backup', label: 'Backup', Icon: IconBackup },
+  { id: 'bot', label: 'Bot Telegram', Icon: IconBot },
 ];
 
 export default function AdminPage() {
@@ -125,7 +160,7 @@ export default function AdminPage() {
               gap: '8px'
             }}
           >
-            <span style={{ fontSize: '16px' }}>{tab.icon}</span>
+            <tab.Icon size={16} color={activeTab === tab.id ? '#000' : 'var(--text-secondary)'} />
             <span>{tab.label}</span>
           </button>
         ))}
