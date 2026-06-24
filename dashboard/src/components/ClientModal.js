@@ -8,6 +8,82 @@ import ClientFormFields from './ClientFormFields';
 import { extractTeleId } from '@/lib/teleIdParser';
 import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
 
+// SVG Icons in sidebar style (stroke-based, 20x20)
+const IconDownload = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" />
+  </svg>
+);
+
+const IconTelegram = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 19V5M5 12l7-7 7 7" />
+  </svg>
+);
+
+const IconEdit = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
+const IconTrash = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
+
+const IconRemove = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);
+
+const IconPlus = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+
+const IconSend = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+  </svg>
+);
+
+// Reusable action button component
+const ActionBtn = ({ onClick, href, title, icon, color, bgColor, borderColor, asLink = false }) => {
+  const style = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '32px',
+    height: '32px',
+    borderRadius: '6px',
+    backgroundColor: bgColor || 'transparent',
+    color: color || 'var(--text-primary)',
+    border: borderColor ? `1px solid ${borderColor}` : 'none',
+    cursor: 'pointer',
+    textDecoration: 'none',
+    fontSize: '0',
+  };
+
+  if (asLink) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" title={title} style={style}>
+        {icon}
+      </a>
+    );
+  }
+
+  return (
+    <button onClick={onClick} title={title} style={style}>
+      {icon}
+    </button>
+  );
+};
+
 // Constants for dropdowns
 const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
 const SETUP_OPTIONS = ['Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
@@ -579,6 +655,24 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       }
     } catch (err) {
       console.error('Error deleting payment:', err);
+    }
+  };
+
+  // Delete an old payment stored directly in renewals table
+  const deleteOldRenewalPayment = async (srNo) => {
+    if (!window.confirm('Delete this payment? This will mark the product as unpaid.')) return;
+    try {
+      const res = await fetch(`/api/renewals/${encodeURIComponent(srNo)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        // Mark this sr_no as deleted so it disappears from the list
+        setDeletedPaymentSrNos(prev => [...prev, srNo]);
+        // Also refresh the client data to update totals
+        onSaved && onSaved(client.id);
+      }
+    } catch (err) {
+      console.error('Error deleting old payment:', err);
     }
   };
 
@@ -1533,8 +1627,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <th style={{ padding: '12px 8px' }}>Amount</th>
                       <th style={{ padding: '12px 8px' }}>Valid Until</th>
                       <th style={{ padding: '12px 8px' }}>Reference</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'center' }}>Invoice</th>
-                      <th style={{ padding: '12px 8px', width: '50px' }}></th>
+                      <th style={{ padding: '12px 8px', textAlign: 'center' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1569,17 +1662,30 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <td style={{ padding: '16px 8px' }}>{product?.valid_stopped_date || '—'}</td>
                           <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
-                            <a
-                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(payment.renewal_sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(payment.bank_name || 'crypto')}&product_name=${encodeURIComponent(payment.tier ? payment.tier + (payment.setup_type ? ' - ' + payment.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product?.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product?.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product?.discount || '0')}&invoice_date=${encodeURIComponent(product?.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(payment.renewal_sr_no ? payment.renewal_sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}&amount_received=${encodeURIComponent(payment.amount_received || '0')}`}
-                              target="_blank" rel="noopener noreferrer"
-                              style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '11px', fontWeight: '600' }}
-                            >
-                              PDF
-                            </a>
-                          </td>
-                          <td style={{ padding: '16px 8px', display: 'flex', gap: '6px' }}>
-                            <button onClick={() => startEditPayment(payment)} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(20,184,166,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>✏️</button>
-                            <button onClick={() => deletePaymentEntry(payment.id)} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>🗑️</button>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                              <a
+                                href={`/api/invoice/generate?sr_no=${encodeURIComponent(payment.renewal_sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(payment.bank_name || 'crypto')}&product_name=${encodeURIComponent(payment.tier ? payment.tier + (payment.setup_type ? ' - ' + payment.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product?.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product?.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product?.discount || '0')}&invoice_date=${encodeURIComponent(product?.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(payment.renewal_sr_no ? payment.renewal_sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}&amount_received=${encodeURIComponent(payment.amount_received || '0')}`}
+                                target="_blank" rel="noopener noreferrer"
+                                title="Download invoice PDF"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', textDecoration: 'none' }}
+                              >
+                                <IconDownload size={16} color="#fff" />
+                              </a>
+                              <button
+                                onClick={() => startEditPayment(payment)}
+                                title="Edit payment"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'transparent', color: '#14b8a6', border: '1px solid rgba(20,184,166,0.4)', cursor: 'pointer' }}
+                              >
+                                <IconEdit size={16} color="#14b8a6" />
+                              </button>
+                              <button
+                                onClick={() => deletePaymentEntry(payment.id)}
+                                title="Delete payment"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'transparent', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', cursor: 'pointer' }}
+                              >
+                                <IconTrash size={16} color="#f87171" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1613,16 +1719,30 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <td style={{ padding: '16px 8px' }}>{product.valid_stopped_date || '—'}</td>
                           <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{product.reference_no || '—'}</td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
-                            <a
-                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(product.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(product.bank_name || 'crypto')}&product_name=${encodeURIComponent(product.tier ? product.tier + (product.setup_type ? ' - ' + product.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product.discount || '0')}&invoice_date=${encodeURIComponent(product.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(product.sr_no ? product.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}&amount_received=${encodeURIComponent(product.amount_received || '0')}`}
-                              target="_blank" rel="noopener noreferrer"
-                              style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '11px', fontWeight: '600' }}
-                            >
-                              PDF
-                            </a>
-                          </td>
-                          <td style={{ padding: '16px 8px', display: 'flex', gap: '6px' }}>
-                            <button onClick={() => startEditPayment({ ...product, renewal_sr_no: product.sr_no, id: null })} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(20,184,166,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>✏️</button>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                              <a
+                                href={`/api/invoice/generate?sr_no=${encodeURIComponent(product.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(product.bank_name || 'crypto')}&product_name=${encodeURIComponent(product.tier ? product.tier + (product.setup_type ? ' - ' + product.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product.discount || '0')}&invoice_date=${encodeURIComponent(product.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(product.sr_no ? product.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}&amount_received=${encodeURIComponent(product.amount_received || '0')}`}
+                                target="_blank" rel="noopener noreferrer"
+                                title="Download invoice PDF"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', textDecoration: 'none' }}
+                              >
+                                <IconDownload size={16} color="#fff" />
+                              </a>
+                              <button
+                                onClick={() => startEditPayment({ ...product, renewal_sr_no: product.sr_no, id: null })}
+                                title="Edit payment"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'transparent', color: '#14b8a6', border: '1px solid rgba(20,184,166,0.4)', cursor: 'pointer' }}
+                              >
+                                <IconEdit size={16} color="#14b8a6" />
+                              </button>
+                              <button
+                                onClick={() => deleteOldRenewalPayment(product.sr_no)}
+                                title="Delete payment"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'transparent', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', cursor: 'pointer' }}
+                              >
+                                <IconTrash size={16} color="#f87171" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1657,25 +1777,38 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <td style={{ padding: '16px 8px' }}>{product.valid_stopped_date || '—'}</td>
                           <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{product.reference_no || '—'}</td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
-                            <a
-                              href={`/api/invoice/generate?sr_no=${encodeURIComponent(product.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(product.bank_name || 'crypto')}&product_name=${encodeURIComponent(product.tier ? product.tier + (product.setup_type ? ' - ' + product.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product.discount || '0')}&invoice_date=${encodeURIComponent(product.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(product.sr_no ? product.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}&amount_received=${encodeURIComponent(product.amount_received || '0')}`}
-                              target="_blank" rel="noopener noreferrer"
-                              style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '11px', fontWeight: '600' }}
-                            >
-                              PDF
-                            </a>
-                            <button
-                              onClick={() => sendInvoiceViaTelegram(product)}
-                              disabled={sendingRowSrNo === product.sr_no}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', backgroundColor: sendingRowSrNo === product.sr_no ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.1)', color: '#14b8a6', fontSize: '11px', fontWeight: '600', border: 'none', cursor: sendingRowSrNo === product.sr_no ? 'not-allowed' : 'pointer', marginLeft: '4px' }}
-                              title="Send invoice to linked Telegram group"
-                            >
-                              {sendingRowSrNo === product.sr_no ? '⏳' : '📤'}
-                            </button>
-                          </td>
-                          <td style={{ padding: '16px 8px', display: 'flex', gap: '6px' }}>
-                            <button onClick={() => startEditPayment({ ...product, renewal_sr_no: product.sr_no, id: null })} style={{ color: 'var(--primary-accent)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(20,184,166,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>✏️</button>
-                            <button onClick={() => removeProductAt(history.indexOf(product))} style={{ color: 'var(--status-cut)', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '4px 8px', fontSize: '11px' }}>🗑️</button>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                              <a
+                                href={`/api/invoice/generate?sr_no=${encodeURIComponent(product.sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(product.bank_name || 'crypto')}&product_name=${encodeURIComponent(product.tier ? product.tier + (product.setup_type ? ' - ' + product.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product.discount || '0')}&invoice_date=${encodeURIComponent(product.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(product.sr_no ? product.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}&amount_received=${encodeURIComponent(product.amount_received || '0')}`}
+                                target="_blank" rel="noopener noreferrer"
+                                title="Download invoice PDF"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', textDecoration: 'none' }}
+                              >
+                                <IconDownload size={16} color="#fff" />
+                              </a>
+                              <button
+                                onClick={() => sendInvoiceViaTelegram(product)}
+                                disabled={sendingRowSrNo === product.sr_no}
+                                title="Send invoice via Telegram"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: sendingRowSrNo === product.sr_no ? 'rgba(20, 184, 166, 0.3)' : 'rgba(20, 184, 166, 0.15)', color: '#14b8a6', border: '1px solid rgba(20, 184, 166, 0.4)', cursor: sendingRowSrNo === product.sr_no ? 'not-allowed' : 'pointer' }}
+                              >
+                                {sendingRowSrNo === product.sr_no ? <IconTelegram size={16} color="#14b8a6" /> : <IconSend size={16} color="#14b8a6" />}
+                              </button>
+                              <button
+                                onClick={() => startEditPayment({ ...product, renewal_sr_no: product.sr_no, id: null })}
+                                title="Edit payment"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'transparent', color: '#14b8a6', border: '1px solid rgba(20,184,166,0.4)', cursor: 'pointer' }}
+                              >
+                                <IconEdit size={16} color="#14b8a6" />
+                              </button>
+                              <button
+                                onClick={() => removeProductAt(history.indexOf(product))}
+                                title="Remove product"
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'transparent', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', cursor: 'pointer' }}
+                              >
+                                <IconTrash size={16} color="#f87171" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
