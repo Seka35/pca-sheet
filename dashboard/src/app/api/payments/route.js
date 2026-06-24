@@ -63,6 +63,7 @@ export async function GET(req) {
         p.bank_name,
         p.notes,
         p.created_at,
+        p.is_topup,
         r.tier,
         r.setup_type,
         r.month as product_month,
@@ -123,6 +124,7 @@ export async function GET(req) {
         tier: r.tier,
         setup_type: r.setup_type,
         is_trial: false,
+        is_topup: r.is_topup,
         amount,
         channel,
         status: isFailed ? 'Failed' : 'Paid',
@@ -153,6 +155,7 @@ export async function GET(req) {
         tier: r.tier,
         setup_type: r.setup_type,
         is_trial: r.is_trial === 1,
+        is_topup: 0,
         amount,
         channel,
         status: isFailed ? 'Failed' : 'Paid',
@@ -187,6 +190,89 @@ export async function GET(req) {
     console.error('[GET /api/payments] error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
+}
+
+/**
+ * Creates a new renewal row for the next month after a product is paid in full.
+ * Copies all product details from the existing renewal and sets up the next month's cycle.
+ */
+function createNextMonthRenewal(existingRenewal, paymentReceivedDate) {
+  // Generate next sr_no: find max sr_no for this client and increment
+  const existingSrNos = all(
+    "SELECT sr_no FROM renewals WHERE client_id = ? ORDER BY sr_no DESC LIMIT 1",
+    [existingRenewal.client_id]
+  );
+  let nextSeq = 1;
+  if (existingSrNos.length > 0) {
+    const lastSrNo = existingSrNos[0].sr_no; // e.g. "24.08"
+    const parts = lastSrNo.split('.');
+    if (parts.length === 2) {
+      nextSeq = parseInt(parts[1], 10) + 1;
+    }
+  }
+  const newSrNo = `${existingRenewal.client_id}.${String(nextSeq).padStart(2, '0')}`;
+
+  // Calculate start_date = the date of this payment (or today if not provided)
+  let startDate = paymentReceivedDate || new Date().toISOString().split('T')[0];
+  if (startDate && startDate.includes('/')) {
+    // Convert DD/MM/YYYY to YYYY-MM-DD
+    const [d, m, y] = startDate.split('/');
+    startDate = `${y}-${m}-${d}`;
+  }
+
+  // Calculate valid_stopped_date = start_date + 1 month
+  const startD = new Date(startDate);
+  startD.setMonth(startD.getMonth() + 1);
+  const validStoppedDate = startD.toISOString().split('T')[0];
+
+  // Calculate month label for the new renewal (e.g. "Jul-2026")
+  const monthLabel = startD.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+
+  // Amount due calculation for reference
+  const amountDue = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
+
+  run(`
+    INSERT INTO renewals (
+      sr_no, client_id, client_name, client_status_history, month,
+      start_date, client_ad_id_name, ad_id_number, ad_account_type,
+      tier, ad_spend_limit, setup_type, subscription_fee, setup_fee,
+      discount, cl_amount, referral_partner_name, referral_amount,
+      valid_stopped_date, payment_name, bank_name,
+      amount_received, payment_received_date, payment_received_month,
+      reference_no, actual_balance_difference, notes, visual_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    newSrNo,
+    existingRenewal.client_id,
+    existingRenewal.client_name,
+    existingRenewal.client_status_history || '',
+    monthLabel,
+    startDate,
+    existingRenewal.client_ad_id_name || '',
+    existingRenewal.ad_id_number || '',
+    existingRenewal.ad_account_type || '',
+    existingRenewal.tier || '',
+    existingRenewal.ad_spend_limit || '',
+    existingRenewal.setup_type || '',
+    existingRenewal.subscription_fee || '',
+    existingRenewal.setup_fee || '',
+    existingRenewal.discount || '',
+    existingRenewal.cl_amount || '',
+    existingRenewal.referral_partner_name || '',
+    existingRenewal.referral_amount || '',
+    validStoppedDate,
+    existingRenewal.payment_name || '',
+    existingRenewal.bank_name || '',
+    '',          // amount_received - empty for new renewal
+    '',          // payment_received_date - empty for new renewal
+    '',          // payment_received_month - empty for new renewal
+    '',          // reference_no - empty for new renewal
+    existingRenewal.actual_balance_difference || '',
+    existingRenewal.notes || '',
+    'Active'     // visual_status
+  ]);
+
+  return newSrNo;
 }
 
 // POST /api/payments - add a new payment to the payments table
@@ -225,7 +311,7 @@ export async function POST(req) {
     const existingRenewal = get('SELECT * FROM renewals WHERE sr_no = ?', [renewal_sr_no]);
     if (existingRenewal) {
       if (isTopUp) {
-        // Top-up: accumulate payment into cl_amount
+        // Top-up: accumulate payment into cl_amount (NO new renewal row)
         const currentCl = parseAmount(existingRenewal.cl_amount);
         const paymentAmt = parseAmount(amount_received);
         run(`UPDATE renewals SET cl_amount = ? WHERE sr_no = ?`, [
@@ -254,6 +340,14 @@ export async function POST(req) {
           latestPayment?.bank_name || existingRenewal.bank_name,
           renewal_sr_no
         ]);
+
+        // Check if product is paid in full: amount_received >= (subscription + setup - discount)
+        const amountDue = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
+        if (totalAmount >= amountDue && amountDue > 0) {
+          // Product paid in full → create new renewal row for next month
+          const newSrNo = createNextMonthRenewal(existingRenewal, payment_received_date || latestPayment?.payment_received_date);
+          logActivity(auth.user?.id, auth.user?.username || 'system', 'CREATE', 'renewals', null, `Auto-created next renewal ${newSrNo} from ${renewal_sr_no}`);
+        }
       }
     }
 

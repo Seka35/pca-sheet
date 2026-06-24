@@ -6,6 +6,85 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+function parseAmount(val) {
+  if (!val) return 0;
+  const parsed = parseFloat(val.toString().replace(/[^0-9.-]+/g, ''));
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Creates a new renewal row for the next month after a product is paid in full.
+ */
+function createNextMonthRenewal(existingRenewal, paymentReceivedDate) {
+  const existingSrNos = all(
+    "SELECT sr_no FROM renewals WHERE client_id = ? ORDER BY sr_no DESC LIMIT 1",
+    [existingRenewal.client_id]
+  );
+  let nextSeq = 1;
+  if (existingSrNos.length > 0) {
+    const lastSrNo = existingSrNos[0].sr_no;
+    const parts = lastSrNo.split('.');
+    if (parts.length === 2) {
+      nextSeq = parseInt(parts[1], 10) + 1;
+    }
+  }
+  const newSrNo = `${existingRenewal.client_id}.${String(nextSeq).padStart(2, '0')}`;
+
+  let startDate = paymentReceivedDate || new Date().toISOString().split('T')[0];
+  if (startDate && startDate.includes('/')) {
+    const [d, m, y] = startDate.split('/');
+    startDate = `${y}-${m}-${d}`;
+  }
+
+  const startD = new Date(startDate);
+  startD.setMonth(startD.getMonth() + 1);
+  const validStoppedDate = startD.toISOString().split('T')[0];
+  const monthLabel = startD.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+
+  run(`
+    INSERT INTO renewals (
+      sr_no, client_id, client_name, client_status_history, month,
+      start_date, client_ad_id_name, ad_id_number, ad_account_type,
+      tier, ad_spend_limit, setup_type, subscription_fee, setup_fee,
+      discount, cl_amount, referral_partner_name, referral_amount,
+      valid_stopped_date, payment_name, bank_name,
+      amount_received, payment_received_date, payment_received_month,
+      reference_no, actual_balance_difference, notes, visual_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    newSrNo,
+    existingRenewal.client_id,
+    existingRenewal.client_name,
+    existingRenewal.client_status_history || '',
+    monthLabel,
+    startDate,
+    existingRenewal.client_ad_id_name || '',
+    existingRenewal.ad_id_number || '',
+    existingRenewal.ad_account_type || '',
+    existingRenewal.tier || '',
+    existingRenewal.ad_spend_limit || '',
+    existingRenewal.setup_type || '',
+    existingRenewal.subscription_fee || '',
+    existingRenewal.setup_fee || '',
+    existingRenewal.discount || '',
+    existingRenewal.cl_amount || '',
+    existingRenewal.referral_partner_name || '',
+    existingRenewal.referral_amount || '',
+    validStoppedDate,
+    existingRenewal.payment_name || '',
+    existingRenewal.bank_name || '',
+    '',
+    '',
+    '',
+    '',
+    existingRenewal.actual_balance_difference || '',
+    existingRenewal.notes || '',
+    'Active'
+  ]);
+
+  return newSrNo;
+}
+
 export async function POST(req) {
   // Extract ID from URL since params can be empty in Next.js 16
   const url = new URL(req.url);
@@ -98,6 +177,15 @@ export async function POST(req) {
 
       // Also activate the client if payment is approved
       run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
+
+      // Check if product is paid in full → create new renewal row for next month
+      if (existingRenewal) {
+        const amountDueCheck = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
+        if (amountDue >= amountDueCheck && amountDueCheck > 0) {
+          const todayStr = new Date().toISOString().split('T')[0];
+          createNextMonthRenewal(existingRenewal, todayStr);
+        }
+      }
     } else {
       // Renewal doesn't exist - create it with the approval data
       const startDate = new Date().toISOString().split('T')[0];

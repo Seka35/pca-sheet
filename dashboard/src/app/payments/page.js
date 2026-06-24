@@ -312,7 +312,12 @@ export default function PaymentsPage() {
                         </td>
                         <td style={{ padding: '16px 24px' }}>
                           <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>{row.client_name}</div>
-                          <ProductBadge tier={row.tier} setup_type={row.setup_type} is_trial={row.is_trial} />
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <ProductBadge tier={row.tier} setup_type={row.setup_type} is_trial={row.is_trial} />
+                            {row.is_topup === 1 && (
+                              <span style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#A78BFA', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>TOP-UP</span>
+                            )}
+                          </div>
                         </td>
                         <td style={{ padding: '16px 24px' }}>
                           <div style={{ fontWeight: '800', color: row.amount > 0 ? 'var(--primary-accent)' : '#F87171', fontSize: '15px' }}>

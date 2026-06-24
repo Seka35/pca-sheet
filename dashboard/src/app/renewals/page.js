@@ -263,6 +263,8 @@ export default function RenewalsPage() {
     );
   };
 
+  const uniqueClients = (list) => new Set(list.map(r => r.client_id)).size;
+
   const Pagination = ({ currentPage, totalPages, onPageChange }) => {
     if (totalPages <= 1) return null;
     return (
@@ -314,7 +316,7 @@ export default function RenewalsPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: '600', color }}>{title}</h2>
           <span style={{ backgroundColor: 'var(--bg-card)', padding: '4px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold', border: `1px solid ${borderColor}` }}>
-            {list.length} clients
+            {uniqueClients(list)} clients
           </span>
         </div>
         <div className="card" style={{ padding: 0, overflow: 'hidden', border: `1px solid ${borderColor}` }}>
@@ -415,7 +417,7 @@ export default function RenewalsPage() {
               <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Overdue</h3>
             </div>
             <span style={{ backgroundColor: '#F87171', color: '#fff', padding: '2px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: '800' }}>
-              {data.late.length}
+              {uniqueClients(data.late)}
             </span>
           </div>
           <div style={{ fontSize: '32px', fontWeight: '800', color: '#F87171', marginTop: '16px' }}>
@@ -433,7 +435,7 @@ export default function RenewalsPage() {
               <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</h3>
             </div>
             <span style={{ backgroundColor: '#FBBF24', color: '#000', padding: '2px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: '800' }}>
-              {data.today.length}
+              {uniqueClients(data.today)}
             </span>
           </div>
           <div style={{ fontSize: '32px', fontWeight: '800', color: '#FBBF24', marginTop: '16px' }}>
@@ -451,7 +453,7 @@ export default function RenewalsPage() {
               <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Week</h3>
             </div>
             <span style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', padding: '2px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: '800' }}>
-              {data.thisWeek.length}
+              {uniqueClients(data.thisWeek)}
             </span>
           </div>
           <div style={{ fontSize: '32px', fontWeight: '800', color: '#60A5FA', marginTop: '16px' }}>
@@ -469,7 +471,7 @@ export default function RenewalsPage() {
               <h3 style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>This Month</h3>
             </div>
             <span style={{ backgroundColor: 'rgba(0, 242, 181, 0.15)', color: 'var(--primary-accent)', padding: '2px 10px', borderRadius: '100px', fontSize: '12px', fontWeight: '800' }}>
-              {data.thisMonth?.length || 0}
+              {uniqueClients(data.thisMonth || [])}
             </span>
           </div>
           <div style={{ fontSize: '32px', fontWeight: '800', color: 'var(--primary-accent)', marginTop: '16px' }}>
