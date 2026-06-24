@@ -52,6 +52,44 @@ const IconSend = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 );
 
+// Section header icons
+const IconDollar = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+  </svg>
+);
+
+const IconChart = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 20V10M12 20V4M6 20v-6" />
+  </svg>
+);
+
+const IconCalendar = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <path d="M16 2v4M8 2v4M3 10h18" />
+  </svg>
+);
+
+const IconCheck = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 6L9 17l-5-5" />
+  </svg>
+);
+
+const IconWarning = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" />
+  </svg>
+);
+
+const IconGift = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 110-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 100-5C13 2 12 7 12 7z" />
+  </svg>
+);
+
 // Reusable action button component
 const ActionBtn = ({ onClick, href, title, icon, color, bgColor, borderColor, asLink = false }) => {
   const style = {
@@ -1146,7 +1184,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                           <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Trustpilot</span>
-                          <span>{client.trustpilot_reviewed ? '✅ Reviewed' : '❌ Not reviewed'}</span>
+                          <span style={{ color: client.trustpilot_reviewed ? 'var(--status-active)' : '#f87171', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {client.trustpilot_reviewed ? <IconCheck size={14} color="var(--status-active)" /> : <IconRemove size={14} color="#f87171" />}
+                            {client.trustpilot_reviewed ? 'Reviewed' : 'Not reviewed'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1172,7 +1213,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Stable Client</span>
-                          <span style={{ fontWeight: '700', fontSize: '18px' }}>{computedData?.isStable ? '✅ Yes' : '❌ No'}</span>
+                          <span style={{ fontWeight: '700', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {computedData?.isStable ? <IconCheck size={16} color="var(--status-active)" /> : <IconRemove size={16} color="#f87171" />}
+                            {computedData?.isStable ? 'Yes' : 'No'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1354,7 +1398,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <div style={{ textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px', fontWeight: '700' }}>Billing Status</div>
                             <div style={{ fontSize: '20px', fontWeight: '800', color: billingStatus.color }}>
-                              {billingStatus.status === 'FULLY PAID' ? '✅ Fully Paid' : billingStatus.status === 'PARTIALLY PAID' ? `⚠️ ${billingStatus.status}` : billingStatus.status === 'TRIAL' ? `🎁 Trial` : `⚠️ Due: ${formatCurrency(productDue)}`}
+                              {billingStatus.status === 'FULLY PAID' ? <><IconCheck size={18} color={billingStatus.color} /> Fully Paid</> : billingStatus.status === 'PARTIALLY PAID' ? <><IconWarning size={18} color={billingStatus.color} /> {billingStatus.status}</> : billingStatus.status === 'TRIAL' ? <><IconGift size={18} color={billingStatus.color} /> Trial</> : <><IconWarning size={18} color={billingStatus.color} /> Due: {formatCurrency(productDue)}</>}
                             </div>
                           </div>
                         </div>
@@ -1365,7 +1409,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           {/* Financial Breakdown */}
                           <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>💰 Financials</span>
+                              <IconDollar size={16} /> Financials
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1404,7 +1448,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           {/* Ad Account */}
                           <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>📈 Ad Account</span>
+                              <IconChart size={16} /> Ad Account
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1425,7 +1469,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           {/* Lifecycle & Referral */}
                           <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>📅 Lifecycle & Referral</span>
+                              <IconCalendar size={16} /> Lifecycle & Referral
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
