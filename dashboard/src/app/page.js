@@ -6,7 +6,6 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   const loadData = () => {
     setLoading(true);
@@ -24,65 +23,26 @@ export default function Dashboard() {
     loadData();
   }, []);
 
-  const handleSync = async () => {
-    setIsSyncing(true);
-    try {
-      const res = await fetch('/api/sync', { method: 'POST' });
-      if (res.ok) loadData();
-      else alert('Sync failed.');
-    } catch (err) {
-      alert('Sync failed.');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   if (loading) return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading analytics...</div>;
 
   const { summary, churnHistory, revenueHistory, topClients, monthlyAcquisition } = data;
   const formatCurrency = (val) => '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  // Active by tier for display
   const tiers = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
   const tierColors = {
     'TIER 1': '#A78BFA', 'TIER 2': '#38BDF8', 'TIER 3': '#34D399',
     'TIER 4': '#FBBF24', 'TIER 5': '#F87171', 'TIER 6': '#E879F9'
   };
-
-  // Confidence badge
   const confidenceColors = { high: '#34D399', medium: '#FBBF24', low: '#F87171' };
 
   return (
     <div style={{ paddingBottom: '64px' }}>
-      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.5px' }}>Dashboard</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>Executive overview of your agency's performance</p>
-        </div>
-        <button
-          onClick={handleSync}
-          disabled={isSyncing}
-          style={{
-            backgroundColor: 'var(--primary-accent)', color: '#000', padding: '10px 20px',
-            borderRadius: '10px', border: 'none', fontWeight: '700', fontSize: '13px',
-            display: 'flex', alignItems: 'center', gap: '8px', cursor: isSyncing ? 'not-allowed' : 'pointer',
-            boxShadow: '0 4px 14px rgba(0, 242, 181, 0.2)', transition: 'all 0.2s'
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 242, 181, 0.3)'; }}
-          onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 242, 181, 0.2)'; }}
-        >
-          {isSyncing ? (
-            <svg className="spinner" width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeDasharray="32" strokeDashoffset="10" strokeLinecap="round" opacity="0.5" /></svg>
-          ) : (
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          )}
-          <span>{isSyncing ? 'Syncing...' : 'Sync Data'}</span>
-        </button>
+      <div style={{ marginBottom: '32px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.5px' }}>Dashboard</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>Executive overview of your agency performance</p>
       </div>
 
-      {/* Primary metrics row */}
       <div className="grid-metrics" style={{ marginBottom: '32px' }}>
-        {/* Core KPIs */}
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '24px' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
             <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -110,8 +70,6 @@ export default function Dashboard() {
             <div style={{ fontSize: '28px', fontWeight: '800' }}>{summary.inactiveClients}</div>
           </div>
         </div>
-
-        {/* Churn Metrics */}
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '24px' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#F87171', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
@@ -139,8 +97,6 @@ export default function Dashboard() {
             <div style={{ fontSize: '28px', fontWeight: '800' }}>{summary.churnRate.toFixed(0)}%</div>
           </div>
         </div>
-
-        {/* Revenue Metrics */}
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '24px' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -168,8 +124,6 @@ export default function Dashboard() {
             <div style={{ fontSize: '28px', fontWeight: '800', color: '#F87171' }}>{formatCurrency(summary.totalDue)}</div>
           </div>
         </div>
-
-        {/* Secondary Metrics */}
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '24px' }}>
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
@@ -190,41 +144,23 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Revenue Forecast */}
       {forecast && (
         <div className="card" style={{ marginBottom: '32px', border: '1px solid rgba(52, 211, 153, 0.3)', backgroundColor: 'rgba(52, 211, 153, 0.02)' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(52, 211, 153, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-secondary)' }}>Revenue Forecast</h2>
-            <span style={{
-              fontSize: '11px', fontWeight: '800', padding: '4px 12px', borderRadius: '100px',
-              backgroundColor: `${confidenceColors[forecast.confidenceLevel] || '#34D399'}20`,
-              color: confidenceColors[forecast.confidenceLevel] || '#34D399'
-            }}>
+            <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 12px', borderRadius: '100px', backgroundColor: `${confidenceColors[forecast.confidenceLevel] || '#34D399'}20`, color: confidenceColors[forecast.confidenceLevel] || '#34D399' }}>
               {forecast.confidenceLevel.toUpperCase()} CONFIDENCE
             </span>
           </div>
           <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', textAlign: 'center' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '600' }}>Estimated MRR</div>
-              <div style={{ fontSize: '28px', fontWeight: '800', color: '#34D399' }}>{formatCurrency(forecast.estimatedMRR)}</div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '600' }}>Avg Churn Rate</div>
-              <div style={{ fontSize: '28px', fontWeight: '800' }}>{forecast.churnRate}%</div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '600' }}>Stable Clients</div>
-              <div style={{ fontSize: '28px', fontWeight: '800' }}>{forecast.stableClientsCount}</div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '600' }}>Projected New Revenue</div>
-              <div style={{ fontSize: '28px', fontWeight: '800' }}>{formatCurrency(forecast.projectedNewRevenue)}</div>
-            </div>
+            <div><div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '600' }}>Estimated MRR</div><div style={{ fontSize: '28px', fontWeight: '800', color: '#34D399' }}>{formatCurrency(forecast.estimatedMRR)}</div></div>
+            <div><div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '600' }}>Avg Churn Rate</div><div style={{ fontSize: '28px', fontWeight: '800' }}>{forecast.churnRate}%</div></div>
+            <div><div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '600' }}>Stable Clients</div><div style={{ fontSize: '28px', fontWeight: '800' }}>{forecast.stableClientsCount}</div></div>
+            <div><div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: '600' }}>Projected New Revenue</div><div style={{ fontSize: '28px', fontWeight: '800' }}>{formatCurrency(forecast.projectedNewRevenue)}</div></div>
           </div>
         </div>
       )}
 
-      {/* Active by Tier + Monthly Acquisition */}
       <div className="flex-mobile-column" style={{ display: 'flex', gap: '24px', marginBottom: '32px' }}>
         <div className="card" style={{ flex: 1, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
@@ -234,21 +170,13 @@ export default function Dashboard() {
             {tiers.map(tier => (
               <div key={tier} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <div style={{ width: '80px' }}>
-                  <span style={{
-                    color: tierColors[tier], border: `1px solid ${tierColors[tier]}50`, backgroundColor: `${tierColors[tier]}10`,
-                    padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700'
-                  }}>{tier}</span>
+                  <span style={{ color: tierColors[tier], border: `1px solid ${tierColors[tier]}50`, backgroundColor: `${tierColors[tier]}10`, padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>{tier}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, marginLeft: '24px' }}>
                   <div style={{ flex: 1, height: '10px', borderRadius: '5px', backgroundColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-                    <div style={{
-                      width: `${summary.activeByTier[tier] ? Math.max((summary.activeByTier[tier] / Math.max(summary.activeClients, 1)) * 100, 4) : 0}%`,
-                      height: '100%', backgroundColor: tierColors[tier], borderRadius: '5px', transition: 'width 0.5s ease-in-out'
-                    }} />
+                    <div style={{ width: `${summary.activeByTier[tier] ? Math.max((summary.activeByTier[tier] / Math.max(summary.activeClients, 1)) * 100, 4) : 0}%`, height: '100%', backgroundColor: tierColors[tier], borderRadius: '5px', transition: 'width 0.5s ease-in-out' }} />
                   </div>
-                  <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', width: '32px', textAlign: 'right' }}>
-                    {summary.activeByTier[tier] || 0}
-                  </span>
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', width: '32px', textAlign: 'right' }}>{summary.activeByTier[tier] || 0}</span>
                 </div>
               </div>
             ))}
@@ -279,7 +207,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Monthly Churn + Monthly Revenue */}
       <div className="flex-mobile-column" style={{ display: 'flex', gap: '24px', marginBottom: '32px' }}>
         <div className="card" style={{ flex: 1.2, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
@@ -303,9 +230,7 @@ export default function Dashboard() {
                     <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', textAlign: 'center' }}>{row.presents}</td>
                     <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', textAlign: 'center' }}>{row.actifs}</td>
                     <td style={{ padding: '16px 24px', color: 'var(--text-secondary)', textAlign: 'center' }}>{row.churned}</td>
-                    <td style={{ padding: '16px 24px', fontWeight: '800', textAlign: 'right', color: row.rate < 5 ? '#34D399' : row.rate < 10 ? '#FBBF24' : '#F87171', fontSize: '14px' }}>
-                      {row.rate.toFixed(0)}%
-                    </td>
+                    <td style={{ padding: '16px 24px', fontWeight: '800', textAlign: 'right', color: row.rate < 5 ? '#34D399' : row.rate < 10 ? '#FBBF24' : '#F87171', fontSize: '14px' }}>{row.rate.toFixed(0)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -341,7 +266,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Top 10 Clients */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
           <h2 style={{ fontSize: '14px', fontWeight: '700', margin: 0, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-secondary)' }}>Top 10 Clients (Lifetime Value)</h2>
@@ -367,12 +291,7 @@ export default function Dashboard() {
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{client.email || 'No email'}</div>
                   </td>
                   <td style={{ padding: '16px 24px' }}>
-                    <span style={{ 
-                      color: client.status === 'Actif' ? '#34D399' : '#F87171', 
-                      padding: '4px 10px', borderRadius: '6px', 
-                      backgroundColor: client.status === 'Actif' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', 
-                      fontSize: '11px', fontWeight: '700', textTransform: 'uppercase'
-                    }}>
+                    <span style={{ color: client.status === 'Actif' ? '#34D399' : '#F87171', padding: '4px 10px', borderRadius: '6px', backgroundColor: client.status === 'Actif' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase' }}>
                       {client.status === 'Actif' ? 'Active' : 'Inactive'}
                     </span>
                   </td>
