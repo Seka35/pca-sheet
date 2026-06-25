@@ -3,17 +3,43 @@
 import { useEffect, useState } from 'react';
 
 const CHURN_CATEGORIES = [
-  { value: 'price', label: 'Price' },
-  { value: 'results', label: 'Not seeing results' },
-  { value: 'service', label: 'Poor service' },
-  { value: 'competitor', label: 'Competitor' },
-  { value: 'internal', label: 'Internal decision' },
-  { value: 'unknown', label: 'Unknown' }
+  { value: 'customer_service', label: 'Customer service issue' },
+  { value: 'client_decision', label: 'Client decision' },
+  { value: 'technical', label: 'Technical issue' },
+  { value: 'other', label: 'Other' }
 ];
 
 const categoryColors = {
-  price: '#F87171', results: '#FBBF24', service: '#A78BFA',
-  competitor: '#38BDF8', internal: '#34D399', unknown: '#8B9AB0'
+  customer_service: '#F87171',
+  client_decision: '#FBBF24',
+  technical: '#A78BFA',
+  other: '#8B9AB0'
+};
+
+// Sub-reason labels for display
+const SUB_REASON_LABELS = {
+  'customer_service-refund': 'Refund',
+  'customer_service-restriction': 'Restriction',
+  'customer_service-performance': 'Performance',
+  'customer_service-other': 'Other',
+  'client_decision-pause': 'Pause',
+  'client_decision-silence': 'Silence',
+  'client_decision-cancellation': 'Cancellation',
+  'client_decision-contract_end': 'Contract end',
+  'client_decision-project_stopped': 'Project stopped',
+  'technical-setup': 'Setup',
+  'technical-meta': 'Meta',
+  'technical-bm': 'BM',
+  'technical-pixel': 'Pixel',
+  'technical-other': 'Other',
+  'other': 'Other'
+};
+
+// Get main category from a churn_reason value
+const getMainCategory = (reason) => {
+  if (!reason) return null;
+  const main = reason.split('-')[0];
+  return CHURN_CATEGORIES.find(c => c.value === main)?.value || 'other';
 };
 
 const tierColors = {
@@ -38,8 +64,18 @@ export default function ChurnPage() {
   const { totalChurned, byMonth, byTier, byCategory, details } = data;
   const latestMonth = byMonth[0] || {};
 
+  // Group by main category (e.g., "customer_service-refund" -> "customer_service")
+  const groupedByCategory = byCategory.reduce((acc, item) => {
+    const mainCat = getMainCategory(item.category);
+    if (!acc[mainCat]) acc[mainCat] = 0;
+    acc[mainCat] += item.count;
+    return acc;
+  }, {});
+
   // Churn categories that have data
-  const activeCategories = byCategory.filter(c => c.count > 0);
+  const activeCategories = Object.entries(groupedByCategory)
+    .filter(([, count]) => count > 0)
+    .map(([category, count]) => ({ category, count }));
 
   return (
     <div style={{ paddingBottom: '64px' }}>
@@ -199,8 +235,8 @@ export default function ChurnPage() {
                   </td>
                   <td style={{ padding: '16px 24px' }}>
                     {d.churn_reason ? (
-                      <span style={{ color: categoryColors[d.churn_reason] || '#8B9AB0', fontSize: '12px', fontWeight: '700' }}>
-                        {CHURN_CATEGORIES.find(c => c.value === d.churn_reason)?.label || d.churn_reason}
+                      <span style={{ color: categoryColors[getMainCategory(d.churn_reason)] || '#8B9AB0', fontSize: '12px', fontWeight: '700' }}>
+                        {SUB_REASON_LABELS[d.churn_reason] || d.churn_reason}
                       </span>
                     ) : <span style={{ color: 'var(--text-secondary)' }}>—</span>}
                   </td>

@@ -8,6 +8,25 @@ import ClientFormFields from './ClientFormFields';
 import { extractTeleId } from '@/lib/teleIdParser';
 import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
 
+// Sub-reason labels for churn reason display
+const CHURN_SUB_REASON_LABELS = {
+  'customer_service-refund': 'Customer service issue - Refund',
+  'customer_service-restriction': 'Customer service issue - Restriction',
+  'customer_service-performance': 'Customer service issue - Performance',
+  'customer_service-other': 'Customer service issue - Other',
+  'client_decision-pause': 'Client decision - Pause',
+  'client_decision-silence': 'Client decision - Silence',
+  'client_decision-cancellation': 'Client decision - Cancellation',
+  'client_decision-contract_end': 'Client decision - Contract end',
+  'client_decision-project_stopped': 'Client decision - Project stopped',
+  'technical-setup': 'Technical issue - Setup',
+  'technical-meta': 'Technical issue - Meta',
+  'technical-bm': 'Technical issue - BM',
+  'technical-pixel': 'Technical issue - Pixel',
+  'technical-other': 'Technical issue - Other',
+  'other': 'Other'
+};
+
 // SVG Icons in sidebar style (stroke-based, 20x20)
 const IconDownload = ({ size = 16, color = 'currentColor' }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1235,7 +1254,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <span style={{ color: '#F87171', fontSize: '12px', fontWeight: '600' }}>Churn Reason</span>
                         <div style={{ fontSize: '13px', fontWeight: '600', padding: '8px 12px', backgroundColor: 'rgba(248, 113, 113, 0.1)', borderRadius: '8px', border: '1px solid rgba(248, 113, 113, 0.2)' }}>
-                          {client.churn_reason}
+                          {CHURN_SUB_REASON_LABELS[client.churn_reason] || client.churn_reason}
                         </div>
                       </div>
                     )}
@@ -1342,7 +1361,42 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     </label>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Churn Reason (if inactive)</label>
-                      <input value={formChurnReason} onChange={(e) => setFormChurnReason(e.target.value)} disabled={saving} placeholder="e.g. Price too high" style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                      <select
+                        value={formChurnReason}
+                        onChange={(e) => setFormChurnReason(e.target.value)}
+                        disabled={saving}
+                        style={{
+                          width: '100%', backgroundColor: 'var(--bg-main)',
+                          border: '1px solid var(--border-color)', borderRadius: '8px',
+                          padding: '12px', color: 'var(--text-primary)', outline: 'none',
+                          cursor: 'pointer', fontSize: '14px'
+                        }}
+                      >
+                        <option value="">Select a reason...</option>
+                        <optgroup label="Customer service issue">
+                          <option value="customer_service-refund">Refund</option>
+                          <option value="customer_service-restriction">Restriction</option>
+                          <option value="customer_service-performance">Performance issues</option>
+                          <option value="customer_service-other">Other</option>
+                        </optgroup>
+                        <optgroup label="Client decision">
+                          <option value="client_decision-pause">Pause</option>
+                          <option value="client_decision-silence">Silence (no response)</option>
+                          <option value="client_decision-cancellation">Cancellation</option>
+                          <option value="client_decision-contract_end">Contract end</option>
+                          <option value="client_decision-project_stopped">Project stopped</option>
+                        </optgroup>
+                        <optgroup label="Technical issue">
+                          <option value="technical-setup">Setup</option>
+                          <option value="technical-meta">Meta</option>
+                          <option value="technical-bm">BM (Business Manager)</option>
+                          <option value="technical-pixel">Pixel</option>
+                          <option value="technical-other">Other</option>
+                        </optgroup>
+                        <optgroup label="Other">
+                          <option value="other">Other</option>
+                        </optgroup>
+                      </select>
                     </div>
                   </div>
                 </div>
