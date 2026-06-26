@@ -148,7 +148,11 @@ export default function ClientLayout({ children }) {
           justifyContent: 'center',
           alignItems: 'center'
         }}>
-          <img src="/PCA-white.png" alt="PCA" style={{ height: '120px' }} />
+          <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
+            <circle cx="60" cy="60" r="58" stroke="#00F5A0" strokeWidth="4" fill="none"/>
+            <circle cx="60" cy="60" r="40" stroke="#00F5A0" strokeWidth="2" strokeDasharray="8 4" fill="none"/>
+            <path d="M40 60 L55 75 L80 45" stroke="#00F5A0" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          </svg>
         </div>
 
         {/* Client info */}

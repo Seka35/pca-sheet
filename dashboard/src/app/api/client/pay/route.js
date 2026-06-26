@@ -16,7 +16,7 @@ export async function POST(req) {
   }
 
   try {
-    const { sr_no, bank_name, transaction_id, is_topup } = await req.json();
+    const { sr_no, bank_name, transaction_id, is_topup, topup_amount } = await req.json();
 
     if (!sr_no || !bank_name || !transaction_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -35,9 +35,9 @@ export async function POST(req) {
     if (is_topup) {
       // Top-up: insert with a unique chat_id per product
       run(`
-        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at)
-        VALUES (?, ?, 'AWAIT_TX', ?, ?)
-      `, [sr_no, `topup_${user.client_id}_${Date.now()}`, transaction_id, now]);
+        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at, amount)
+        VALUES (?, ?, 'AWAIT_TX', ?, ?, ?)
+      `, [sr_no, `topup_${user.client_id}_${Date.now()}`, transaction_id, now, topup_amount || null]);
     } else {
       run(`
         INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at)
