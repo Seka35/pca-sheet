@@ -1,4 +1,5 @@
 import "./globals.css";
+import ClientLayout from "@/components/ClientLayout";
 
 export const metadata = {
   title: "PCA TRACKING v2.1.0",
@@ -9,7 +10,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        {children}
+        <ClientLayout>
+          {children}
+        </ClientLayout>
       </body>
     </html>
   );

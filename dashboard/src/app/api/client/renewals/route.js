@@ -31,8 +31,20 @@ export async function GET(req) {
     const setup = parseFloat(String(r.setup_fee || '0').replace(/[^0-9.-]+/g, '')) || 0;
     const disc = parseFloat(String(r.discount || '0').replace(/[^0-9.-]+/g, '')) || 0;
     const received = parseFloat(String(r.amount_received || '0').replace(/[^0-9.-]+/g, '')) || 0;
-    const due = (sub + setup) - disc - received;
-    const isPaid = r.reference_no && r.reference_no.trim() !== '';
+    const totalDue = (sub + setup) - disc;
+    const due = totalDue - received;
+
+    // Same logic as admin ClientModal getProductBillingStatus
+    let billingStatus;
+    if (r.is_trial === 1) {
+      billingStatus = 'TRIAL';
+    } else if (received >= totalDue) {
+      billingStatus = 'FULLY PAID';
+    } else if (received > 0) {
+      billingStatus = 'PARTIALLY PAID';
+    } else {
+      billingStatus = 'UNPAID';
+    }
 
     let diffDays = null;
     let renewalDate = null;
@@ -53,7 +65,8 @@ export async function GET(req) {
       discount: r.discount,
       amount_received: r.amount_received,
       total_due: due,
-      is_paid: isPaid,
+      billing_status: billingStatus,
+      is_paid: billingStatus === 'FULLY PAID',
       valid_stopped_date: renewalDate,
       diff_days: diffDays,
       is_trial: r.is_trial === 1,

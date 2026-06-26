@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductBadge from '@/components/ProductBadge';
 
+const fmtUSD = (n) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};
+
 const IconCurrency = ({ size = 24, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="12" y1="1" x2="12" y2="23"/>
@@ -110,9 +115,12 @@ export default function ClientDashboardPage() {
   const activeProducts = renewals.filter(r => r.visual_status === 'Active');
   const trialProducts = renewals.filter(r => r.is_trial && r.visual_status === 'Active');
   const upcomingRenewals = renewals.filter(r => {
-    return r.diff_days !== null && r.diff_days !== undefined && r.diff_days >= 0 && r.diff_days <= 30 && !r.is_paid;
+    return r.diff_days !== null && r.diff_days !== undefined && r.diff_days >= 0 && r.diff_days <= 30 && r.billing_status !== 'FULLY PAID';
   });
-  const unpaidAmount = activeProducts.filter(r => !r.is_paid).reduce((sum, r) => sum + (r.total_due > 0 ? r.total_due : 0), 0);
+
+  // All products that need payment (not fully paid) — trial, partial, unpaid
+  const unpaidProducts = renewals.filter(r => r.billing_status !== 'FULLY PAID');
+  const unpaidAmount = unpaidProducts.reduce((sum, r) => sum + (r.total_due > 0 ? r.total_due : 0), 0);
 
   const quickActions = [
     { label: 'View Products', path: '/client/products', icon: <IconBox size={22} />, color: '#3b82f6' },
@@ -142,37 +150,37 @@ export default function ClientDashboardPage() {
       {/* Stats Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <StatCard label="Total Paid" value={fmtUSD(paymentsData.total_paid)} icon={<IconCurrency size={24} />} color="#22c55e" subValue={`${paymentsData.payments.length} payments`} />
-        <StatCard label="Active Products" value={activeProducts.length} icon={<IconBox size={24} />} color="#3b82f6" subValue={`${trialProducts.length} on trial`} />
+        <StatCard label="Active Products" value={activeProducts.length} icon={<IconBox size={24} />} color="#3b82f6" subValue={`${unpaidProducts.length} pending`} />
         <StatCard label="Upcoming Renewals" value={upcomingRenewals.length} icon={<IconCalendar size={24} />} color="#f59e0b" subValue="Next 30 days" />
         <StatCard label="Amount Due" value={unpaidAmount > 0 ? fmtUSD(unpaidAmount) : '$0.00'} icon={<IconClock size={24} />} color={unpaidAmount > 0 ? '#ef4444' : '#22c55e'} subValue={unpaidAmount > 0 ? 'Pending payment' : 'All clear'} />
       </div>
 
-      {/* Trial Alert */}
-      {trialProducts.length > 0 && (
+      {/* Payment Action Required */}
+      {unpaidProducts.length > 0 && (
         <div style={{
-          background: 'rgba(251, 191, 36, 0.08)',
-          border: '1px solid rgba(251, 191, 36, 0.25)',
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
           borderRadius: '10px',
           padding: '16px 20px',
           display: 'flex',
           alignItems: 'center',
           gap: '14px'
         }}>
-          <IconClock size={24} color="#fbbf24" />
+          <IconClock size={24} color="#ef4444" />
           <div style={{ flex: 1 }}>
-            <p style={{ color: '#fbbf24', fontWeight: '600', fontSize: '14px', marginBottom: '2px' }}>
-              You have {trialProducts.length} product{trialProducts.length > 1 ? 's' : ''} on trial
+            <p style={{ color: '#ef4444', fontWeight: '600', fontSize: '14px', marginBottom: '2px' }}>
+              {unpaidProducts.length} product{unpaidProducts.length > 1 ? 's' : ''} pending payment
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-              {trialProducts.map(p => p.tier).join(', ')} — Make sure to pay before renewal date
+              {unpaidProducts.map(p => `${p.tier}${p.billing_status !== 'UNPAID' ? ` (${p.billing_status})` : ''}`).join(', ')} — Make sure to pay before renewal date
             </p>
           </div>
           <button
             onClick={() => router.push('/client/pay')}
             style={{
               padding: '8px 16px',
-              backgroundColor: '#fbbf24',
-              color: '#0B111A',
+              backgroundColor: '#ef4444',
+              color: '#fff',
               border: 'none',
               borderRadius: '6px',
               fontSize: '12px',
@@ -218,8 +226,8 @@ export default function ClientDashboardPage() {
                     </TableCell>
                     <TableCell style={{ fontWeight: '600', color: '#ef4444' }}>{r.total_due > 0 ? fmtUSD(r.total_due) : '—'}</TableCell>
                     <TableCell>
-                      <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: r.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: r.is_paid ? '#22c55e' : '#ef4444' }}>
-                        {r.is_paid ? 'Paid' : 'Pending'}
+                      <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: r.billing_status === 'FULLY PAID' ? 'rgba(34, 197, 94, 0.15)' : r.billing_status === 'PARTIALLY PAID' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: r.billing_status === 'FULLY PAID' ? '#22c55e' : r.billing_status === 'PARTIALLY PAID' ? '#f59e0b' : '#ef4444' }}>
+                        {r.billing_status}
                       </span>
                     </TableCell>
                   </tr>
@@ -258,8 +266,8 @@ export default function ClientDashboardPage() {
                     <TableCell style={{ fontWeight: '500' }}>{r.subscription_fee ? fmtUSD(r.subscription_fee) : '—'}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{r.valid_stopped_date || '—'}</TableCell>
                     <TableCell>
-                      <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: r.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: r.is_paid ? '#22c55e' : '#ef4444' }}>
-                        {r.is_paid ? 'Paid' : 'Pending'}
+                      <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: r.billing_status === 'FULLY PAID' ? 'rgba(34, 197, 94, 0.15)' : r.billing_status === 'PARTIALLY PAID' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: r.billing_status === 'FULLY PAID' ? '#22c55e' : r.billing_status === 'PARTIALLY PAID' ? '#f59e0b' : '#ef4444' }}>
+                        {r.billing_status}
                       </span>
                     </TableCell>
                   </tr>

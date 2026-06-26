@@ -1,5 +1,5 @@
-import ClientLayout from '@/components/ClientLayout';
+import ClientPortalLayout from '@/components/ClientPortalLayout';
 
 export default function Layout({ children }) {
-  return <ClientLayout>{children}</ClientLayout>;
+  return <ClientPortalLayout>{children}</ClientPortalLayout>;
 }

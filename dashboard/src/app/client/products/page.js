@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductBadge from '@/components/ProductBadge';
 
+const fmtUSD = (n) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};
+
 const IconArrowLeft = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="19" y1="12" x2="5" y2="12"/>
@@ -100,8 +105,8 @@ function ProductCard({ product, onClick }) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
         <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
-        <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: product.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: product.is_paid ? '#22c55e' : '#ef4444' }}>
-          {product.is_paid ? 'Paid' : 'Pending'}
+        <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: product.billing_status === 'FULLY PAID' ? 'rgba(34, 197, 94, 0.15)' : product.billing_status === 'PARTIALLY PAID' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: product.billing_status === 'FULLY PAID' ? '#22c55e' : product.billing_status === 'PARTIALLY PAID' ? '#f59e0b' : '#ef4444' }}>
+          {product.billing_status}
         </span>
       </div>
 
@@ -157,7 +162,7 @@ function ProductModal({ product, onClose }) {
 
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: product.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: product.is_paid ? '#22c55e' : '#ef4444' }}>{product.is_paid ? 'Paid' : 'Pending Payment'}</span>
+            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: product.billing_status === 'FULLY PAID' ? 'rgba(34, 197, 94, 0.15)' : product.billing_status === 'PARTIALLY PAID' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: product.billing_status === 'FULLY PAID' ? '#22c55e' : product.billing_status === 'PARTIALLY PAID' ? '#f59e0b' : '#ef4444' }}>{product.billing_status}</span>
             {product.is_trial && <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>Trial</span>}
             <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}>{product.visual_status || 'Active'}</span>
           </div>

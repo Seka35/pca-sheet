@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductBadge from '@/components/ProductBadge';
 
+const fmtUSD = (n) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};
+
 const IconArrowLeft = ({ size = 18, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="19" y1="12" x2="5" y2="12"/>
@@ -67,7 +72,7 @@ export default function UpcomingPage() {
 
   const allUpcoming = renewals.filter(r => {
     if (r.visual_status !== 'Active') return false;
-    if (r.is_paid && r.diff_days === null) return false;
+    if (r.billing_status === 'FULLY PAID' && r.diff_days === null) return false;
     if (r.diff_days !== null && r.diff_days < 0) return false;
     return true;
   }).sort((a, b) => {
@@ -171,8 +176,8 @@ function RenewalRow({ renewal, onClick }) {
       </td>
       <td style={{ ...tdStyle, fontWeight: '600', color: renewal.total_due > 0 ? '#ef4444' : '#22c55e' }}>{renewal.total_due > 0 ? fmtUSD(renewal.total_due) : '$0.00'}</td>
       <td style={tdStyle}>
-        <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: renewal.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: renewal.is_paid ? '#22c55e' : '#ef4444' }}>
-          {renewal.is_paid ? 'Paid' : 'Pending'}
+        <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: renewal.billing_status === 'FULLY PAID' ? 'rgba(34, 197, 94, 0.15)' : renewal.billing_status === 'PARTIALLY PAID' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: renewal.billing_status === 'FULLY PAID' ? '#22c55e' : renewal.billing_status === 'PARTIALLY PAID' ? '#f59e0b' : '#ef4444' }}>
+          {renewal.billing_status}
         </span>
       </td>
       <td style={{ ...tdStyle, color: 'var(--primary-accent)', fontSize: '12px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -212,7 +217,7 @@ function ProductModal({ product, onClose, onPay }) {
 
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: product.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: product.is_paid ? '#22c55e' : '#ef4444' }}>{product.is_paid ? 'Paid' : 'Pending Payment'}</span>
+            <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: product.billing_status === 'FULLY PAID' ? 'rgba(34, 197, 94, 0.15)' : product.billing_status === 'PARTIALLY PAID' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: product.billing_status === 'FULLY PAID' ? '#22c55e' : product.billing_status === 'PARTIALLY PAID' ? '#f59e0b' : '#ef4444' }}>{product.billing_status}</span>
             {product.is_trial && <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>Trial</span>}
           </div>
 
@@ -238,7 +243,7 @@ function ProductModal({ product, onClose, onPay }) {
             ))}
           </div>
 
-          {!product.is_paid && product.total_due > 0 && (
+          {product.billing_status !== 'FULLY PAID' && product.total_due > 0 && (
             <button onClick={onPay} style={{ width: '100%', padding: '14px', backgroundColor: 'var(--primary-accent)', color: '#0B111A', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               Pay {fmtUSD(product.total_due)} Now <IconArrowRight size={14} color="#0B111A" />
             </button>
