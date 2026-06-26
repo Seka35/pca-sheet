@@ -141,10 +141,10 @@ export default function ClientDashboardPage() {
 
       {/* Stats Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <StatCard label="Total Paid" value={`€${paymentsData.total_paid.toFixed(2)}`} icon={<IconCurrency size={24} />} color="#22c55e" subValue={`${paymentsData.payments.length} payments`} />
+        <StatCard label="Total Paid" value={fmtUSD(paymentsData.total_paid)} icon={<IconCurrency size={24} />} color="#22c55e" subValue={`${paymentsData.payments.length} payments`} />
         <StatCard label="Active Products" value={activeProducts.length} icon={<IconBox size={24} />} color="#3b82f6" subValue={`${trialProducts.length} on trial`} />
         <StatCard label="Upcoming Renewals" value={upcomingRenewals.length} icon={<IconCalendar size={24} />} color="#f59e0b" subValue="Next 30 days" />
-        <StatCard label="Amount Due" value={unpaidAmount > 0 ? `€${unpaidAmount.toFixed(2)}` : '€0.00'} icon={<IconClock size={24} />} color={unpaidAmount > 0 ? '#ef4444' : '#22c55e'} subValue={unpaidAmount > 0 ? 'Pending payment' : 'All clear'} />
+        <StatCard label="Amount Due" value={unpaidAmount > 0 ? fmtUSD(unpaidAmount) : '$0.00'} icon={<IconClock size={24} />} color={unpaidAmount > 0 ? '#ef4444' : '#22c55e'} subValue={unpaidAmount > 0 ? 'Pending payment' : 'All clear'} />
       </div>
 
       {/* Trial Alert */}
@@ -216,7 +216,7 @@ export default function ClientDashboardPage() {
                       {r.valid_stopped_date || '—'}
                       <span style={{ fontSize: '11px', marginLeft: '6px', opacity: 0.7 }}>({r.diff_days}d)</span>
                     </TableCell>
-                    <TableCell style={{ fontWeight: '600', color: '#ef4444' }}>€{r.total_due > 0 ? r.total_due.toFixed(2) : '—'}</TableCell>
+                    <TableCell style={{ fontWeight: '600', color: '#ef4444' }}>{r.total_due > 0 ? fmtUSD(r.total_due) : '—'}</TableCell>
                     <TableCell>
                       <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: r.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: r.is_paid ? '#22c55e' : '#ef4444' }}>
                         {r.is_paid ? 'Paid' : 'Pending'}
@@ -255,7 +255,7 @@ export default function ClientDashboardPage() {
                   <tr key={r.sr_no} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{r.sr_no}</TableCell>
                     <TableCell><ProductBadge tier={r.tier} setup_type={r.setup_type} is_trial={r.is_trial} /></TableCell>
-                    <TableCell style={{ fontWeight: '500' }}>€{r.subscription_fee || '—'}</TableCell>
+                    <TableCell style={{ fontWeight: '500' }}>{r.subscription_fee ? fmtUSD(r.subscription_fee) : '—'}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{r.valid_stopped_date || '—'}</TableCell>
                     <TableCell>
                       <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: r.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: r.is_paid ? '#22c55e' : '#ef4444' }}>
@@ -331,7 +331,7 @@ export default function ClientDashboardPage() {
                 {paymentsData.payments.slice(0, 5).map((p, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{p.date || '—'}</TableCell>
-                    <TableCell style={{ fontWeight: '600', color: '#22c55e' }}>€{p.amount || '—'}</TableCell>
+                    <TableCell style={{ fontWeight: '600', color: '#22c55e' }}>{p.amount ? fmtUSD(p.amount) : '—'}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{p.method || '—'}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{p.product}</TableCell>
                     <TableCell>

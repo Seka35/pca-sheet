@@ -69,7 +69,7 @@ export default function PaymentsPage() {
       {/* Total paid card */}
       <div className="card" style={{ textAlign: 'center', padding: '24px' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Paid</p>
-        <p style={{ fontSize: '40px', fontWeight: '800', color: 'var(--primary-accent)' }}>€{total_paid.toFixed(2)}</p>
+        <p style={{ fontSize: '40px', fontWeight: '800', color: 'var(--primary-accent)' }}>{fmtUSD(total_paid)}</p>
       </div>
 
       {payments.length === 0 ? (
@@ -97,7 +97,7 @@ export default function PaymentsPage() {
                 {payments.map((p, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <TableCell style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{p.date || '—'}</TableCell>
-                    <TableCell style={{ fontWeight: '700', color: '#22c55e', whiteSpace: 'nowrap' }}>€{p.amount || '—'}</TableCell>
+                    <TableCell style={{ fontWeight: '700', color: '#22c55e', whiteSpace: 'nowrap' }}>{p.amount ? fmtUSD(p.amount) : '—'}</TableCell>
                     <TableCell style={{ whiteSpace: 'nowrap' }}>{p.method || '—'}</TableCell>
                     <TableCell><span style={{ fontSize: '12px', fontWeight: '500' }}>{p.product}</span></TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)', fontSize: '12px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.reference || '—'}</TableCell>

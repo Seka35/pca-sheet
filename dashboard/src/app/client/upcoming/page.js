@@ -169,7 +169,7 @@ function RenewalRow({ renewal, onClick }) {
       <td style={{ ...tdStyle, fontWeight: '600', color: getDaysColor(renewal.diff_days) }}>
         {renewal.diff_days !== null && renewal.diff_days !== undefined ? (renewal.diff_days < 0 ? `${Math.abs(renewal.diff_days)}d overdue` : `${renewal.diff_days}d`) : '—'}
       </td>
-      <td style={{ ...tdStyle, fontWeight: '600', color: renewal.total_due > 0 ? '#ef4444' : '#22c55e' }}>€{renewal.total_due > 0 ? renewal.total_due.toFixed(2) : '0.00'}</td>
+      <td style={{ ...tdStyle, fontWeight: '600', color: renewal.total_due > 0 ? '#ef4444' : '#22c55e' }}>{renewal.total_due > 0 ? fmtUSD(renewal.total_due) : '$0.00'}</td>
       <td style={tdStyle}>
         <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: renewal.is_paid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: renewal.is_paid ? '#22c55e' : '#ef4444' }}>
           {renewal.is_paid ? 'Paid' : 'Pending'}
@@ -217,7 +217,7 @@ function ProductModal({ product, onClose, onPay }) {
           </div>
 
           <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '16px', border: '1px solid var(--border-color)' }}>
-            {[['Subscription Fee', `€${sub.toFixed(2)}`], setup > 0 && ['Setup Fee', `€${setup.toFixed(2)}`], disc > 0 && ['Discount', `-€${disc.toFixed(2)}`]].filter(Boolean).map(([label, value]) => (
+            {[['Subscription Fee', fmtUSD(sub)], setup > 0 && ['Setup Fee', fmtUSD(setup)], disc > 0 && ['Discount', '-' + fmtUSD(disc)]].filter(Boolean).map(([label, value]) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
                 <span style={{ color: label === 'Discount' ? '#22c55e' : 'var(--text-primary)', fontWeight: '500' }}>{value}</span>
@@ -225,7 +225,7 @@ function ProductModal({ product, onClose, onPay }) {
             ))}
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: '600' }}>Total Due</span>
-              <span style={{ fontWeight: '700', fontSize: '16px', color: product.total_due > 0 ? '#ef4444' : '#22c55e' }}>€{product.total_due > 0 ? product.total_due.toFixed(2) : '0.00'}</span>
+              <span style={{ fontWeight: '700', fontSize: '16px', color: product.total_due > 0 ? '#ef4444' : '#22c55e' }}>{product.total_due > 0 ? fmtUSD(product.total_due) : '$0.00'}</span>
             </div>
           </div>
 
@@ -240,7 +240,7 @@ function ProductModal({ product, onClose, onPay }) {
 
           {!product.is_paid && product.total_due > 0 && (
             <button onClick={onPay} style={{ width: '100%', padding: '14px', backgroundColor: 'var(--primary-accent)', color: '#0B111A', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              Pay €{product.total_due.toFixed(2)} Now <IconArrowRight size={14} color="#0B111A" />
+              Pay {fmtUSD(product.total_due)} Now <IconArrowRight size={14} color="#0B111A" />
             </button>
           )}
         </div>

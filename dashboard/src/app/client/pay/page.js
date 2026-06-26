@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductBadge from '@/components/ProductBadge';
 
+const fmt = (n) => {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};
+
 const IconCreditCard = ({ size = 20, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
@@ -45,23 +50,24 @@ const IconPackage = ({ size = 32, color = 'currentColor' }) => (
   </svg>
 );
 
-// Crypto addresses
 const CRYPTO_ADDRESSES = {
-  usdt_trc20: { label: 'USDT (TRC20)', address: 'TUcZNfx81JEdoNjG6orJxGPMrEpqX5gSuW' },
-  usdt_erc20: { label: 'USDT (ERC20)', address: '0x49B4Dde3249D8Cc0Fb083247007E3C46a0135B09' },
-  btc: { label: 'Bitcoin (BTC)', address: 'bc1quc4c6rm055guetjmnqt9rvvrzs3qpuu293rj8z' },
+  usdt_trc20: { label: 'USDT (TRC20)', address: 'TUcZNfx81JEdoNjG6orJxGPMrEpqX5gSuW', network: 'TRON' },
+  usdt_erc20: { label: 'USDT (ERC20)', address: '0x49B4Dde3249D8Cc0Fb083247007E3C46a0135B09', network: 'Ethereum' },
+  btc: { label: 'Bitcoin (BTC)', address: 'bc1quc4c6rm055guetjmnqt9rvvrzs3qpuu293rj8z', network: 'Bitcoin' },
 };
 
 const PAYMENT_METHODS = [
-  { value: 'Crypto', label: 'Crypto' },
-  { value: 'LHV', label: 'LHV Bank' },
-  { value: 'Slash', label: 'Slash' },
-  { value: 'Whop', label: 'Whop' },
+  { value: 'usdt_trc20', label: 'USDT (TRC20)' },
+  { value: 'usdt_erc20', label: 'USDT (ERC20)' },
+  { value: 'btc', label: 'Bitcoin (BTC)' },
+  { value: 'lhv', label: 'LHV Bank' },
+  { value: 'slash', label: 'Slash' },
+  { value: 'whop', label: 'Whop' },
 ];
 
 const BANK_DETAILS = {
-  LHV: { accountTitle: 'WCATFM LLC', iban: 'EE157777000160817218', bic: 'LHVBEE22', bank: 'AS LHV Pank (Sokin)' },
-  Slash: { accountName: 'WCATFM LLC', accountNumber: '994768939333484', routing: '121145307', swift: 'CLNOUS66XXX' },
+  lhv: { accountTitle: 'WCATFM LLC', iban: 'EE157777000160817218', bic: 'LHVBEE22', bank: 'AS LHV Pank (Sokin)' },
+  slash: { accountName: 'WCATFM LLC', accountNumber: '994768939333484', routing: '121145307', swift: 'CLNOUS66XXX' },
 };
 
 function CopyButton({ text }) {
@@ -108,7 +114,7 @@ export default function PayPage() {
   const [renewals, setRenewals] = useState([]);
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState(1); // 1 = select product + method, 2 = payment details
+  const [step, setStep] = useState(1);
   const [payType, setPayType] = useState('renewal');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [topupProduct, setTopupProduct] = useState(null);
@@ -153,11 +159,9 @@ export default function PayPage() {
     setPayError('');
     setPaySuccess(false);
     setPayLoading(true);
-
     try {
       const product = payType === 'renewal' ? selectedProduct : topupProduct;
       const body = { bank_name: selectedBank, transaction_id: txId.trim() };
-
       if (payType === 'topup') {
         body.sr_no = product.sr_no;
         body.is_topup = true;
@@ -165,13 +169,11 @@ export default function PayPage() {
       } else {
         body.sr_no = product.sr_no;
       }
-
       const res = await fetch('/api/client/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-
       if (res.ok) {
         setPaySuccess(true);
         setTimeout(() => router.push('/client/payments'), 2000);
@@ -195,8 +197,7 @@ export default function PayPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '700px', margin: '0 auto' }}>
-      {/* Back button */}
-      <button onClick={() => step === 2 ? setStep(1) : router.back()} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', padding: '0', fontWeight: '500' }}>
+      <button onClick={() => step === 2 ? setStep(1) : router.back()} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', padding: '0', fontWeight: '500', alignSelf: 'flex-start' }}>
         <IconArrowLeft size={16} /> {step === 2 ? 'Back' : 'Back'}
       </button>
 
@@ -207,10 +208,8 @@ export default function PayPage() {
         </p>
       </div>
 
-      {/* Step 1: Select product + payment method */}
       {step === 1 && (
         <>
-          {/* Pay Type Toggle */}
           <div style={{ display: 'flex', gap: '12px' }}>
             <button onClick={() => { setPayType('renewal'); setSelectedProduct(null); setTopupProduct(null); }}
               style={{ flex: 1, padding: '14px', borderRadius: '10px', border: `1px solid ${payType === 'renewal' ? 'var(--primary-accent)' : 'var(--border-color)'}`, backgroundColor: payType === 'renewal' ? 'rgba(0, 245, 160, 0.08)' : 'var(--bg-card)', color: payType === 'renewal' ? 'var(--primary-accent)' : 'var(--text-secondary)', fontWeight: payType === 'renewal' ? '700' : '500', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -224,7 +223,6 @@ export default function PayPage() {
             </button>
           </div>
 
-          {/* Product Selection */}
           <div className="card">
             <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '16px' }}>
               {payType === 'renewal' ? 'Select Product to Pay' : 'Select Product to Top-Up'}
@@ -247,10 +245,10 @@ export default function PayPage() {
                         </div>
                         <div>
                           <ProductBadge tier={r.tier} setup_type={r.setup_type} is_trial={r.is_trial} />
-                          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>Due: {r.valid_stopped_date || '—'}</p>
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>{r.valid_stopped_date ? `Due: ${r.valid_stopped_date}` : '—'}</p>
                         </div>
                       </div>
-                      <span style={{ fontSize: '16px', fontWeight: '700', color: '#ef4444' }}>€{r.total_due.toFixed(2)}</span>
+                      <span style={{ fontSize: '16px', fontWeight: '700', color: '#ef4444' }}>{fmt(r.total_due)}</span>
                     </div>
                   ))}
                 </div>
@@ -278,8 +276,8 @@ export default function PayPage() {
                           <div>
                             <ProductBadge tier={r.tier} setup_type={r.setup_type} is_trial={r.is_trial} />
                             <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
-                              {r.is_paid ? 'Paid' : `Due: ${r.valid_stopped_date || '—'}`}
-                              {!r.is_paid && totalDue > 0 && ` — €${totalDue.toFixed(2)}`}
+                              {r.is_paid ? 'Paid' : r.valid_stopped_date ? `Due: ${r.valid_stopped_date}` : '—'}
+                              {!r.is_paid && totalDue > 0 && ` — ${fmt(totalDue)}`}
                             </p>
                           </div>
                         </div>
@@ -292,39 +290,23 @@ export default function PayPage() {
             )}
           </div>
 
-          {/* Payment Method Selection */}
           <div className="card">
             <PaymentMethodSelector value={selectedBank} onChange={setSelectedBank} />
           </div>
 
-          {/* Continue Button */}
-          <button
-            onClick={handleContinue}
-            disabled={!canContinue()}
-            style={{
-              width: '100%',
-              padding: '14px',
-              backgroundColor: canContinue() ? 'var(--primary-accent)' : 'var(--border-color)',
-              color: canContinue() ? '#0B111A' : 'var(--text-secondary)',
-              border: 'none',
-              borderRadius: '10px',
-              fontSize: '14px',
-              fontWeight: '700',
-              cursor: canContinue() ? 'pointer' : 'not-allowed',
-              opacity: canContinue() ? 1 : 0.5,
-            }}
-          >
+          <button onClick={handleContinue} disabled={!canContinue()} style={{
+            width: '100%', padding: '14px', backgroundColor: canContinue() ? 'var(--primary-accent)' : 'var(--border-color)',
+            color: canContinue() ? '#0B111A' : 'var(--text-secondary)', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: canContinue() ? 'pointer' : 'not-allowed', opacity: canContinue() ? 1 : 0.5,
+          }}>
             Continue
           </button>
         </>
       )}
 
-      {/* Step 2: Payment details */}
       {step === 2 && currentProduct && (
         <div className="card">
           <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '16px' }}>Payment Details</h3>
 
-          {/* Product summary */}
           <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '16px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -336,55 +318,46 @@ export default function PayPage() {
                   {payType === 'topup' ? 'Top-up' : 'Amount due'}
                 </p>
                 <p style={{ fontSize: '22px', fontWeight: '800', color: payType === 'topup' ? '#a78bfa' : '#ef4444' }}>
-                  {payType === 'topup' ? '—' : `€${currentProduct.total_due.toFixed(2)}`}
+                  {payType === 'topup' ? '—' : fmt(currentProduct.total_due)}
                 </p>
               </div>
             </div>
           </div>
 
           <form onSubmit={handlePaySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Top-up amount */}
             {payType === 'topup' && (
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Top-Up Amount (EUR)</label>
-                <input
-                  type="number"
-                  value={topupAmount}
-                  onChange={e => setTopupAmount(e.target.value)}
-                  required
-                  min="1"
-                  step="0.01"
-                  placeholder="e.g. 50.00"
-                  style={{ width: '100%', padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }}
-                />
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Top-Up Amount (USD)</label>
+                <input type="number" value={topupAmount} onChange={e => setTopupAmount(e.target.value)} required min="1" step="0.01" placeholder="e.g. 50.00" style={{ width: '100%', padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} />
               </div>
             )}
 
-            {/* Payment addresses/info based on method */}
-            {selectedBank === 'Crypto' && (
-              <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', border: '1px solid var(--border-color)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <p style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Send payment to one of these addresses:</p>
-                {Object.entries(CRYPTO_ADDRESSES).map(([key, { label, address }]) => (
-                  <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#22c55e' }}>{label}</span>
-                      <CopyButton text={address} />
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${address}&bgcolor=0B111A&color=00F5A0`} alt={`${label} QR`} width={80} height={80} style={{ borderRadius: '6px', flexShrink: 0 }} />
-                      <p style={{ color: 'var(--text-primary)', fontSize: '11px', wordBreak: 'break-all', lineHeight: '1.5', alignSelf: 'center' }}>{address}</p>
+            {['usdt_trc20', 'usdt_erc20', 'btc'].includes(selectedBank) && (() => {
+              const cryptoInfo = CRYPTO_ADDRESSES[selectedBank];
+              if (!cryptoInfo) return null;
+              return (
+                <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', border: '1px solid var(--border-color)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#22c55e' }}>{cryptoInfo.label}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{cryptoInfo.network}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${cryptoInfo.address}&bgcolor=0B111A&color=00F5A0`} alt={`${cryptoInfo.label} QR`} width={100} height={100} style={{ borderRadius: '8px', flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', flex: 1 }}>
+                      <p style={{ color: 'var(--text-primary)', fontSize: '12px', wordBreak: 'break-all', lineHeight: '1.5' }}>{cryptoInfo.address}</p>
+                      <CopyButton text={cryptoInfo.address} />
                     </div>
                   </div>
-                ))}
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '4px' }}>
-                  There will be a transaction fee of 2% on the amount transferred.
-                </p>
-              </div>
-            )}
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '4px' }}>
+                    There will be a transaction fee of 2% on the amount transferred.
+                  </p>
+                </div>
+              );
+            })()}
 
-            {selectedBank === 'LHV' && BANK_DETAILS.LHV && (
+            {selectedBank === 'lhv' && BANK_DETAILS.lhv && (
               <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', border: '1px solid var(--border-color)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[['Account Title', BANK_DETAILS.LHV.accountTitle], ['IBAN', BANK_DETAILS.LHV.iban], ['BIC/SWIFT', BANK_DETAILS.LHV.bic], ['Bank', BANK_DETAILS.LHV.bank]].map(([label, value]) => (
+                {[['Account Title', BANK_DETAILS.lhv.accountTitle], ['IBAN', BANK_DETAILS.lhv.iban], ['BIC/SWIFT', BANK_DETAILS.lhv.bic], ['Bank', BANK_DETAILS.lhv.bank]].map(([label, value]) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                     <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{label}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -396,9 +369,9 @@ export default function PayPage() {
               </div>
             )}
 
-            {selectedBank === 'Slash' && BANK_DETAILS.Slash && (
+            {selectedBank === 'slash' && BANK_DETAILS.slash && (
               <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', border: '1px solid var(--border-color)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[['Account Name', BANK_DETAILS.Slash.accountName], ['Account Number', BANK_DETAILS.Slash.accountNumber], ['Routing', BANK_DETAILS.Slash.routing], ['SWIFT/BIC', BANK_DETAILS.Slash.swift]].map(([label, value]) => (
+                {[['Account Name', BANK_DETAILS.slash.accountName], ['Account Number', BANK_DETAILS.slash.accountNumber], ['Routing', BANK_DETAILS.slash.routing], ['SWIFT/BIC', BANK_DETAILS.slash.swift]].map(([label, value]) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                     <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{label}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -410,14 +383,13 @@ export default function PayPage() {
               </div>
             )}
 
-            {selectedBank === 'Whop' && (
+            {selectedBank === 'whop' && (
               <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', border: '1px solid var(--border-color)', padding: '16px', textAlign: 'center' }}>
                 <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>Payment via Whop platform</p>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>You will receive a payment link from our team after submitting your request.</p>
               </div>
             )}
 
-            {/* TX ID */}
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Transaction ID (TX ID)</label>
               <input type="text" value={txId} onChange={e => setTxId(e.target.value)} required placeholder="Enter your transaction ID" style={{ width: '100%', padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} />

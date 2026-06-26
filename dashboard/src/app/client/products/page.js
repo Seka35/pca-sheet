@@ -106,7 +106,7 @@ function ProductCard({ product, onClick }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {[['N°', product.sr_no], ['Monthly Fee', product.subscription_fee ? `€${product.subscription_fee}` : null], ['Setup Fee', product.setup_fee && parseFloat(product.setup_fee) > 0 ? `€${product.setup_fee}` : null], ['Discount', product.discount && parseFloat(product.discount) > 0 ? `-€${product.discount}` : null]].filter(([, v]) => v !== null).map(([label, value]) => (
+        {[['N°', product.sr_no], ['Monthly Fee', product.subscription_fee ? fmtUSD(product.subscription_fee) : null], ['Setup Fee', product.setup_fee && parseFloat(product.setup_fee) > 0 ? fmtUSD(product.setup_fee) : null], ['Discount', product.discount && parseFloat(product.discount) > 0 ? '-' + fmtUSD(product.discount) : null]].filter(([, v]) => v !== null).map(([label, value]) => (
           <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{label}</span>
             <span style={{ color: label === 'Discount' ? '#22c55e' : 'var(--text-primary)', fontSize: '12px', fontWeight: label === 'N°' ? '600' : '500' }}>{value}</span>
@@ -114,7 +114,7 @@ function ProductCard({ product, onClick }) {
         ))}
         <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Total Due</span>
-          <span style={{ color: product.total_due > 0 ? '#ef4444' : '#22c55e', fontSize: '14px', fontWeight: '700' }}>€{product.total_due > 0 ? product.total_due.toFixed(2) : '0.00'}</span>
+          <span style={{ color: product.total_due > 0 ? '#ef4444' : '#22c55e', fontSize: '14px', fontWeight: '700' }}>{product.total_due > 0 ? fmtUSD(product.total_due) : '$0.00'}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Renewal Date</span>
@@ -163,7 +163,7 @@ function ProductModal({ product, onClose }) {
           </div>
 
           <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', padding: '16px', border: '1px solid var(--border-color)' }}>
-            {[['Subscription Fee', `€${sub.toFixed(2)}`], setup > 0 && ['Setup Fee', `€${setup.toFixed(2)}`], disc > 0 && ['Discount', `-€${disc.toFixed(2)}`]].filter(Boolean).map(([label, value]) => (
+            {[['Subscription Fee', fmtUSD(sub)], setup > 0 && ['Setup Fee', fmtUSD(setup)], disc > 0 && ['Discount', '-' + fmtUSD(disc)]].filter(Boolean).map(([label, value]) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
                 <span style={{ color: label === 'Discount' ? '#22c55e' : 'var(--text-primary)', fontWeight: '500' }}>{value}</span>
@@ -171,7 +171,7 @@ function ProductModal({ product, onClose }) {
             ))}
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: '600' }}>Total Due</span>
-              <span style={{ fontWeight: '700', fontSize: '16px', color: product.total_due > 0 ? '#ef4444' : '#22c55e' }}>€{product.total_due > 0 ? product.total_due.toFixed(2) : '0.00'}</span>
+              <span style={{ fontWeight: '700', fontSize: '16px', color: product.total_due > 0 ? '#ef4444' : '#22c55e' }}>{product.total_due > 0 ? fmtUSD(product.total_due) : '$0.00'}</span>
             </div>
           </div>
 
