@@ -84,6 +84,12 @@ export const ROLE_PERMISSIONS = {
   ],
 
   custom: null, // Uses explicit permissions array
+
+  client: [
+    PERMISSIONS.READ_CLIENTS,
+    PERMISSIONS.READ_PAYMENTS,
+    PERMISSIONS.READ_RENEWALS,
+  ],
 };
 
 // Legacy permission aliases (for backwards compat with existing users)

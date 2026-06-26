@@ -11,5 +11,13 @@ export async function POST() {
     path: '/'
   });
 
+  response.cookies.set({
+    name: 'pca_user_role',
+    value: '',
+    httpOnly: false,
+    expires: new Date(0),
+    path: '/'
+  });
+
   return response;
 }

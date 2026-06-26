@@ -850,6 +850,123 @@ async function handleMessage(msg, TelegramBotInstance) {
     return;
   }
 
+  if (text.match(/^\/dashboard(?:@\w+)?\s*$/)) {
+    // Find client by looking up the group in bot_group_links
+    const link = get(
+      `SELECT g.client_id, c.name as client_name
+       FROM bot_group_links g
+       JOIN clients c ON c.id = g.client_id
+       WHERE g.chat_id = ? AND g.status = 'linked' LIMIT 1`,
+      [chatId]
+    );
+
+    if (!link || !link.client_id) {
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        '❓ This group is not linked to any client.\n\n' +
+        'Use /start to link this group first.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    // Check if client already has a user account
+    const existingUser = get(
+      `SELECT id, username FROM users WHERE client_id = ? AND role = 'client' LIMIT 1`,
+      [link.client_id]
+    );
+
+    if (existingUser) {
+      // User exists — resend credentials
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        `📋 Your client portal credentials:\n\n` +
+        `Username: <code>${existingUser.username}</code>\n\n` +
+        `🌐 Visit: ${process.env.NEXT_PUBLIC_APP_URL || 'https://pca.primecircle.pro'}/login/client\n\n` +
+        `Use /password to change your password.`,
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    // Create new client user
+    const generatedPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+    const username = `client_${link.client_id}_${Date.now().toString(36)}`;
+
+    try {
+      const { createUser, get: dbGet } = await import('./auth.js');
+      const { run: dbRun, get: dbGet2 } = await import('./db.js');
+
+      const result = createUser(username, generatedPassword, 'client', []);
+
+      if (result && result.id) {
+        // Link user to client
+        dbRun('UPDATE users SET client_id = ? WHERE id = ?', [link.client_id, result.id]);
+      }
+
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        `✅ Client account created!\n\n` +
+        `Username: <code>${username}</code>\n` +
+        `Password: <code>${generatedPassword}</code>\n\n` +
+        `🌐 Visit: ${process.env.NEXT_PUBLIC_APP_URL || 'https://pca.primecircle.pro'}/login/client\n\n` +
+        `⚠️ Please change your password after logging in.`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      console.error('[bot] /dashboard create user error:', err);
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        '❌ Failed to create your account. Please contact the administrator.',
+        { parse_mode: 'HTML' }
+      );
+    }
+    return;
+  }
+
+  if (text.match(/^\/password(?:@\w+)?\s*$/)) {
+    // Find client by looking up the group in bot_group_links
+    const link = get(
+      `SELECT g.client_id, c.name as client_name
+       FROM bot_group_links g
+       JOIN clients c ON c.id = g.client_id
+       WHERE g.chat_id = ? AND g.status = 'linked' LIMIT 1`,
+      [chatId]
+    );
+
+    if (!link || !link.client_id) {
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        '❓ This group is not linked to any client.\n\n' +
+        'Use /start to link this group first.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    const clientUser = get(
+      `SELECT username FROM users WHERE client_id = ? AND role = 'client' LIMIT 1`,
+      [link.client_id]
+    );
+
+    if (!clientUser) {
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        '❓ No portal account found. Use /dashboard to create one.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    await TelegramBotInstance.sendMessage(
+      chatId,
+      `📋 Your login credentials:\n\n` +
+      `Username: <code>${clientUser.username}</code>\n\n` +
+      `🌐 Login at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://pca.primecircle.pro'}/login/client`
+    );
+    return;
+  }
+
   if (text.match(/^\/help(?:@\w+)?\s*$/)) {
     await TelegramBotInstance.sendMessage(
       chatId,
@@ -861,6 +978,8 @@ async function handleMessage(msg, TelegramBotInstance) {
         '  /cancel — discard a pending "Create client" proposal\n' +
         '  /status — show the current link\n' +
         '  /pay — submit payment proof\n' +
+        '  /dashboard — get your client portal login credentials\n' +
+        '  /password — resend your portal credentials\n' +
         '  /help — this message\n' +
         '  /id — show this chat\'s Chat ID'
     );

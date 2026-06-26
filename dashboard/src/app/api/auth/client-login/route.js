@@ -16,8 +16,13 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
+    // Verify this is a client user
+    if (user.role !== 'client') {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
     // Log successful login
-    logActivity(user.id, username, 'LOGIN', 'auth', user.id, 'User logged in');
+    logActivity(user.id, username, 'LOGIN', 'auth', user.id, 'Client logged in');
 
     const response = NextResponse.json({ ok: true, userId: user.id, username: user.username });
 
@@ -35,7 +40,7 @@ export async function POST(req) {
     // Also set role cookie (non-httpOnly so middleware can read it)
     response.cookies.set({
       name: 'pca_user_role',
-      value: user.role || 'admin',
+      value: 'client',
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -45,7 +50,7 @@ export async function POST(req) {
 
     return response;
   } catch (error) {
-    console.error('[POST /api/auth/login]', error);
+    console.error('[POST /api/auth/client-login]', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -4,6 +4,23 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductBadge from '@/components/ProductBadge';
 
+const IconDownload = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+    <polyline points="7 10 12 15 17 10"/>
+    <line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+
+const IconDocument = ({ size = 32, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+  </svg>
+);
+
 export default function PaymentsPage() {
   const [client, setClient] = useState(null);
   const [paymentsData, setPaymentsData] = useState({ payments: [], total_paid: 0 });
@@ -32,25 +49,23 @@ export default function PaymentsPage() {
   const { payments, total_paid } = paymentsData;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>Payment History</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            {payments.length} payment{payments.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '4px' }}>Total Paid</p>
-          <p style={{ fontSize: '32px', fontWeight: '800', color: 'var(--primary-accent)' }}>€{total_paid.toFixed(2)}</p>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1000px', margin: '0 auto' }}>
+      <div style={{ textAlign: 'center' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>Payment History</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{payments.length} payment{payments.length !== 1 ? 's' : ''}</p>
+      </div>
+
+      {/* Total paid card */}
+      <div className="card" style={{ textAlign: 'center', padding: '24px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '500', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Paid</p>
+        <p style={{ fontSize: '40px', fontWeight: '800', color: 'var(--primary-accent)' }}>€{total_paid.toFixed(2)}</p>
       </div>
 
       {payments.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-secondary)' }}>
-          <span style={{ fontSize: '40px', display: 'block', marginBottom: '12px' }}>📜</span>
-          <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>No payments yet</p>
-          <p style={{ fontSize: '13px', opacity: 0.7 }}>Your payment history will appear here.</p>
+        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px', color: 'var(--text-secondary)' }}><IconDocument size={40} /></div>
+          <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>No payments yet</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Your payment history will appear here.</p>
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -73,17 +88,11 @@ export default function PaymentsPage() {
                     <TableCell style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{p.date || '—'}</TableCell>
                     <TableCell style={{ fontWeight: '700', color: '#22c55e', whiteSpace: 'nowrap' }}>€{p.amount || '—'}</TableCell>
                     <TableCell style={{ whiteSpace: 'nowrap' }}>{p.method || '—'}</TableCell>
-                    <TableCell>
-                      <span style={{ fontSize: '12px', fontWeight: '500' }}>{p.product}</span>
-                    </TableCell>
-                    <TableCell style={{ color: 'var(--text-secondary)', fontSize: '12px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.reference || '—'}
-                    </TableCell>
+                    <TableCell><span style={{ fontSize: '12px', fontWeight: '500' }}>{p.product}</span></TableCell>
+                    <TableCell style={{ color: 'var(--text-secondary)', fontSize: '12px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.reference || '—'}</TableCell>
                     <TableCell>
                       {p.is_topup ? (
-                        <span style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>
-                          TOP-UP
-                        </span>
+                        <span style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>TOP-UP</span>
                       ) : (
                         <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Renewal</span>
                       )}
@@ -95,25 +104,9 @@ export default function PaymentsPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Download Invoice PDF"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 12px',
-                            backgroundColor: 'rgba(0, 245, 160, 0.08)',
-                            color: 'var(--primary-accent)',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            textDecoration: 'none',
-                            border: '1px solid rgba(0, 245, 160, 0.15)',
-                            cursor: 'pointer',
-                          }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: 'rgba(0, 245, 160, 0.08)', color: 'var(--primary-accent)', borderRadius: '6px', fontSize: '12px', fontWeight: '600', textDecoration: 'none', border: '1px solid rgba(0, 245, 160, 0.15)' }}
                         >
-                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" />
-                          </svg>
-                          PDF
+                          <IconDownload size={14} /> PDF
                         </a>
                       ) : (
                         <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>—</span>
@@ -128,19 +121,7 @@ export default function PaymentsPage() {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <button
-          onClick={() => router.push('/client/pay')}
-          style={{
-            padding: '12px 32px',
-            backgroundColor: 'var(--primary-accent)',
-            color: '#0B111A',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: '700',
-            cursor: 'pointer'
-          }}
-        >
+        <button onClick={() => router.push('/client/pay')} style={{ padding: '12px 32px', backgroundColor: 'var(--primary-accent)', color: '#0B111A', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>
           + Add New Payment
         </button>
       </div>
@@ -150,11 +131,7 @@ export default function PaymentsPage() {
 
 function TableHeader({ children }) {
   return (
-    <th style={{
-      padding: '12px 16px', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.5px',
-      fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)',
-      whiteSpace: 'nowrap'
-    }}>
+    <th style={{ padding: '12px 16px', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
       {children}
     </th>
   );

@@ -430,9 +430,14 @@ function initDatabase() {
       permissions TEXT DEFAULT '[]',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      last_login DATETIME
+      last_login DATETIME,
+      client_id INTEGER REFERENCES clients(id)
     )
   `);
+
+  // Add client_id column to existing users table (migration)
+  try { db.exec(`ALTER TABLE users ADD COLUMN client_id INTEGER REFERENCES clients(id)`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_client_id ON users(client_id)`); } catch (e) { /* index may already exist */ }
 
   // --- Activity Logs (audit trail) ---
   db.exec(`
