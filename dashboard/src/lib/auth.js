@@ -31,7 +31,7 @@ export function getUserByUsername(username) {
 
 // Get user by ID
 export function getUserById(id) {
-  return get('SELECT id, username, role, permissions, created_at FROM users WHERE id = ?', [id]);
+  return get('SELECT id, username, role, permissions, created_at, client_id FROM users WHERE id = ?', [id]);
 }
 
 // Create a new user
