@@ -1,5 +1,5 @@
 "use client";
-
+// Clients page - rebuilt at 2026-06-27
 import { useEffect, useState, useCallback } from 'react';
 import ClientModal from '@/components/ClientModal';
 import AddClientModal from '@/components/AddClientModal';
