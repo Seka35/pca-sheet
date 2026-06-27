@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from 'react';
-import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
+import { WHOP_DISCOUNT_BY_PARTNER, calculateClientDiscount } from '@/lib/whopLinks';
 
 // SVG Icons matching sidebar style
 const IconDollar = ({ size = 14, color = 'currentColor' }) => (
@@ -147,6 +147,12 @@ export default function ClientFormFields({
       updates.subscription_fee = TIER_PRICING[val].subscription_fee;
       updates.ad_spend_limit = TIER_PRICING[val].ad_spend_limit;
     }
+    // Recalculate discount based on new subscription + current setup
+    if (product.referral_partner_name) {
+      const newSub = updates.subscription_fee || product.subscription_fee;
+      const currentSetup = product.setup_fee;
+      updates.discount = String(calculateClientDiscount(product.referral_partner_name, newSub, currentSetup));
+    }
     onChange({ ...product, ...updates });
   };
 
@@ -155,13 +161,20 @@ export default function ClientFormFields({
     if (SETUP_PRICING[val]) {
       updates.setup_fee = SETUP_PRICING[val].setup_fee;
     }
+    // Recalculate discount based on new setup + current subscription
+    if (product.referral_partner_name) {
+      const currentSub = product.subscription_fee;
+      const newSetup = updates.setup_fee || product.setup_fee;
+      updates.discount = String(calculateClientDiscount(product.referral_partner_name, currentSub, newSetup));
+    }
     onChange({ ...product, ...updates });
   };
 
   const handleReferralPartnerChange = (val) => {
     const updates = { referral_partner_name: val };
-    if (val && WHOP_DISCOUNT_BY_PARTNER[val] !== undefined) {
-      updates.discount = String(WHOP_DISCOUNT_BY_PARTNER[val]);
+    if (val) {
+      const discountAmt = calculateClientDiscount(val, product.subscription_fee, product.setup_fee);
+      updates.discount = String(discountAmt);
     }
     onChange({ ...product, ...updates });
   };

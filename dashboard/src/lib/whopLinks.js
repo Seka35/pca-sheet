@@ -4,12 +4,26 @@
 
 export const WHOP_REFERRAL_PARTNERS = ['N.A.', 'Chris', 'No Limit', '8 Labs', 'Master'];
 
+// Discount percentage given to the CLIENT (applied on subscription + setup)
 export const WHOP_DISCOUNT_BY_PARTNER = {
   'N.A.': 0,
   'Chris': 0,
-  'No Limit': -15,
-  '8 Labs': -15,
-  'Master': -15,
+  'No Limit': 15,   // 15% discount on (tier + setup) for client
+  '8 Labs': 15,
+  'Master': 15,
+};
+
+// Referral commission rates for partners (percentage of each payment to reverse to partner)
+// Chris: 10% only on month 1
+// No Limit: 2.5% every month (cumulative)
+// 8 Labs: 2.5% every month (cumulative)
+// Master: 5% every month (cumulative)
+export const WHOP_REFERRAL_COMMISSION_RATES = {
+  'N.A.': 0,
+  'Chris': { rate: 10, duration: 1 },         // 10% month 1 only
+  'No Limit': { rate: 2.5, duration: 'all' }, // 2.5% every month
+  '8 Labs': { rate: 2.5, duration: 'all' },   // 2.5% every month
+  'Master': { rate: 5, duration: 'all' },     // 5% every month
 };
 
 export const WHOP_PARTNER_WEBSITE = {
@@ -166,4 +180,57 @@ export function getWhopLinksByPartner(referralPartner) {
  */
 export function getWhopDiscount(referralPartner) {
   return WHOP_DISCOUNT_BY_PARTNER[referralPartner] || 0;
+}
+
+/**
+ * Calculate the discount amount for a client based on referral partner
+ * Discount is 15% of (subscription + setup)
+ * @param {string} referralPartner - Referral partner name
+ * @param {number} subscriptionFee - The subscription/tier fee
+ * @param {number} setupFee - The setup fee
+ * @returns {number} The discount amount in dollars
+ */
+export function calculateClientDiscount(referralPartner, subscriptionFee, setupFee) {
+  const discountPct = WHOP_DISCOUNT_BY_PARTNER[referralPartner] || 0;
+  if (discountPct <= 0) return 0;
+  const subtotal = (parseFloat(subscriptionFee) || 0) + (parseFloat(setupFee) || 0);
+  return Math.round(subtotal * discountPct / 100);
+}
+
+/**
+ * Calculate the cumulative referral commission owed to a partner
+ * Based on all payments made by the client
+ * @param {string} referralPartner - Referral partner name
+ * @param {Array<{amount_received: string|number, month: string}>} payments - Array of payments (must have amount_received and month)
+ * @returns {number} The cumulative commission amount
+ */
+export function calculateReferralCommission(referralPartner, payments) {
+  const commissionConfig = WHOP_REFERRAL_COMMISSION_RATES[referralPartner];
+  if (!commissionConfig || commissionConfig.rate === 0) return 0;
+
+  const { rate, duration } = commissionConfig;
+
+  // Sort payments by month (chronological) to handle Chris's month-1-only rule
+  const sortedPayments = [...(payments || [])].sort((a, b) => {
+    if (!a.month || !b.month) return 0;
+    return new Date(a.month) - new Date(b.month);
+  });
+
+  let totalCommission = 0;
+
+  if (duration === 1) {
+    // Chris: 10% only on first payment
+    if (sortedPayments.length > 0) {
+      const firstPayment = parseFloat(sortedPayments[0].amount_received) || 0;
+      totalCommission = Math.round(firstPayment * rate / 100);
+    }
+  } else {
+    // All other partners: rate% of every payment (cumulative)
+    for (const payment of sortedPayments) {
+      const amount = parseFloat(payment.amount_received) || 0;
+      totalCommission += Math.round(amount * rate / 100);
+    }
+  }
+
+  return totalCommission;
 }

@@ -6,7 +6,7 @@ import TelegramBadge from './TelegramBadge';
 import TeleIdBadge from './TeleIdBadge';
 import ClientFormFields from './ClientFormFields';
 import { extractTeleId } from '@/lib/teleIdParser';
-import { WHOP_DISCOUNT_BY_PARTNER } from '@/lib/whopLinks';
+import { WHOP_DISCOUNT_BY_PARTNER, calculateClientDiscount, calculateReferralCommission } from '@/lib/whopLinks';
 
 // Sub-reason labels for churn reason display
 const CHURN_SUB_REASON_LABELS = {
@@ -283,9 +283,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   // Individual payments for Payment History tab (from payments table)
   const [clientPayments, setClientPayments] = useState([]);
 
-  // Fetch individual payments when payments tab is active or client changes
+  // Fetch individual payments when payments/products tab is active or client changes
   useEffect(() => {
-    if (activeTab === 'payments' && client?.id) {
+    if ((activeTab === 'payments' || activeTab === 'products') && client?.id) {
       setClientPayments([]); // clear first to avoid showing stale data
       fetch(`/api/payments?client_id=${client.id}`)
         .then(res => res.json())
@@ -359,6 +359,14 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
 
     return rows;
   }, [clientPayments, history]);
+
+  // Calculate total referral commission for the client (cumulative based on all payments)
+  const totalReferralCommission = useMemo(() => {
+    // Get the referral partner from the first active product (all products should have same partner)
+    const partner = history?.find(h => h.referral_partner_name)?.referral_partner_name || 'N.A.';
+    // Calculate commission based on all payments
+    return calculateReferralCommission(partner, allDisplayPayments);
+  }, [history, allDisplayPayments]);
 
   // Selected product filter for payment history view
   const [selectedPaymentProduct, setSelectedPaymentProduct] = useState(null); // null = all products
@@ -567,6 +575,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const startAddPayment = () => {
     setEditingPayment('new');
     setSelectedProductSrNo('');
+    // Prefill partner from first active product
+    const firstActive = activeProducts[0] || {};
+    const prefilledPartner = firstActive.referral_partner_name || '';
     setManualPaymentForm({
       month: '',
       bank_name: '',
@@ -578,48 +589,50 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       subscription_fee: '',
       setup_fee: '',
       discount: '',
-      referral_partner_name: '',
+      referral_partner_name: prefilledPartner,
       valid_stopped_date: '',
       is_topup: false,
     });
   };
 
-  // Handle tier change - auto-fill subscription_fee
+  // Handle tier change - auto-fill subscription_fee and recalculate discount on (sub + setup)
   const handlePaymentTierChange = (val) => {
     const updates = { tier: val };
     if (TIER_PRICING[val]) {
       updates.subscription_fee = TIER_PRICING[val];
     }
-    // Recalculate discount if referral partner is set
+    // Recalculate discount if referral partner is set: 15% of (subscription + setup)
     const currentForm = manualPaymentForm;
-    const newSub = TIER_PRICING[val] || currentForm.subscription_fee;
-    if (currentForm.referral_partner_name && WHOP_DISCOUNT_BY_PARTNER[currentForm.referral_partner_name]) {
-      const discountPct = Math.abs(WHOP_DISCOUNT_BY_PARTNER[currentForm.referral_partner_name]);
-      updates.discount = String(Math.round(newSub * discountPct / 100));
+    const newSub = updates.subscription_fee || currentForm.subscription_fee;
+    const currentSetup = currentForm.setup_fee;
+    if (currentForm.referral_partner_name) {
+      updates.discount = String(calculateClientDiscount(currentForm.referral_partner_name, newSub, currentSetup));
     }
     setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
 
-  // Handle setup type change - auto-fill setup_fee
+  // Handle setup type change - auto-fill setup_fee and recalculate discount
   const handlePaymentSetupTypeChange = (val) => {
     const updates = { setup_type: val };
     if (SETUP_PRICING[val]) {
       updates.setup_fee = SETUP_PRICING[val];
     }
+    // Recalculate discount if referral partner is set: 15% of (subscription + setup)
+    const currentForm = manualPaymentForm;
+    if (currentForm.referral_partner_name) {
+      const currentSub = currentForm.subscription_fee;
+      const newSetup = updates.setup_fee || currentForm.setup_fee;
+      updates.discount = String(calculateClientDiscount(currentForm.referral_partner_name, currentSub, newSetup));
+    }
     setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
 
-  // Handle referral partner change - auto-fill discount as percentage of subscription
+  // Handle referral partner change - auto-fill discount as 15% of (subscription + setup)
   const handlePaymentReferralPartnerChange = (val) => {
     const updates = { referral_partner_name: val };
-    if (val && manualPaymentForm.subscription_fee) {
-      const discountPct = Math.abs(WHOP_DISCOUNT_BY_PARTNER[val] || 0);
-      if (discountPct > 0) {
-        updates.discount = String(Math.round(parseFloat(manualPaymentForm.subscription_fee) * discountPct / 100));
-      } else {
-        updates.discount = '0';
-      }
-    }
+    const currentSub = manualPaymentForm.subscription_fee;
+    const currentSetup = manualPaymentForm.setup_fee;
+    updates.discount = String(calculateClientDiscount(val, currentSub, currentSetup));
     setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
 
@@ -1231,11 +1244,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <span style={{ fontWeight: '700', fontSize: '18px' }}>{computedData?.renewalCount}x</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Stable Client</span>
-                          <span style={{ fontWeight: '700', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {computedData?.isStable ? <IconCheck size={16} color="var(--status-active)" /> : <IconRemove size={16} color="#f87171" />}
-                            {computedData?.isStable ? 'Yes' : 'No'}
-                          </span>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Referral Commission</span>
+                          <span style={{ fontWeight: '700', fontSize: '18px', color: '#A855F7' }}>{totalReferralCommission > 0 ? `$${totalReferralCommission}` : '—'}</span>
                         </div>
                       </div>
                     </div>
@@ -1540,8 +1550,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                                 <span style={{ fontWeight: '600', color: '#A855F7' }}>{product.referral_partner_name || '—'}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Ref. Amount</span>
-                                <span style={{ fontWeight: '600' }}>{product.referral_amount || '—'}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>Ref. Commission</span>
+                                <span style={{ fontWeight: '600', color: '#A855F7' }}>{totalReferralCommission > 0 ? `$${totalReferralCommission}` : '—'}</span>
                               </div>
                             </div>
                           </div>
