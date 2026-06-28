@@ -332,14 +332,40 @@ export async function POST(req) {
           ORDER BY COALESCE(payment_received_date, '1900-01-01') DESC, id DESC LIMIT 1
         `, [renewal_sr_no]);
 
-        run(`UPDATE renewals SET amount_received = ?, payment_received_date = ?, payment_received_month = ?, reference_no = ?, bank_name = ? WHERE sr_no = ?`, [
+        // Calculate valid_stopped_date = payment date + 1 month (for monthly products)
+        const paymentDate = payment_received_date || latestPayment?.payment_received_date || new Date().toISOString().split('T')[0];
+        let validStopDate = paymentDate;
+        if (validStopDate) {
+          const vd = new Date(validStopDate.includes('/') ? validStopDate.split('/').reverse().join('-') : validStopDate);
+          vd.setMonth(vd.getMonth() + 1);
+          validStopDate = vd.toISOString().split('T')[0];
+        }
+
+        // Calculate referral_amount for this product: (subscription + setup - discount) × rate
+        let referralAmt = existingRenewal.referral_amount || '';
+        if (!referralAmt && existingRenewal.referral_partner_name && existingRenewal.referral_partner_name !== 'N.A.') {
+          const rates = { 'Chris': 10, 'No Limit': 2.5, '8 Labs': 2.5, 'Master': 5 };
+          const rate = rates[existingRenewal.referral_partner_name] || 0;
+          if (rate > 0) {
+            const baseAmount = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
+            referralAmt = String(Math.round(baseAmount * rate / 100));
+          }
+        }
+
+        run(`UPDATE renewals SET amount_received = ?, payment_received_date = ?, payment_received_month = ?, reference_no = ?, bank_name = ?, valid_stopped_date = COALESCE(NULLIF(valid_stopped_date, ''), ?) WHERE sr_no = ?`, [
           totalAmount.toString(),
           latestPayment?.payment_received_date || existingRenewal.payment_received_date,
           latestPayment?.payment_received_month || existingRenewal.payment_received_month,
           latestPayment?.reference_no || existingRenewal.reference_no,
           latestPayment?.bank_name || existingRenewal.bank_name,
+          validStopDate || existingRenewal.valid_stopped_date,
           renewal_sr_no
         ]);
+
+        // Also update referral_amount if not already set
+        if (referralAmt) {
+          run(`UPDATE renewals SET referral_amount = COALESCE(NULLIF(referral_amount, ''), ?) WHERE sr_no = ?`, [referralAmt, renewal_sr_no]);
+        }
 
         // Check if product is paid in full: amount_received >= (subscription + setup - discount)
         const amountDue = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);

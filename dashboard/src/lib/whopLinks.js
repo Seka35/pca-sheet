@@ -211,10 +211,13 @@ export function calculateReferralCommission(referralPartner, payments) {
   const { rate, duration } = commissionConfig;
 
   // Sort payments by month (chronological) to handle Chris's month-1-only rule
-  const sortedPayments = [...(payments || [])].sort((a, b) => {
-    if (!a.month || !b.month) return 0;
-    return new Date(a.month) - new Date(b.month);
-  });
+  // Filter out top-up payments (they don't generate commission)
+  const sortedPayments = [...(payments || [])]
+    .filter(p => !p.is_topup)
+    .sort((a, b) => {
+      if (!a.month || !b.month) return 0;
+      return new Date(a.month) - new Date(b.month);
+    });
 
   let totalCommission = 0;
 

@@ -320,6 +320,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         amount_received: p.amount_received || '',
         reference_no: p.reference_no || '',
         payment_received_date: p.payment_received_date || '',
+        is_topup: p.is_topup || 0,
         source: 'new',
       });
     });
@@ -345,6 +346,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           amount_received: h.amount_received || '',
           reference_no: h.reference_no || '',
           payment_received_date: h.payment_received_date || '',
+          is_topup: 0,
           source: 'old',
         });
       }
@@ -360,13 +362,20 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     return rows;
   }, [clientPayments, history]);
 
-  // Calculate total referral commission for the client (cumulative based on all payments)
+  // Calculate total referral commission: sum of per-product commissions
   const totalReferralCommission = useMemo(() => {
-    // Get the referral partner from the first active product (all products should have same partner)
-    const partner = history?.find(h => h.referral_partner_name)?.referral_partner_name || 'N.A.';
-    // Calculate commission based on all payments
-    return calculateReferralCommission(partner, allDisplayPayments);
-  }, [history, allDisplayPayments]);
+    const rates = { 'Chris': 10, 'No Limit': 2.5, '8 Labs': 2.5, 'Master': 5 };
+    let total = 0;
+    (history || []).forEach(r => {
+      const partner = r.referral_partner_name;
+      if (!partner || partner === 'N.A.') return;
+      const rate = rates[partner] || 0;
+      if (rate === 0) return;
+      const base = (parseFloat(r.subscription_fee) || 0) + (parseFloat(r.setup_fee) || 0);
+      total += Math.round(base * rate / 100);
+    });
+    return total;
+  }, [history]);
 
   // Selected product filter for payment history view
   const [selectedPaymentProduct, setSelectedPaymentProduct] = useState(null); // null = all products
@@ -607,6 +616,13 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     const currentSetup = currentForm.setup_fee;
     if (currentForm.referral_partner_name) {
       updates.discount = String(calculateClientDiscount(currentForm.referral_partner_name, newSub, currentSetup));
+      // Also recalculate referral_amount
+      const rates = { 'Chris': 10, 'No Limit': 2.5, '8 Labs': 2.5, 'Master': 5 };
+      const rate = rates[currentForm.referral_partner_name] || 0;
+      if (rate > 0) {
+        const baseAmount = (parseFloat(newSub) || 0) + (parseFloat(currentSetup) || 0) - (parseFloat(updates.discount) || 0);
+        updates.referral_amount = String(Math.round(baseAmount * rate / 100));
+      }
     }
     setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
@@ -623,16 +639,33 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       const currentSub = currentForm.subscription_fee;
       const newSetup = updates.setup_fee || currentForm.setup_fee;
       updates.discount = String(calculateClientDiscount(currentForm.referral_partner_name, currentSub, newSetup));
+      // Also recalculate referral_amount
+      const rates = { 'Chris': 10, 'No Limit': 2.5, '8 Labs': 2.5, 'Master': 5 };
+      const rate = rates[currentForm.referral_partner_name] || 0;
+      if (rate > 0) {
+        const baseAmount = (parseFloat(currentSub) || 0) + (parseFloat(newSetup) || 0) - (parseFloat(updates.discount) || 0);
+        updates.referral_amount = String(Math.round(baseAmount * rate / 100));
+      }
     }
     setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
 
   // Handle referral partner change - auto-fill discount as 15% of (subscription + setup)
+  // and referral_amount as (subscription + setup - discount) × rate
   const handlePaymentReferralPartnerChange = (val) => {
     const updates = { referral_partner_name: val };
     const currentSub = manualPaymentForm.subscription_fee;
     const currentSetup = manualPaymentForm.setup_fee;
     updates.discount = String(calculateClientDiscount(val, currentSub, currentSetup));
+    // Auto-calculate referral_amount for partners with commission
+    const rates = { 'Chris': 10, 'No Limit': 2.5, '8 Labs': 2.5, 'Master': 5 };
+    const rate = rates[val] || 0;
+    if (rate > 0) {
+      const baseAmount = (parseFloat(currentSub) || 0) + (parseFloat(currentSetup) || 0) - (parseFloat(updates.discount) || 0);
+      updates.referral_amount = String(Math.round(baseAmount * rate / 100));
+    } else {
+      updates.referral_amount = '';
+    }
     setManualPaymentForm(prev => ({ ...prev, ...updates }));
   };
 
@@ -670,6 +703,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           setup_fee: product.setup_fee || '',
           discount: product.discount || '',
           valid_stopped_date: product.valid_stopped_date || '',
+          referral_partner_name: product.referral_partner_name || '',
+          referral_amount: product.referral_amount || '',
         });
       }
     }
@@ -1551,7 +1586,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Ref. Commission</span>
-                                <span style={{ fontWeight: '600', color: '#A855F7' }}>{totalReferralCommission > 0 ? `$${totalReferralCommission}` : '—'}</span>
+                                <span style={{ fontWeight: '600', color: '#A855F7' }}>{product.referral_amount ? `$${product.referral_amount}` : '—'}</span>
                               </div>
                             </div>
                           </div>

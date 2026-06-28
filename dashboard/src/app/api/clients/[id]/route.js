@@ -97,13 +97,18 @@ export async function GET(req, { params }) {
     // Earliest start date (from oldest renewal)
     const earliestStartDate = history.length > 0 ? history[history.length - 1].start_date : null;
 
-    // Next renewal date: the valid_stopped_date of the product expiring soonest (earliest valid_until date)
-    const activeProducts = history.filter(r => r.visual_status === 'Active' || r.active !== false);
+    // Next renewal date: the valid_stopped_date of the product expiring soonest
+    // Only consider products with actual payments and future dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const paidProducts = history.filter(r => {
+      const hasPayment = parseAmount(r.amount_received) > 0;
+      const hasValidDate = r.valid_stopped_date && new Date(r.valid_stopped_date) > today;
+      return hasPayment && hasValidDate;
+    });
     let nextRenewalDate = null;
-    if (activeProducts.length > 0) {
-      const sortedByValidUntil = [...activeProducts].sort((a, b) => {
-        if (!a.valid_stopped_date) return 1;
-        if (!b.valid_stopped_date) return -1;
+    if (paidProducts.length > 0) {
+      const sortedByValidUntil = [...paidProducts].sort((a, b) => {
         return new Date(a.valid_stopped_date) - new Date(b.valid_stopped_date);
       });
       nextRenewalDate = sortedByValidUntil[0].valid_stopped_date;
