@@ -115,7 +115,7 @@ export default function ClientDashboardPage() {
   const activeProducts = renewals.filter(r => r.visual_status === 'Active');
   const trialProducts = renewals.filter(r => r.is_trial && r.visual_status === 'Active');
   const upcomingRenewals = renewals.filter(r => {
-    return r.diff_days !== null && r.diff_days !== undefined && r.diff_days >= 0 && r.diff_days <= 30 && r.billing_status !== 'FULLY PAID';
+    return r.diff_days !== null && r.diff_days !== undefined && r.diff_days >= 0 && r.diff_days <= 15 && r.billing_status !== 'FULLY PAID';
   });
 
   // All products that need payment (not fully paid) — trial, partial, unpaid
