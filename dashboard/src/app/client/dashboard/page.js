@@ -151,7 +151,7 @@ export default function ClientDashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <StatCard label="Total Paid" value={fmtUSD(paymentsData.total_paid)} icon={<IconCurrency size={24} />} color="#22c55e" subValue={`${paymentsData.payments.length} payments`} />
         <StatCard label="Active Products" value={activeProducts.length} icon={<IconBox size={24} />} color="#3b82f6" subValue={`${unpaidProducts.length} pending`} />
-        <StatCard label="Upcoming Renewals" value={upcomingRenewals.length} icon={<IconCalendar size={24} />} color="#f59e0b" subValue="Next 30 days" />
+        <StatCard label="Upcoming Renewals" value={upcomingRenewals.length} icon={<IconCalendar size={24} />} color="#f59e0b" subValue="Next 15 days / Past due" />
         <StatCard label="Amount Due" value={unpaidAmount > 0 ? fmtUSD(unpaidAmount) : '$0.00'} icon={<IconClock size={24} />} color={unpaidAmount > 0 ? '#ef4444' : '#22c55e'} subValue={unpaidAmount > 0 ? 'Pending payment' : 'All clear'} />
       </div>
 
