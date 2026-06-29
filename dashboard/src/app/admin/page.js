@@ -223,44 +223,29 @@ export default function AdminPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>ID</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Name</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Login</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Client Name</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Products</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>MRR</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Since</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {clients.length === 0 ? (
                   <tr>
-                    <td colSpan="6" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      No clients found
+                    <td colSpan="4" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      No client accounts found
                     </td>
                   </tr>
                 ) : (
                   clients.map(client => (
-                    <tr key={client.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>#{client.pd_id}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>{client.nom}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '13px' }}>
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          backgroundColor: client.statut === 'Active' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                          color: client.statut === 'Active' ? '#34D399' : '#EF4444',
-                        }}>
-                          {client.statut}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{client.produits || '—'}</td>
-                      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>
-                        {client.mensuel ? `$${typeof client.mensuel === 'number' ? client.mensuel.toFixed(2) : client.mensuel}` : '—'}
-                      </td>
-                      <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{client.anciennete || '—'}</td>
-                    </tr>
+                    <ClientRow key={client.user_id} client={client} onUpdate={() => {
+                      // Refresh clients list after update
+                      fetch('/api/admin/clients')
+                        .then(res => res.json())
+                        .then(data => {
+                          if (Array.isArray(data)) setClients(data);
+                        });
+                    }} />
                   ))
                 )}
               </tbody>
@@ -365,5 +350,180 @@ export default function AdminPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Client Row component with inline edit functionality
+function ClientRow({ client, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [username, setUsername] = useState(client.username);
+  const [newPassword, setNewPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    if (!username.trim()) {
+      setError('Username is required');
+      return;
+    }
+    if (newPassword && newPassword.length < 4) {
+      setError('Password must be at least 4 characters');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const body = { username: username.trim() };
+      if (newPassword) body.password = newPassword;
+
+      const res = await fetch(`/api/admin/users/${client.user_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update');
+      }
+
+      setNewPassword('');
+      setEditing(false);
+      onUpdate();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setUsername(client.username);
+    setNewPassword('');
+    setError('');
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+        <td colSpan="4" style={{ padding: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '4px' }}>USERNAME</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '4px' }}>NEW PASSWORD (leave empty to keep current)</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                  }}
+                />
+              </div>
+            </div>
+            {error && (
+              <div style={{ color: '#EF4444', fontSize: '12px' }}>{error}</div>
+            )}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  padding: '6px 16px',
+                  backgroundColor: 'var(--primary-accent)',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                  opacity: saving ? 0.7 : 1,
+                }}
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={handleCancel}
+                style={{
+                  padding: '6px 16px',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+      <td style={{ padding: '12px 16px', fontSize: '13px', fontFamily: 'monospace' }}>{client.username}</td>
+      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>{client.name || client.username}</td>
+      <td style={{ padding: '12px 16px', fontSize: '13px' }}>
+        <span style={{
+          padding: '4px 10px',
+          borderRadius: '6px',
+          fontSize: '11px',
+          fontWeight: '600',
+          backgroundColor: client.status === 'Active' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+          color: client.status === 'Active' ? '#34D399' : '#EF4444',
+        }}>
+          {client.status}
+        </span>
+      </td>
+      <td style={{ padding: '12px 16px', fontSize: '13px' }}>
+        <button
+          onClick={() => setEditing(true)}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: '600',
+            cursor: 'pointer',
+          }}
+        >
+          Edit Login
+        </button>
+      </td>
+    </tr>
   );
 }
