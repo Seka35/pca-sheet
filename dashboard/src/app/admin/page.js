@@ -41,8 +41,16 @@ const IconBot = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 );
 
+const IconClients = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
 const TABS = [
   { id: 'users', label: 'Users', Icon: IconUsers },
+  { id: 'clients', label: 'Clients', Icon: IconClients },
   { id: 'activity', label: 'Activity', Icon: IconActivity },
   { id: 'backup', label: 'Backup', Icon: IconBackup },
   { id: 'bot', label: 'Bot Telegram', Icon: IconBot },
@@ -51,6 +59,7 @@ const TABS = [
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
+  const [clients, setClients] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -90,6 +99,20 @@ export default function AdminPage() {
         setLoading(false);
       });
   }, [router]);
+
+  useEffect(() => {
+    if (activeTab === 'clients') {
+      // Fetch only clients that have login accounts (users with role='client')
+      fetch('/api/admin/clients')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setClients(data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeTab]);
 
   if (loading) {
     return (
@@ -169,6 +192,81 @@ export default function AdminPage() {
       {/* Tab Content */}
       {activeTab === 'users' && (
         <AdminUserList users={users} currentUserId={currentUserId} />
+      )}
+
+      {activeTab === 'clients' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '4px' }}>Client Accounts</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                {clients.length} client{clients.length !== 1 ? 's' : ''} with portal access
+              </p>
+            </div>
+            <Link href="/clients">
+              <button style={{
+                padding: '10px 20px',
+                backgroundColor: 'var(--primary-accent)',
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}>
+                Full Client List →
+              </button>
+            </Link>
+          </div>
+
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>ID</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Name</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Status</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Products</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>MRR</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Since</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clients.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      No clients found
+                    </td>
+                  </tr>
+                ) : (
+                  clients.map(client => (
+                    <tr key={client.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>#{client.pd_id}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>{client.nom}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px' }}>
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          backgroundColor: client.statut === 'Active' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                          color: client.statut === 'Active' ? '#34D399' : '#EF4444',
+                        }}>
+                          {client.statut}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{client.produits || '—'}</td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>
+                        {client.mensuel ? `$${typeof client.mensuel === 'number' ? client.mensuel.toFixed(2) : client.mensuel}` : '—'}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{client.anciennete || '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {activeTab === 'activity' && (

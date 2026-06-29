@@ -79,16 +79,9 @@ export function updateLastLogin(id) {
   return run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]);
 }
 
-// Get user object from a Next.js request (via cookie)
-export function getUserFromRequest(req) {
-  const userId = req.cookies?.get?.('pca_user_id')?.value;
-  if (!userId) return null;
-  return getUserById(parseInt(userId, 10));
-}
-
-// Get all users (without passwords)
+// Get all users (without passwords) - excludes client users for security
 export function getAllUsers() {
-  return all('SELECT id, username, role, permissions, created_at, updated_at FROM users ORDER BY id');
+  return all('SELECT id, username, role, permissions, created_at, updated_at FROM users WHERE role != \'client\' ORDER BY id');
 }
 
 // Check if any users exist (for setup check)

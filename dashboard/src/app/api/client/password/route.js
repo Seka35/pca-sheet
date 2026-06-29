@@ -1,17 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getUserById, hashPassword, verifyPassword } from '@/lib/auth';
+import { getUserFromRequest } from '@/lib/apiAuth';
+import { hashPassword, verifyPassword } from '@/lib/auth';
 import { run } from '@/lib/db';
 
 export async function PUT(req) {
-  const userId = req.cookies.get('pca_user_id')?.value;
+  const user = getUserFromRequest(req);
 
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const user = getUserById(parseInt(userId, 10));
-
-  if (!user || user.role !== 'client') {
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

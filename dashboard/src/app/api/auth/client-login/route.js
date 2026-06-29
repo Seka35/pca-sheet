@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUserByUsername, verifyPassword } from '@/lib/auth';
 import { logActivity } from '@/lib/db';
+import { createSessionToken, getSessionCookieOptions } from '@/lib/session';
 
 export async function POST(req) {
   try {
@@ -24,28 +25,13 @@ export async function POST(req) {
     // Log successful login
     logActivity(user.id, username, 'LOGIN', 'auth', user.id, 'Client logged in');
 
+    // Create HMAC-signed session token with client_id
+    const token = createSessionToken(user.id, user.role, user.client_id);
+
     const response = NextResponse.json({ ok: true, userId: user.id, username: user.username });
-
-    // Set HTTP-only cookie with user ID and role
     response.cookies.set({
-      name: 'pca_user_id',
-      value: String(user.id),
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7 // 1 week
-    });
-
-    // Also set role cookie (non-httpOnly so middleware can read it)
-    response.cookies.set({
-      name: 'pca_user_role',
-      value: 'client',
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7 // 1 week
+      ...getSessionCookieOptions(),
+      value: token
     });
 
     return response;

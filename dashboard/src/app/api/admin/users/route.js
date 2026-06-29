@@ -1,19 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getAllUsers, createUser, hasPermission, getUserById } from '@/lib/auth';
 import { logActivity } from '@/lib/db';
+import { verifySessionToken } from '@/lib/session';
 
 function checkManageUsers(req) {
-  const userId = req.cookies.get('pca_user_id')?.value;
-  if (!userId) return { ok: false, status: 401 };
-  const user = getUserById(parseInt(userId, 10));
+  const session = verifySessionToken(req.cookies.get('pca_session')?.value);
+  if (!session?.userId) return { ok: false, status: 401 };
+  const user = getUserById(session.userId);
   if (!user) return { ok: false, status: 401 };
+  // Verify role matches session (defense in depth)
+  if (session.role !== user.role) return { ok: false, status: 401 };
   // super_admin bypasses all permission checks
   if (user.role === 'super_admin') return { ok: true, user };
   if (!hasPermission(user, 'read_users')) return { ok: false, status: 403 };
   return { ok: true, user };
 }
 
-// GET /api/admin/users - List all users
+// GET /api/admin/users - List all users (excludes clients)
 export async function GET(req) {
   const auth = checkManageUsers(req);
   if (!auth.ok) {

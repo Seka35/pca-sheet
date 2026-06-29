@@ -4,7 +4,6 @@ import { validateAddClientPayload } from '@/lib/clientValidation';
 import { createClient } from '@/lib/clientCreator';
 import { extractTeleId } from '@/lib/teleIdParser';
 import { requirePermission } from '@/lib/apiAuth';
-import { getUserFromRequest } from '@/lib/auth';
 import { logActivity } from '@/lib/db';
 
 function parseAmount(val) {

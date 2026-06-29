@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getUserById, parseUserPermissions } from '@/lib/auth';
+import { verifySessionToken } from '@/lib/session';
 
 export async function GET(req) {
-  const userId = req.cookies.get('pca_user_id')?.value;
+  const session = verifySessionToken(req.cookies.get('pca_session')?.value);
 
-  if (!userId) {
+  if (!session?.userId) {
     return NextResponse.json({ authenticated: false });
   }
 
-  const user = getUserById(parseInt(userId, 10));
+  const user = getUserById(session.userId);
 
   if (!user) {
+    return NextResponse.json({ authenticated: false });
+  }
+
+  // Verify the role in session matches the user's actual role (defense in depth)
+  if (session.role !== user.role) {
+    // Role was changed after session was created, invalidate
     return NextResponse.json({ authenticated: false });
   }
 
@@ -23,6 +30,7 @@ export async function GET(req) {
       username: user.username,
       role: user.role,
       permissions,
+      clientId: user.client_id
     }
   });
 }

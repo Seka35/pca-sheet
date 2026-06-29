@@ -1,6 +1,71 @@
 import { NextResponse } from 'next/server';
 
-export function middleware(request) {
+const SESSION_SECRET = process.env.SESSION_SECRET || 'fallback-secret-change-in-production!!';
+const COOKIE_NAME = 'pca_session';
+
+// Decode base64url string to bytes
+function base64UrlDecode(str) {
+  // Replace base64url characters with standard base64
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  // Add padding if needed
+  while (str.length % 4) {
+    str += '=';
+  }
+  return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+}
+
+// Verify HMAC signature using Web Crypto API (Edge compatible)
+async function verifyToken(token) {
+  if (!token) return null;
+
+  try {
+    const [payloadStr, signature] = token.split('.');
+    if (!payloadStr || !signature) return null;
+
+    // Verify signature using Web Crypto API
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(SESSION_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    const isValid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      base64UrlDecode(signature),
+      encoder.encode(payloadStr)
+    );
+
+    if (!isValid) {
+      console.warn('[middleware] Invalid signature');
+      return null;
+    }
+
+    // Decode payload
+    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadStr)));
+
+    // Check expiration (7 days)
+    const maxAge = 7 * 24 * 60 * 60 * 1000;
+    if (Date.now() - payload.iat > maxAge) {
+      console.warn('[middleware] Token expired');
+      return null;
+    }
+
+    return {
+      userId: payload.userId,
+      role: payload.role,
+      clientId: payload.clientId
+    };
+  } catch (e) {
+    console.error('[middleware] Verify error:', e.message);
+    return null;
+  }
+}
+
+export async function middleware(request) {
   const path = request.nextUrl.pathname;
 
   // Public paths that don't need authentication
@@ -15,8 +80,11 @@ export function middleware(request) {
     path === '/favicon.ico' ||
     path.startsWith('/_next');
 
-  const userId = request.cookies.get('pca_user_id')?.value;
-  const userRole = request.cookies.get('pca_user_role')?.value;
+  // Verify the signed session token
+  const token = request.cookies.get(COOKIE_NAME)?.value;
+  const session = await verifyToken(token);
+  const userId = session?.userId;
+  const isClientUser = session?.role === 'client';
 
   if (!isPublicPath && !userId) {
     // For API routes, return JSON 401 instead of redirecting to HTML
@@ -31,22 +99,14 @@ export function middleware(request) {
     const isClientLoginPage = path === '/login/client';
     const isAdminLoginPage = path === '/login' || path === '/login/setup';
 
-    if (userRole === 'client') {
+    if (isClientUser) {
       // Clients should go to client dashboard, not admin pages
       if (isAdminLoginPage) {
         return NextResponse.redirect(new URL('/client/dashboard', request.nextUrl));
       }
-      // If already on client login, stay there
-      if (isClientLoginPage) {
-        return NextResponse.next();
-      }
     } else {
       // Admins should go to admin dashboard, not client portal
       if (isClientLoginPage) {
-        return NextResponse.redirect(new URL('/', request.nextUrl));
-      }
-      // If already on admin login, stay there
-      if (isAdminLoginPage) {
         return NextResponse.redirect(new URL('/', request.nextUrl));
       }
     }
@@ -57,13 +117,6 @@ export function middleware(request) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/webhook (webhooks don't need auth session)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!api/webhook|_next/static|_next/image|favicon.ico).*)',
   ],
 };

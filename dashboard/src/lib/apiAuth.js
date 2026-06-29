@@ -1,15 +1,19 @@
 // Server-side API authorization helpers
-import { getUserById } from './auth';
-import { hasPermission } from './auth';
+import { getUserById, hasPermission } from './auth';
+import { verifySessionToken } from './session';
 
 /**
- * Get the current user from a Next.js request (via cookie).
- * Returns null if not authenticated.
+ * Get the current user from a Next.js request (via signed session cookie).
+ * Returns null if not authenticated or session is invalid/tampered.
  */
 export function getUserFromRequest(req) {
-  const userId = req.cookies?.get?.('pca_user_id')?.value;
-  if (!userId) return null;
-  return getUserById(parseInt(userId, 10));
+  const session = verifySessionToken(req.cookies?.get('pca_session')?.value);
+  if (!session?.userId) return null;
+  const user = getUserById(session.userId);
+  if (!user) return null;
+  // Defense in depth: verify role matches session
+  if (session.role !== user.role) return null;
+  return user;
 }
 
 /**

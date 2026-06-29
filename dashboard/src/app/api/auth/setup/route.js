@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { hasUsers, createUser } from '@/lib/auth';
+import { createSessionToken, getSessionCookieOptions } from '@/lib/session';
 
 export async function POST(req) {
   try {
@@ -28,16 +29,13 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
 
-    // Set session cookie
+    // Create HMAC-signed session token
+    const token = createSessionToken(result.id, 'super_admin', null);
+
     const response = NextResponse.json({ ok: true, userId: result.id });
     response.cookies.set({
-      name: 'pca_user_id',
-      value: String(result.id),
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
+      ...getSessionCookieOptions(),
+      value: token
     });
 
     return response;

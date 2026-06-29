@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUserById } from '@/lib/auth';
+import { getUserFromRequest } from '@/lib/apiAuth';
 import { get, run } from '@/lib/db';
 
 function parseAmount(val) {
@@ -9,13 +9,7 @@ function parseAmount(val) {
 }
 
 export async function POST(req) {
-  const userId = req.cookies.get('pca_user_id')?.value;
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const user = getUserById(parseInt(userId, 10));
+  const user = getUserFromRequest(req);
 
   if (!user || user.role !== 'client' || !user.client_id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
