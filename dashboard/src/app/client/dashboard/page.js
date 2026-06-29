@@ -254,16 +254,20 @@ export default function ClientDashboardPage() {
                   <TableHeader>N°</TableHeader>
                   <TableHeader>Product</TableHeader>
                   <TableHeader>Monthly Fee</TableHeader>
+                  <TableHeader>CL Amount</TableHeader>
                   <TableHeader>Renewal Date</TableHeader>
                   <TableHeader>Status</TableHeader>
                 </tr>
               </thead>
               <tbody>
-                {activeProducts.slice(0, 5).map(r => (
+                {activeProducts.slice(0, 5).map(r => {
+                  const clAmount = parseFloat(String(r.cl_amount || '0').replace(/[^0-9.]/g, '')) || 0;
+                  return (
                   <tr key={r.sr_no} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{r.sr_no}</TableCell>
                     <TableCell><ProductBadge tier={r.tier} setup_type={r.setup_type} is_trial={r.is_trial} /></TableCell>
                     <TableCell style={{ fontWeight: '500' }}>{(() => { const sub = parseFloat(String(r.subscription_fee || '0').replace(/[^0-9.-]+/g, '')) || 0; const setup = parseFloat(String(r.setup_fee || '0').replace(/[^0-9.-]+/g, '')) || 0; const disc = parseFloat(String(r.discount || '0').replace(/[^0-9.-]+/g, '')) || 0; const total = sub + setup - disc; return total > 0 ? fmtUSD(total) : '—'; })()}</TableCell>
+                    <TableCell style={{ fontWeight: '500', color: clAmount > 0 ? '#a78bfa' : 'var(--text-secondary)' }}>{clAmount > 0 ? fmtUSD(clAmount) : '—'}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{r.valid_stopped_date || '—'}</TableCell>
                     <TableCell>
                       <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: r.billing_status === 'FULLY PAID' ? 'rgba(34, 197, 94, 0.15)' : r.billing_status === 'PARTIALLY PAID' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: r.billing_status === 'FULLY PAID' ? '#22c55e' : r.billing_status === 'PARTIALLY PAID' ? '#f59e0b' : '#ef4444' }}>
@@ -271,7 +275,8 @@ export default function ClientDashboardPage() {
                       </span>
                     </TableCell>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -343,8 +348,10 @@ export default function ClientDashboardPage() {
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{p.method || '—'}</TableCell>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{p.product}</TableCell>
                     <TableCell>
-                      {p.is_topup && (
+                      {p.is_topup ? (
                         <span style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>TOP-UP</span>
+                      ) : (
+                        <span style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>RENEWAL</span>
                       )}
                     </TableCell>
                   </tr>

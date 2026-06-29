@@ -111,13 +111,16 @@ export default function PaymentsPage() {
   };
 
   const downloadInvoice = (paymentRow) => {
+    // For topups, don't pass sr_no so invoice uses passed params directly (not DB data)
+    const isTopup = paymentRow.is_topup === 1 || paymentRow.is_topup === true;
     const params = new URLSearchParams({
-      sr_no: paymentRow.sr_no || paymentRow.period || 'N/A',
+      sr_no: isTopup ? '' : (paymentRow.sr_no || paymentRow.period || 'N/A'),
       client_id: paymentRow.client_id || '',
       client_name: paymentRow.client_name || '',
       bank_name: paymentRow.channel || 'crypto',
-      product_name: [paymentRow.tier, paymentRow.setup_type].filter(Boolean).join(' + ') || 'Service',
-      amount_received: paymentRow.amount || 0,
+      product_name: isTopup ? 'Top-Up' : ([paymentRow.tier, paymentRow.setup_type].filter(Boolean).join(' + ') || 'Service'),
+      subtotal: paymentRow.amount || 0,
+      discount: 0,
       invoice_date: paymentRow.date || new Date().toISOString().split('T')[0],
       invoice_no: paymentRow.sr_no ? paymentRow.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001'
     });

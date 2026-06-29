@@ -73,6 +73,10 @@ export async function GET(req) {
       visual_status: r.visual_status,
       start_date: r.start_date,
       reference_no: r.reference_no,
+      ad_id_number: r.ad_id_number,
+      ad_spend_limit: r.ad_spend_limit,
+      cl_amount: r.cl_amount,
+      ad_account_type: r.ad_account_type,
     };
   });
 

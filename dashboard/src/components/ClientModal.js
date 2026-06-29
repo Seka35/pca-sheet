@@ -207,6 +207,34 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const [mode, setMode] = useState('view'); // 'view' | 'edit'
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'products' | 'payments'
 
+  // Helper to build invoice URL for a payment
+  const buildInvoiceUrl = (payment, product, billing) => {
+    const isTopup = payment.is_topup === 1;
+    const productName = isTopup ? 'Top-Up' : (payment.tier ? payment.tier + (payment.setup_type ? ' - ' + payment.setup_type : '') : 'Service');
+    const parseMoney = (val) => parseFloat(String(val || '0').replace(/[^0-9.]/g, '')) || 0;
+    const subTotal = isTopup
+      ? parseMoney(payment.amount_received)
+      : parseMoney(product?.subscription_fee) + parseMoney(product?.setup_fee);
+    const disc = isTopup ? 0 : parseMoney(product?.discount);
+    const params = new URLSearchParams({
+      sr_no: isTopup ? '' : (payment.renewal_sr_no || ''),
+      client_id: client.id || '',
+      client_name: client.name || '',
+      bank_name: payment.bank_name || 'crypto',
+      product_name: productName,
+      subtotal: subTotal.toFixed(2),
+      discount: disc.toFixed(2),
+      invoice_date: product?.valid_stopped_date || new Date().toISOString().split('T')[0],
+      invoice_no: payment.renewal_sr_no ? payment.renewal_sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
+      first_name: billing.firstName || '',
+      last_name: billing.lastName || '',
+      email: billing.email || '',
+      address: billing.address || '',
+      amount_received: payment.amount_received || '0',
+    });
+    return '/api/invoice/generate?' + params.toString();
+  };
+
   // Edit-mode form state.
   const [formName, setFormName] = useState(client?.name || '');
   const [formFirstName, setFormFirstName] = useState(client?.first_name || '');
@@ -1807,7 +1835,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                               <a
-                                href={`/api/invoice/generate?sr_no=${encodeURIComponent(payment.renewal_sr_no || '')}&client_id=${client.id}&client_name=${encodeURIComponent(client.name || '')}&bank_name=${encodeURIComponent(payment.bank_name || 'crypto')}&product_name=${encodeURIComponent(payment.tier ? payment.tier + (payment.setup_type ? ' - ' + payment.setup_type : '') : 'Service')}&subtotal=${encodeURIComponent((parseFloat(String(product?.subscription_fee||'0').replace(/[^0-9.]/g,''))||0 + parseFloat(String(product?.setup_fee||'0').replace(/[^0-9.]/g,''))||0).toFixed(2))}&discount=${encodeURIComponent(product?.discount || '0')}&invoice_date=${encodeURIComponent(product?.valid_stopped_date || new Date().toISOString().split('T')[0])}&invoice_no=${encodeURIComponent(payment.renewal_sr_no ? payment.renewal_sr_no.replace(/\D/g, '').slice(-4) || '001' : '001')}&first_name=${encodeURIComponent(billing.firstName)}&last_name=${encodeURIComponent(billing.lastName)}&email=${encodeURIComponent(billing.email)}&address=${encodeURIComponent(billing.address)}&amount_received=${encodeURIComponent(payment.amount_received || '0')}`}
+                                href={buildInvoiceUrl(payment, product, billing)}
                                 target="_blank" rel="noopener noreferrer"
                                 title="Download invoice PDF"
                                 style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.08)', color: '#fff', textDecoration: 'none' }}

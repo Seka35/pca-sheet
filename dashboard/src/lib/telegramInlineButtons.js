@@ -100,8 +100,31 @@ function buildPaymentDetailsKeyboard(srNo, chatId) {
   };
 }
 
+// Build inline keyboard showing active products for topup
+// srNos is an array of { sr_no, tier, setup_type }
+function buildTopupProductKeyboard(srNos, chatId) {
+  return {
+    reply_markup: {
+      inline_keyboard: srNos.map(p => [
+        { text: `${p.tier || 'Product'}${p.setup_type ? ` (${p.setup_type})` : ''}`, callback_data: `topup_product:${p.sr_no}:${chatId}` }
+      ])
+    }
+  };
+}
+
+// Build keyboard for topup amount entry (Cancel only)
+function buildTopupAmountKeyboard(srNo, chatId) {
+  return {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: '❌ Cancel', callback_data: `cancel_topup:${srNo}:${chatId}` },
+      ]]
+    }
+  };
+}
+
 // Returns { action, srNo, chatId, method? } or null.
-// Actions: 'create' | 'cancel' | 'remind_later' | 'pay_now' | 'select_payment' | 'cancel_payment' | 'already_paid'
+// Actions: 'create' | 'cancel' | 'remind_later' | 'pay_now' | 'select_payment' | 'cancel_payment' | 'already_paid' | 'topup_product' | 'cancel_topup'
 function parseCallbackData(data) {
   if (typeof data !== 'string') return { action: null, srNo: null, chatId: null, method: null };
   if (data.length > MAX_DATA) return { action: null, srNo: null, chatId: null, method: null };
@@ -118,7 +141,15 @@ function parseCallbackData(data) {
   const m3 = data.match(/^select_payment:(.+?):(-?\d{1,20}):(\w+)$/);
   if (m3) return { action: 'select_payment', srNo: m3[1], chatId: m3[2], method: m3[3] };
 
+  // topup_product:<sr_no>:<chat_id>
+  const m4 = data.match(/^topup_product:(.+?):(-?\d{1,20})$/);
+  if (m4) return { action: 'topup_product', srNo: m4[1], chatId: m4[2], method: null };
+
+  // cancel_topup:<sr_no>:<chat_id>
+  const m5 = data.match(/^cancel_topup:(.+?):(-?\d{1,20})$/);
+  if (m5) return { action: 'cancel_topup', srNo: m5[1], chatId: m5[2], method: null };
+
   return { action: null, srNo: null, chatId: null, method: null };
 }
 
-export { MAX_DATA, buildCreateClientKeyboard, buildPaymentReminderKeyboard, buildPaymentMethodKeyboard, buildPaymentDetailsKeyboard, parseCallbackData };
+export { MAX_DATA, buildCreateClientKeyboard, buildPaymentReminderKeyboard, buildPaymentMethodKeyboard, buildPaymentDetailsKeyboard, buildTopupProductKeyboard, buildTopupAmountKeyboard, parseCallbackData };

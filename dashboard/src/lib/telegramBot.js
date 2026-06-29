@@ -5,7 +5,7 @@ import 'server-only';
 import { all, get, run } from './db.js';
 import { startSweepTimer, stopSweepTimer, getConfig, upsertConfig } from './botScheduler.js';
 import { extractTeleId } from './teleIdParser.js';
-import { buildCreateClientKeyboard, buildPaymentReminderKeyboard, buildPaymentMethodKeyboard, buildPaymentDetailsKeyboard, parseCallbackData } from './telegramInlineButtons.js';
+import { buildCreateClientKeyboard, buildPaymentReminderKeyboard, buildPaymentMethodKeyboard, buildPaymentDetailsKeyboard, buildTopupProductKeyboard, buildTopupAmountKeyboard, parseCallbackData } from './telegramInlineButtons.js';
 import { createClient } from './clientCreator.js';
 
 let bot = null;
@@ -391,11 +391,22 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
 
     const feeNote = bankKeyToUse === 'crypto' && bankData.fee_note ? `\n\n⚠️ ${bankData.fee_note}` : '';
 
-    // Calculate total due
-    const subAmt = parseFloat(String(renewal.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
-    const setupAmt = parseFloat(String(renewal.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
-    const discAmt = parseFloat(String(renewal.discount || '0').replace(/[^0-9.]/g, '')) || 0;
-    const totalDue = (subAmt + setupAmt - discAmt).toFixed(2);
+    // Check if this is a topup flow — use stored topup_amount if available
+    const pendingTopup = get(
+      `SELECT topup_amount FROM pending_payments
+       WHERE sr_no = ? AND chat_id = ? AND step = 'AWAIT_TOPUP_AMOUNT'`,
+      [srNo, chatId]
+    );
+    let totalDue;
+    if (pendingTopup && pendingTopup.topup_amount) {
+      totalDue = pendingTopup.topup_amount;
+    } else {
+      // Calculate total due from renewal fees
+      const subAmt = parseFloat(String(renewal.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+      const setupAmt = parseFloat(String(renewal.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+      const discAmt = parseFloat(String(renewal.discount || '0').replace(/[^0-9.]/g, '')) || 0;
+      totalDue = (subAmt + setupAmt - discAmt).toFixed(2);
+    }
 
     const msg =
       `💳 <b>Payment Details</b>\n\n` +
@@ -439,11 +450,20 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
     run(`DELETE FROM payment_proofs WHERE sr_no = ?`, [srNo]);
 
     // Store pending payment state — will be resolved when user replies with TX ID
+    // Check if this is a topup flow (preserve topup_amount if it exists)
+    const existingTopup = get(
+      `SELECT topup_amount FROM pending_payments WHERE sr_no = ? AND chat_id = ? AND step = 'AWAIT_TOPUP_AMOUNT'`,
+      [srNo, chatId]
+    );
     run(
-      `INSERT INTO pending_payments (sr_no, client_id, tele_id, chat_id, step, transaction_id)
-       VALUES (?, ?, ?, ?, 'AWAIT_TX', NULL)
-       ON CONFLICT(sr_no, chat_id) DO UPDATE SET step = 'AWAIT_TX', submitted_at = CURRENT_TIMESTAMP`,
-      [srNo, renewal.client_id, fromId, chatId]
+      `INSERT INTO pending_payments (sr_no, client_id, tele_id, chat_id, step, transaction_id, topup_amount)
+       VALUES (?, ?, ?, ?, 'AWAIT_TX', NULL, ?)
+       ON CONFLICT(sr_no, chat_id) DO UPDATE SET
+         step = 'AWAIT_TX',
+         tele_id = excluded.tele_id,
+         topup_amount = COALESCE(excluded.topup_amount, topup_amount),
+         submitted_at = CURRENT_TIMESTAMP`,
+      [srNo, renewal.client_id, fromId, chatId, existingTopup?.topup_amount || null]
     );
 
     // Edit the original message to show instructions
@@ -474,6 +494,65 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
       { chat_id: query.message.chat.id, message_id: query.message.message_id, parse_mode: 'HTML' }
     );
     await TelegramBotInstance.answerCallbackQuery(query.id, { text: '🔔 Okay, I\'ll remind you later.', show_alert: false });
+    return;
+  }
+
+  // ── Topup flow ───────────────────────────────────────────────────────────────
+  if (parsed.action === 'topup_product') {
+    const { srNo, chatId } = parsed;
+    const fromId = String(query.from.id);
+
+    const renewal = get(
+      `SELECT r.*, c.tele_id FROM renewals r
+       JOIN clients c ON c.id = r.client_id
+       WHERE r.sr_no = ?`,
+      [srNo]
+    );
+    if (!renewal) {
+      await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Product not found.', show_alert: true });
+      return;
+    }
+
+    // Store topup intent in pending_payments with AWAIT_TOPUP_AMOUNT step
+    run(
+      `INSERT INTO pending_payments (sr_no, client_id, tele_id, chat_id, step, topup_amount)
+       VALUES (?, ?, ?, ?, 'AWAIT_TOPUP_AMOUNT', NULL)
+       ON CONFLICT(sr_no, chat_id) DO UPDATE SET
+         step = 'AWAIT_TOPUP_AMOUNT',
+         tele_id = excluded.tele_id,
+         topup_amount = NULL,
+         submitted_at = CURRENT_TIMESTAMP`,
+      [srNo, renewal.client_id, fromId, chatId]
+    );
+
+    // Edit message to ask for amount
+    await TelegramBotInstance.editMessageText(
+      `💰 <b>Top-Up</b> — ${escapeHtml(renewal.tier || 'Product')}\n\n` +
+      `📌 <b>Right-click this message</b> and choose <b>"Reply"</b>, then send the top-up amount in USD.\n\n` +
+      `Example: 50.00`,
+      {
+        chat_id: query.message.chat.id,
+        message_id: query.message.message_id,
+        parse_mode: 'HTML',
+        reply_markup: JSON.stringify({
+          inline_keyboard: [[
+            { text: '❌ Cancel', callback_data: `cancel_topup:${srNo}:${chatId}` },
+          ]],
+        }),
+      }
+    );
+    await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Enter amount as a reply!', show_alert: false });
+    return;
+  }
+
+  if (parsed.action === 'cancel_topup') {
+    const { srNo, chatId } = parsed;
+    run(`DELETE FROM pending_payments WHERE sr_no = ? AND chat_id = ? AND step = 'AWAIT_TOPUP_AMOUNT'`, [srNo, chatId]);
+    await TelegramBotInstance.editMessageText(
+      `❌ <b>Top-up cancelled.</b>`,
+      { chat_id: query.message.chat.id, message_id: query.message.message_id, parse_mode: 'HTML' }
+    );
+    await TelegramBotInstance.answerCallbackQuery(query.id);
     return;
   }
 
@@ -617,8 +696,8 @@ async function handleMessage(msg, TelegramBotInstance) {
 
         // Insert into approval_queue
         run(
-          `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, submitted_at, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING')`,
+          `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, submitted_at, status, is_topup, topup_amount)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING', ?, ?)`,
           [
             proofRow.id,
             pending.sr_no,
@@ -630,6 +709,8 @@ async function handleMessage(msg, TelegramBotInstance) {
             renewalData?.valid_stopped_date || '',
             renewalData?.bank_name || '',
             txHash,
+            pending.topup_amount ? 1 : 0,
+            pending.topup_amount || null,
           ]
         );
 
@@ -676,6 +757,48 @@ async function handleMessage(msg, TelegramBotInstance) {
     [chat.title || '', chatId]
   );
 
+  // ── Group topup flow: reply to bot's message with amount ─────
+  if (isGroup && msg.reply_to_message && String(msg.reply_to_message.from.id) === String(globalThis.__pcaBotId)) {
+    const userId = String(msg.from.id);
+
+    // Check if there's a pending topup awaiting amount
+    const pendingTopup = get(
+      `SELECT pp.*, r.client_name, r.tier
+       FROM pending_payments pp
+       JOIN renewals r ON r.sr_no = pp.sr_no AND r.client_id = pp.client_id
+       WHERE pp.chat_id = ? AND pp.step = 'AWAIT_TOPUP_AMOUNT'
+       ORDER BY pp.submitted_at DESC LIMIT 1`,
+      [chatId]
+    );
+
+    if (pendingTopup && text && text.trim()) {
+      const amount = parseFloat(text.trim());
+      if (isNaN(amount) || amount <= 0) {
+        await TelegramBotInstance.sendMessage(
+          chatId,
+          `❌ Invalid amount. Please enter a positive number (e.g., 50.00)`,
+          { parse_mode: 'HTML', reply_to_message_id: msg.message_id }
+        );
+        return;
+      }
+
+      // Store the topup amount and show payment methods
+      run(`UPDATE pending_payments SET topup_amount = ? WHERE id = ?`, [String(amount), pendingTopup.id]);
+
+      const keyboard = buildPaymentMethodKeyboard(pendingTopup.sr_no, chatId, '');
+      const msg2 =
+        `💰 <b>Top-Up</b> — ${escapeHtml(pendingTopup.tier || 'Product')}\n\n` +
+        `Amount: <b>$${amount.toFixed(2)}</b>\n\n` +
+        `Select payment method:`;
+
+      await TelegramBotInstance.sendMessage(chatId, msg2, {
+        parse_mode: 'HTML',
+        reply_markup: JSON.stringify(keyboard.reply_markup),
+      });
+      return;
+    }
+  }
+
   // ── Group payment flow: reply to bot's message with TX ID ─────
   if (isGroup && msg.reply_to_message && String(msg.reply_to_message.from.id) === String(globalThis.__pcaBotId)) {
     const userId = String(msg.from.id);
@@ -695,11 +818,16 @@ async function handleMessage(msg, TelegramBotInstance) {
         const client = get('SELECT name, tele_id FROM clients WHERE id = ?', [pending.client_id]);
         const renewalData = get('SELECT bank_name, valid_stopped_date, subscription_fee, setup_fee, discount, tier FROM renewals WHERE sr_no = ?', [pending.sr_no]);
 
-        // Calculate total amount due
-        const subAmt = parseFloat(String(renewalData?.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
-        const setupAmt = parseFloat(String(renewalData?.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
-        const discAmt = parseFloat(String(renewalData?.discount || '0').replace(/[^0-9.]/g, '')) || 0;
-        const amountDue = (subAmt + setupAmt - discAmt).toFixed(2);
+        // Calculate total amount due — use topup_amount if set
+        let amountDue;
+        if (pending.topup_amount) {
+          amountDue = pending.topup_amount;
+        } else {
+          const subAmt = parseFloat(String(renewalData?.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+          const setupAmt = parseFloat(String(renewalData?.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
+          const discAmt = parseFloat(String(renewalData?.discount || '0').replace(/[^0-9.]/g, '')) || 0;
+          amountDue = (subAmt + setupAmt - discAmt).toFixed(2);
+        }
 
         run(
           `INSERT INTO payment_proofs (sr_no, client_id, transaction_id, status)
@@ -710,14 +838,16 @@ async function handleMessage(msg, TelegramBotInstance) {
         const proofRow = get(`SELECT id FROM payment_proofs WHERE sr_no = ? AND client_id = ? ORDER BY id DESC LIMIT 1`, [pending.sr_no, pending.client_id]);
 
         run(
-          `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, submitted_at, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING')`,
+          `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, submitted_at, status, is_topup, topup_amount)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING', ?, ?)`,
           [
             proofRow.id, pending.sr_no, pending.client_id,
             client?.name || '', client?.tele_id || '',
             renewalData?.tier || '', amountDue,
             renewalData?.valid_stopped_date || '', renewalData?.bank_name || '',
             txHash,
+            pending.topup_amount ? 1 : 0,
+            pending.topup_amount || null,
           ]
         );
 
@@ -843,6 +973,52 @@ async function handleMessage(msg, TelegramBotInstance) {
       `Click <b>Pay Now</b> below to select your payment method.`;
 
     const keyboard = buildPaymentReminderKeyboard(renewal.sr_no, chatId);
+    await TelegramBotInstance.sendMessage(chatId, msg, {
+      parse_mode: 'HTML',
+      reply_markup: JSON.stringify(keyboard.reply_markup),
+    });
+    return;
+  }
+
+  if (text.match(/^\/topup(?:@\w+)?\s*$/)) {
+    // Find client by looking up the group in bot_group_links
+    const link = get(
+      `SELECT g.client_id, c.name AS client_name
+       FROM bot_group_links g
+       JOIN clients c ON c.id = g.client_id
+       WHERE g.chat_id = ? AND g.status = 'linked' LIMIT 1`,
+      [chatId]
+    );
+
+    if (!link || !link.client_id) {
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        '❓ This group is not linked to any client. Use /start to link it.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    // Get active products for this client
+    const activeProducts = all(
+      `SELECT sr_no, tier, setup_type FROM renewals
+       WHERE client_id = ? AND visual_status = 'Active'
+       ORDER BY valid_stopped_date DESC`,
+      [link.client_id]
+    );
+
+    if (activeProducts.length === 0) {
+      await TelegramBotInstance.sendMessage(
+        chatId,
+        '❌ No active products found. You need an active product to add a top-up.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    const msg = '💰 <b>Top-Up</b>\n\nSelect a product to add funds to:';
+    const keyboard = buildTopupProductKeyboard(activeProducts, chatId);
+
     await TelegramBotInstance.sendMessage(chatId, msg, {
       parse_mode: 'HTML',
       reply_markup: JSON.stringify(keyboard.reply_markup),
@@ -978,6 +1154,7 @@ async function handleMessage(msg, TelegramBotInstance) {
         '  /cancel — discard a pending "Create client" proposal\n' +
         '  /status — show the current link\n' +
         '  /pay — submit payment proof\n' +
+        '  /topup — add funds to an active product\n' +
         '  /dashboard — get your client portal login credentials\n' +
         '  /password — resend your portal credentials\n' +
         '  /help — this message\n' +

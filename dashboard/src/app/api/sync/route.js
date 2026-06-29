@@ -64,7 +64,8 @@ async function performSync() {
     const subscriptionFee = getVal(cells[11]);
     const setupFee = getVal(cells[12]);
     const discount = getVal(cells[13]);
-    const clAmount = getVal(cells[14]);
+    // clAmount from sheet is NOT used - cl_amount is calculated from payments table AFTER sync
+    // const clAmount = getVal(cells[14]); // DEPRECATED - causes wrong values
     const referralPartnerName = getVal(cells[15]);
     const referralAmount = getVal(cells[16]);
     const validStoppedDate = getVal(cells[17]);
@@ -135,6 +136,23 @@ async function performSync() {
   // l'instance `db` via ces helpers existants.
   run('BEGIN');
   try {
+    // Preserve existing cl_amount values before DELETE
+    const existingClAmounts = {};
+    const existingRows = all('SELECT sr_no, cl_amount FROM renewals');
+    for (const row of existingRows) {
+      existingClAmounts[row.sr_no] = row.cl_amount;
+    }
+
+    // Also compute cl_amount from payments table (SUM of topup payments)
+    const topupAmounts = {};
+    const topupRows = all(`
+      SELECT renewal_sr_no, SUM(CAST(REPLACE(REPLACE(COALESCE(amount_received, '0'), ',', ''), ' ', '') AS REAL) as total
+      FROM payments WHERE is_topup = 1 GROUP BY renewal_sr_no
+    `);
+    for (const row of topupRows) {
+      topupAmounts[row.renewal_sr_no] = row.total;
+    }
+
     run('DELETE FROM renewals');
     run('DELETE FROM clients');
 
@@ -167,10 +185,12 @@ async function performSync() {
     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
     for (const r of renewalRows) {
+      // Use cl_amount from payments table (topup sums) - NOT from sheet
+      const correctClAmount = topupAmounts[r.sr_no]?.toString() || existingClAmounts[r.sr_no] || '';
       run(insertRenewal, [
         r.sr_no, r.client_id, r.client_name, r.client_status_history, r.month, r.start_date,
         r.client_ad_id_name, r.ad_id_number, r.ad_account_type, r.tier, r.ad_spend_limit,
-        r.setup_type, r.subscription_fee, r.setup_fee, r.discount, r.cl_amount,
+        r.setup_type, r.subscription_fee, r.setup_fee, r.discount, correctClAmount,
         r.referral_partner_name, r.referral_amount, r.valid_stopped_date,
         r.payment_name, r.bank_name, r.amount_received, r.payment_received_date,
         r.payment_received_month, r.reference_no, r.actual_balance_difference,

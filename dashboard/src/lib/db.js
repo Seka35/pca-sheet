@@ -349,6 +349,8 @@ function initDatabase() {
   try { db.exec(`ALTER TABLE approval_queue ADD COLUMN auto_verification_result TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   try { db.exec(`ALTER TABLE approval_queue ADD COLUMN auto_verification_checked_at DATETIME`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   try { db.exec(`ALTER TABLE approval_queue ADD COLUMN fraud_notes TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE approval_queue ADD COLUMN is_topup INTEGER DEFAULT 0`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE approval_queue ADD COLUMN topup_amount TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   // --- Telegram Message Approvals (human verification gate) ---
   db.exec(`
@@ -404,6 +406,9 @@ function initDatabase() {
     )
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pending_payments_step ON pending_payments(step)`);
+
+  // Migration: add topup_amount column to pending_payments if not exists
+  try { db.exec(`ALTER TABLE pending_payments ADD COLUMN topup_amount TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   // Add payment columns to renewals if not exist
   try { db.exec(`ALTER TABLE renewals ADD COLUMN transaction_id TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }

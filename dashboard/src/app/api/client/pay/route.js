@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { getUserById } from '@/lib/auth';
 import { get, run } from '@/lib/db';
 
+function parseAmount(val) {
+  if (!val) return 0;
+  const parsed = parseFloat(val.toString().replace(/[^0-9.-]+/g, ''));
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 export async function POST(req) {
   const userId = req.cookies.get('pca_user_id')?.value;
 
@@ -23,22 +29,28 @@ export async function POST(req) {
     }
 
     // For top-up: verify this renewal belongs to this client
-    // For renewal: verify this renewal belongs to this client
     const renewal = get('SELECT * FROM renewals WHERE sr_no = ? AND client_id = ?', [sr_no, user.client_id]);
     if (!renewal) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Insert into pending_payments for admin approval
     const now = new Date().toISOString();
+    const isTopupFlag = is_topup ? 1 : 0;
+    let amountDue;
 
     if (is_topup) {
-      // Top-up: insert with a unique chat_id per product
+      // Top-up: amount is the topup_amount
+      amountDue = parseFloat(topup_amount) || 0;
+
+      // Insert into pending_payments with unique chat_id
       run(`
-        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at, amount)
-        VALUES (?, ?, 'AWAIT_TX', ?, ?, ?)
-      `, [sr_no, `topup_${user.client_id}_${Date.now()}`, transaction_id, now, topup_amount || null]);
+        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at, topup_amount, tele_id, client_id)
+        VALUES (?, ?, 'AWAIT_TX', ?, ?, ?, ?, ?)
+      `, [sr_no, `topup_${user.client_id}_${Date.now()}`, transaction_id, now, topup_amount || null, String(user.tele_id || ''), user.client_id]);
     } else {
+      // Regular renewal: calculate amount due
+      amountDue = parseAmount(renewal.subscription_fee) + parseAmount(renewal.setup_fee) - parseAmount(renewal.discount);
+
       run(`
         INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at)
         VALUES (?, ?, 'AWAIT_TX', ?, ?)
@@ -48,6 +60,38 @@ export async function POST(req) {
           submitted_at = excluded.submitted_at
       `, [sr_no, 'client_portal', transaction_id, now]);
     }
+
+    // Insert into payment_proofs (required for approval_queue)
+    run(
+      `INSERT INTO payment_proofs (sr_no, client_id, transaction_id, status)
+       VALUES (?, ?, ?, 'PENDING')`,
+      [sr_no, user.client_id, transaction_id]
+    );
+
+    const proofRow = get(
+      `SELECT id FROM payment_proofs WHERE sr_no = ? AND client_id = ? ORDER BY id DESC LIMIT 1`,
+      [sr_no, user.client_id]
+    );
+
+    // Insert into approval_queue for admin review
+    run(
+      `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, submitted_at, status, is_topup, topup_amount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING', ?, ?)`,
+      [
+        proofRow.id,
+        sr_no,
+        user.client_id,
+        user.name || '',
+        user.tele_id || '',
+        renewal.tier || '',
+        amountDue.toFixed(2),
+        renewal.valid_stopped_date || '',
+        bank_name,
+        transaction_id,
+        isTopupFlag,
+        is_topup ? (topup_amount || null) : null,
+      ]
+    );
 
     // Also update the renewal with transaction_id
     run('UPDATE renewals SET transaction_id = ?, payment_proof_url = NULL WHERE sr_no = ?', [transaction_id, sr_no]);

@@ -140,6 +140,14 @@ export async function POST(req) {
       }
     }
 
+    // Check if this is a topup
+    const isTopup = entry.is_topup === 1;
+
+    // Topups require an existing renewal - reject if not found
+    if (isTopup && !existingRenewal) {
+      return NextResponse.json({ error: 'Topup requires an existing product' }, { status: 400 });
+    }
+
     if (existingRenewal) {
       // Determine the bank_name to store: use payment method if available, otherwise keep existing
       const methodLabels = {
@@ -152,34 +160,56 @@ export async function POST(req) {
       };
       const bankNameToStore = paymentSelection?.method ? (methodLabels[paymentSelection.method] || entry.bank_name) : entry.bank_name;
 
-      run(
-        `UPDATE renewals SET
-          reference_no = ?,
-          transaction_id = ?,
-          payment_proof_url = ?,
-          paid_at = CURRENT_TIMESTAMP,
-          payment_received_date = DATE('now'),
-          payment_received_month = strftime('%Y-%m', 'now'),
-          amount_received = ?,
-          bank_name = ?,
-          valid_stopped_date = COALESCE(?, valid_stopped_date),
-          visual_status = 'Active'
-        WHERE sr_no = ?`,
-        [entry.transaction_id, entry.transaction_id, entry.proof_image_url, amountDue, bankNameToStore, newValidStoppedDate, entry.sr_no]
-      );
+      if (isTopup) {
+        // TOPUP: add ONLY the topup_amount to cl_amount (credit balance)
+        // amountDue is the total paid which may include subscription, but CL gets only topup
+        const currentCl = parseAmount(existingRenewal.cl_amount);
+        const topupOnlyAmount = parseFloat(entry.topup_amount || amountDue);
+        const newClAmount = currentCl + topupOnlyAmount;
 
-      // Also record this payment in the payments table (for multiple payments per product)
-      run(
-        `INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes)
-         VALUES (?, ?, ?, DATE('now'), strftime('%Y-%m', 'now'), ?, ?, ?)`,
-        [entry.client_id, entry.sr_no, amountDue, entry.transaction_id, bankNameToStore, 'Approved payment - Telegram bot']
-      );
+        run(
+          `UPDATE renewals SET
+            cl_amount = ?,
+            bank_name = ?
+          WHERE sr_no = ?`,
+          [newClAmount.toString(), bankNameToStore, entry.sr_no]
+        );
 
-      // Also activate the client if payment is approved
-      run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
+        // Record this topup in the payments table with is_topup=1
+        run(
+          `INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, is_topup, notes)
+           VALUES (?, ?, ?, DATE('now'), strftime('%Y-%m', 'now'), ?, ?, 1, ?)`,
+          [entry.client_id, entry.sr_no, topupOnlyAmount, entry.transaction_id, bankNameToStore, 'Approved top-up - Telegram bot']
+        );
+      } else {
+        // REGULAR PAYMENT: update amount_received, set visual_status to Active
+        run(
+          `UPDATE renewals SET
+            reference_no = ?,
+            transaction_id = ?,
+            payment_proof_url = ?,
+            paid_at = CURRENT_TIMESTAMP,
+            payment_received_date = DATE('now'),
+            payment_received_month = strftime('%Y-%m', 'now'),
+            amount_received = ?,
+            bank_name = ?,
+            valid_stopped_date = COALESCE(?, valid_stopped_date),
+            visual_status = 'Active'
+          WHERE sr_no = ?`,
+          [entry.transaction_id, entry.transaction_id, entry.proof_image_url, amountDue, bankNameToStore, newValidStoppedDate, entry.sr_no]
+        );
 
-      // Check if product is paid in full → create new renewal row for next month
-      if (existingRenewal) {
+        // Also record this payment in the payments table (for multiple payments per product)
+        run(
+          `INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes)
+           VALUES (?, ?, ?, DATE('now'), strftime('%Y-%m', 'now'), ?, ?, ?)`,
+          [entry.client_id, entry.sr_no, amountDue, entry.transaction_id, bankNameToStore, 'Approved payment - Telegram bot']
+        );
+
+        // Also activate the client if payment is approved
+        run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
+
+        // Check if product is paid in full → create new renewal row for next month
         const amountDueCheck = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
         if (amountDue >= amountDueCheck && amountDueCheck > 0) {
           const todayStr = new Date().toISOString().split('T')[0];
@@ -255,15 +285,27 @@ export async function POST(req) {
             const bankData = bankDataMap[bankKey] || {};
 
             const parseMoney = (s) => parseFloat(String(s || '0').replace(/[^0-9.]/g, '')) || 0;
-            const subscriptionFee = parseMoney(renewalRow.subscription_fee);
             const discountAmount = parseMoney(renewalRow.discount);
 
+            // For topups: show "Top-Up" as product name and use the topup amount as subtotal
+            // For regular payments: use the renewal's subscription fee
+            let productName, subtotal;
+            if (isTopup) {
+              productName = 'Top-Up';
+              subtotal = amountDue.toFixed(2);
+            } else {
+              productName = renewalRow.tier || 'Service';
+              subtotal = parseMoney(renewalRow.subscription_fee).toFixed(2);
+            }
+
+            // For topups, don't pass sr_no so invoice uses passed params directly
+            // (otherwise the invoice route fetches renewal data and ignores our params)
             const pdfBuffer = await generateInvoicePdfBuffer({
-              sr_no: renewalRow.sr_no,
+              sr_no: isTopup ? '' : renewalRow.sr_no,
               client_name: renewalRow.client_name,
               bank_name: renewalRow.bank_name,
-              product_name: renewalRow.tier || 'Service',
-              subtotal: subscriptionFee.toFixed(2),
+              product_name: productName,
+              subtotal: subtotal,
               discount: discountAmount.toFixed(2),
               invoice_date: renewalRow.valid_stopped_date || new Date().toISOString().split('T')[0],
               invoice_no: renewalRow.sr_no ? renewalRow.sr_no.replace(/\D/g, '').slice(-4) || '001' : '001',
@@ -279,12 +321,19 @@ export async function POST(req) {
         }
 
         // Send payment confirmation without buttons (approved = no more action needed)
+        const confirmMsg = isTopup
+          ? `✅ <b>Top-Up Approved!</b>\n\n` +
+            `<b>${entry.client_name}</b>, your top-up of <b>${entry.amount_due}</b> has been <b>approved</b>!\n\n` +
+            `Transaction ID: <code>${entry.transaction_id || 'N/A'}</code>\n\n` +
+            `Your credit balance has been updated. Thank you!`
+          : `✅ <b>Payment Approved!</b>\n\n` +
+            `<b>${entry.client_name}</b>, your payment of <b>${entry.amount_due}</b> has been <b>approved</b>!\n\n` +
+            `Transaction ID: <code>${entry.transaction_id || 'N/A'}</code>\n\n` +
+            `Your account is now active. Thank you for your payment!`;
+
         await bot.sendMessage(
           link.chat_id,
-          `✅ <b>Payment Approved!</b>\n\n` +
-          `<b>${entry.client_name}</b>, your payment of <b>${entry.amount_due}</b> has been <b>approved</b>!\n\n` +
-          `Transaction ID: <code>${entry.transaction_id || 'N/A'}</code>\n\n` +
-          `Your account is now active. Thank you for your payment!`,
+          confirmMsg,
           {
             parse_mode: 'HTML',
             disable_web_page_preview: true,
@@ -296,7 +345,7 @@ export async function POST(req) {
           try {
             await bot.sendDocument(link.chat_id, pdfPath, {
               parse_mode: 'HTML',
-              caption: `📄 <b>Invoice</b> for ${entry.client_name} — ${renewalRow?.subscription_fee || entry.amount_due || '$0'}`,
+              caption: `📄 <b>Invoice</b> for ${entry.client_name} — ${isTopup ? entry.amount_due : (renewalRow?.subscription_fee || entry.amount_due)}`,
             });
           } catch (docErr) {
             console.error('[APPROVE] PDF send failed:', docErr.message);
