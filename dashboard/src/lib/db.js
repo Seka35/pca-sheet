@@ -255,6 +255,8 @@ function initDatabase() {
   try { db.exec(`ALTER TABLE clients ADD COLUMN churn_reason TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   // Contract file upload path
   try { db.exec(`ALTER TABLE clients ADD COLUMN contract_file_path TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Internal notes for the team (visible in the Chat tab)
+  try { db.exec(`ALTER TABLE clients ADD COLUMN internal_notes TEXT DEFAULT ''`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   // --- Bot auto-create proposal state ---
   // When a seller /start in a group and no client matches, the bot stores a

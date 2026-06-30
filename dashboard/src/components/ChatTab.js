@@ -53,15 +53,10 @@ function AvatarCircle({ name, userId, clientId, isBot }) {
 
   if (!fetched) {
     return (
-      <div style={{
-        width: '32px', height: '32px', borderRadius: '50%',
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        flexShrink: 0,
-      }} />
+      <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
     );
   }
 
-  // Fallback: initials
   const initials = name
     ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '?';
@@ -90,9 +85,35 @@ export default function ChatTab({ clientId, linkedGroups }) {
   const [sending, setSending] = useState(false);
   const [inputText, setInputText] = useState('');
   const [error, setError] = useState(null);
+
+  // Notes states
+  const [notes, setNotes] = useState('');
+  const [notesDirty, setNotesDirty] = useState(false);
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesSaved, setNotesSaved] = useState(false);
+
   const messagesEndRef = useRef(null);
+  const notesSaveTimer = useRef(null);
 
   const linkedGroup = linkedGroups?.[0];
+
+  // Load notes on mount
+  useEffect(() => {
+    if (!clientId) return;
+    async function loadNotes() {
+      try {
+        const res = await fetch(`/api/clients/${clientId}/notes`);
+        const data = await res.json();
+        if (data.notes !== undefined) setNotes(data.notes);
+      } catch (e) {
+        console.error('load notes error:', e);
+      }
+    }
+    loadNotes();
+    // Refresh notes every 30s
+    const interval = setInterval(loadNotes, 30000);
+    return () => clearInterval(interval);
+  }, [clientId]);
 
   useEffect(() => {
     if (!linkedGroup?.chat_id) {
@@ -149,6 +170,34 @@ export default function ChatTab({ clientId, linkedGroups }) {
     }
   }
 
+  async function saveNotes() {
+    if (!notesDirty || notesSaving) return;
+    setNotesSaving(true);
+    setNotesSaved(false);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/notes`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      setNotesDirty(false);
+      setNotesSaved(true);
+      clearTimeout(notesSaveTimer.current);
+      notesSaveTimer.current = setTimeout(() => setNotesSaved(false), 2500);
+    } catch (e) {
+      console.error('save notes error:', e);
+    } finally {
+      setNotesSaving(false);
+    }
+  }
+
+  function handleNotesChange(e) {
+    setNotes(e.target.value);
+    setNotesDirty(true);
+    setNotesSaved(false);
+  }
+
   function formatTime(dateTs) {
     if (!dateTs) return '';
     const d = new Date(dateTs * 1000);
@@ -167,15 +216,13 @@ export default function ChatTab({ clientId, linkedGroups }) {
     if (msg.username) parts.push(`@${msg.username}`);
     if (msg.first_name) {
       const full = msg.last_name ? `${msg.first_name} ${msg.last_name}` : msg.first_name;
-      if (!msg.username) parts.push(full);
-      else parts.push(full);
+      parts.push(full);
     }
     return parts.slice(0, 2).join(' · ') || `User ${String(msg.user_id || '').slice(-4)}`;
   }
 
   function getSenderColor(msg) {
     if (msg.is_bot) return '#14b8a6';
-    // Generate a consistent color from user_id
     const id = parseInt(String(msg.user_id || '0').replace(/\D/g, '').slice(-6)) || 0;
     const colors = ['#f472b6', '#a78bfa', '#60a5fa', '#34d399', '#f59e0b', '#f87171', '#38bdf8', '#4ade80'];
     return colors[id % colors.length];
@@ -218,166 +265,249 @@ export default function ChatTab({ clientId, linkedGroups }) {
 
   if (!linkedGroup?.chat_id) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-        <div style={{ fontSize: '32px', marginBottom: '12px' }}>💬</div>
-        <p style={{ fontWeight: '600' }}>No Telegram group linked</p>
-        <p style={{ fontSize: '13px', marginTop: '8px' }}>
-          The client must first send /start in a group with the bot to establish a link.
-        </p>
+      <div style={{ display: 'flex', height: '520px' }}>
+        {/* Chat area */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>💬</div>
+            <p style={{ fontWeight: '600' }}>No Telegram group linked</p>
+            <p style={{ fontSize: '13px', marginTop: '8px' }}>
+              The client must first send /start in a group with the bot to establish a link.
+            </p>
+          </div>
+        </div>
+        {/* Notes panel — still shown when no group */}
+        <NotesPanel
+          notes={notes}
+          notesDirty={notesDirty}
+          notesSaving={notesSaving}
+          notesSaved={notesSaved}
+          onChange={handleNotesChange}
+          onSave={saveNotes}
+        />
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '520px' }}>
-      {/* Header */}
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-        <div>
-          <div style={{ fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>💬</span>
-            {linkedGroup.chat_title || 'Telegram Group'}
+    <div style={{ display: 'flex', height: '520px' }}>
+      {/* Left: Chat area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Header */}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <div>
+            <div style={{ fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>💬</span>
+              {linkedGroup.chat_title || 'Telegram Group'}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace', marginTop: '2px' }}>
+              {linkedGroup.chat_id}
+            </div>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace', marginTop: '2px' }}>
-            {linkedGroup.chat_id}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {linkedGroup.client_tele_id && (
+              <span style={{ backgroundColor: 'rgba(20,184,166,0.1)', color: '#14b8a6', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>
+                {linkedGroup.client_tele_id}
+              </span>
+            )}
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
+            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Live</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {linkedGroup.client_tele_id && (
-            <span style={{ backgroundColor: 'rgba(20,184,166,0.1)', color: '#14b8a6', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }}>
-              {linkedGroup.client_tele_id}
-            </span>
-          )}
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
-          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Live</span>
-        </div>
-      </div>
 
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '1px', backgroundColor: 'var(--bg-main)' }}>
-        {initialLoading && messages.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading messages...</div>
-        ) : messages.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-            <div style={{ fontSize: '28px', marginBottom: '8px' }}>💬</div>
-            <p>No messages yet.</p>
-            <p style={{ fontSize: '12px', marginTop: '4px' }}>Messages will appear here once the group starts chatting.</p>
-          </div>
-        ) : (
-          messages.map((msg, idx) => {
-            const prevMsg = messages[idx - 1];
-            const showDateHeader = idx === 0 || formatDate(msg.date) !== formatDate(prevMsg?.date);
-            const isBot = !!msg.is_bot;
-            const senderColor = getSenderColor(msg);
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '1px', backgroundColor: 'var(--bg-main)' }}>
+          {initialLoading && messages.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading messages...</div>
+          ) : messages.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>💬</div>
+              <p>No messages yet.</p>
+              <p style={{ fontSize: '12px', marginTop: '4px' }}>Messages will appear here once the group starts chatting.</p>
+            </div>
+          ) : (
+            messages.map((msg, idx) => {
+              const prevMsg = messages[idx - 1];
+              const showDateHeader = idx === 0 || formatDate(msg.date) !== formatDate(prevMsg?.date);
+              const isBot = !!msg.is_bot;
+              const senderColor = getSenderColor(msg);
+              const prevSameSender = prevMsg && !isBot && prevMsg.user_id === msg.user_id && !prevMsg.is_bot;
 
-            // Group consecutive messages from same sender
-            const prevSameSender = prevMsg && !isBot && prevMsg.user_id === msg.user_id && !prevMsg.is_bot;
-
-            return (
-              <div key={msg.id}>
-                {showDateHeader && (
-                  <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-secondary)', margin: '12px 0 8px', backgroundColor: 'rgba(255,255,255,0.03)', padding: '4px 8px', borderRadius: '12px', display: 'inline-block', alignSelf: 'center' }}>
-                    {formatDate(msg.date)}
-                  </div>
-                )}
-
-                {/* Single message row: avatar + bubble */}
-                <div style={{
-                  display: 'flex',
-                  flexDirection: isBot ? 'row-reverse' : 'row',
-                  alignItems: 'flex-end',
-                  gap: '8px',
-                  marginBottom: prevSameSender ? '2px' : '8px',
-                  marginLeft: isBot ? 'auto' : '0',
-                  maxWidth: '85%',
-                  alignSelf: isBot ? 'flex-end' : 'flex-start',
-                }}>
-                  {/* Avatar — shown only when name is shown (first in a group) */}
-                  {!isBot && !prevSameSender && (
-                    <AvatarCircle
-                      name={getSenderDisplayName(msg)}
-                      userId={msg.user_id}
-                      clientId={clientId}
-                      isBot={false}
-                    />
-                  )}
-                  {!isBot && prevSameSender && (
-                    <div style={{ width: '32px', flexShrink: 0 }} />
+              return (
+                <div key={msg.id}>
+                  {showDateHeader && (
+                    <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-secondary)', margin: '12px 0 8px', backgroundColor: 'rgba(255,255,255,0.03)', padding: '4px 8px', borderRadius: '12px', display: 'inline-block', alignSelf: 'center' }}>
+                      {formatDate(msg.date)}
+                    </div>
                   )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '75%' }}>
-                    {/* Sender name — shown only when first in a group */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: isBot ? 'row-reverse' : 'row',
+                    alignItems: 'flex-end',
+                    gap: '8px',
+                    marginBottom: prevSameSender ? '2px' : '8px',
+                    marginLeft: isBot ? 'auto' : '0',
+                    maxWidth: '85%',
+                    alignSelf: isBot ? 'flex-end' : 'flex-start',
+                  }}>
                     {!isBot && !prevSameSender && (
-                      <div style={{ fontSize: '11px', color: senderColor, fontWeight: '600', paddingLeft: '4px' }}>
-                        {getSenderDisplayName(msg)}
-                        {msg.is_edited && (
-                          <span style={{ color: 'var(--text-secondary)', fontWeight: '400', fontStyle: 'italic' }}> (edited)</span>
-                        )}
-                      </div>
+                      <AvatarCircle name={getSenderDisplayName(msg)} userId={msg.user_id} clientId={clientId} isBot={false} />
+                    )}
+                    {!isBot && prevSameSender && (
+                      <div style={{ width: '32px', flexShrink: 0 }} />
                     )}
 
-                    {/* Bubble */}
-                    <div style={{
-                      backgroundColor: isBot ? 'rgba(20,184,166,0.15)' : 'rgba(255,255,255,0.08)',
-                      borderRadius: isBot ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                      padding: '8px 12px',
-                      border: isBot ? '1px solid rgba(20,184,166,0.3)' : '1px solid rgba(255,255,255,0.1)',
-                      wordBreak: 'break-word',
-                    }}>
-                      <div style={{ fontSize: '14px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
-                        {msg.text || (msg.file_id ? `[${msg.file_type || 'File'}]` : '')}
-                      </div>
-                      {renderFile(msg)}
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textAlign: 'right', marginTop: '2px' }}>
-                        {formatTime(msg.date)}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '75%' }}>
+                      {!isBot && !prevSameSender && (
+                        <div style={{ fontSize: '11px', color: senderColor, fontWeight: '600', paddingLeft: '4px' }}>
+                          {getSenderDisplayName(msg)}
+                          {msg.is_edited && (
+                            <span style={{ color: 'var(--text-secondary)', fontWeight: '400', fontStyle: 'italic' }}> (edited)</span>
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{
+                        backgroundColor: isBot ? 'rgba(20,184,166,0.15)' : 'rgba(255,255,255,0.08)',
+                        borderRadius: isBot ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                        padding: '8px 12px',
+                        border: isBot ? '1px solid rgba(20,184,166,0.3)' : '1px solid rgba(255,255,255,0.1)',
+                        wordBreak: 'break-word',
+                      }}>
+                        <div style={{ fontSize: '14px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                          {msg.text || (msg.file_id ? `[${msg.file_type || 'File'}]` : '')}
+                        </div>
+                        {renderFile(msg)}
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textAlign: 'right', marginTop: '2px' }}>
+                          {formatTime(msg.date)}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <form onSubmit={handleSend} style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Send a message to the group..."
+            disabled={sending}
+            style={{ flex: 1, backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '10px 16px', color: '#fff', fontSize: '14px', outline: 'none' }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+          />
+          <button
+            type="submit"
+            disabled={sending || !inputText.trim()}
+            style={{
+              width: '40px', height: '40px', borderRadius: '50%',
+              backgroundColor: sending || !inputText.trim() ? 'var(--border-color)' : 'var(--primary-accent)',
+              color: sending || !inputText.trim() ? 'var(--text-secondary)' : '#000',
+              border: 'none', cursor: sending || !inputText.trim() ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s',
+            }}
+          >
+            {sending ? (
+              <span style={{ fontSize: '12px' }}>...</span>
+            ) : (
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            )}
+          </button>
+        </form>
+
+        {error && (
+          <div style={{ padding: '8px 16px', color: '#f87171', fontSize: '13px', backgroundColor: 'rgba(239,68,68,0.1)' }}>
+            Error: {error}
+          </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleSend} style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Send a message to the group..."
-          disabled={sending}
-          style={{ flex: 1, backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '10px 16px', color: '#fff', fontSize: '14px', outline: 'none' }}
-          onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
-          onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
-        />
+      {/* Right: Notes panel */}
+      <NotesPanel
+        notes={notes}
+        notesDirty={notesDirty}
+        notesSaving={notesSaving}
+        notesSaved={notesSaved}
+        onChange={handleNotesChange}
+        onSave={saveNotes}
+      />
+    </div>
+  );
+}
+
+function NotesPanel({ notes, notesDirty, notesSaving, notesSaved, onChange, onSave }) {
+  return (
+    <div style={{
+      width: '280px',
+      flexShrink: 0,
+      borderLeft: '1px solid var(--border-color)',
+      display: 'flex',
+      flexDirection: 'column',
+      backgroundColor: 'rgba(255,255,255,0.01)',
+    }}>
+      {/* Header */}
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          📝 Notes Internes
+        </div>
         <button
-          type="submit"
-          disabled={sending || !inputText.trim()}
+          onClick={onSave}
+          disabled={!notesDirty || notesSaving}
           style={{
-            width: '40px', height: '40px', borderRadius: '50%',
-            backgroundColor: sending || !inputText.trim() ? 'var(--border-color)' : 'var(--primary-accent)',
-            color: sending || !inputText.trim() ? 'var(--text-secondary)' : '#000',
-            border: 'none', cursor: sending || !inputText.trim() ? 'not-allowed' : 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s',
+            fontSize: '11px',
+            fontWeight: '600',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            backgroundColor: !notesDirty || notesSaving ? 'var(--border-color)' : 'var(--primary-accent)',
+            color: !notesDirty || notesSaving ? 'var(--text-secondary)' : '#000',
+            border: 'none',
+            cursor: !notesDirty || notesSaving ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            transition: 'all 0.2s',
           }}
         >
-          {sending ? (
-            <span style={{ fontSize: '12px' }}>...</span>
+          {notesSaving ? (
+            '...'
+          ) : notesSaved ? (
+            <>
+              <span>✓</span> Saved
+            </>
           ) : (
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
+            'Save'
           )}
         </button>
-      </form>
+      </div>
 
-      {error && (
-        <div style={{ padding: '8px 16px', color: '#f87171', fontSize: '13px', backgroundColor: 'rgba(239,68,68,0.1)' }}>
-          Error: {error}
-        </div>
-      )}
+      {/* Textarea */}
+      <textarea
+        value={notes}
+        onChange={onChange}
+        placeholder="Add internal notes about this client..."
+        style={{
+          flex: 1,
+          resize: 'none',
+          backgroundColor: 'transparent',
+          border: 'none',
+          padding: '12px 16px',
+          color: '#fff',
+          fontSize: '13px',
+          lineHeight: '1.6',
+          outline: 'none',
+          fontFamily: 'inherit',
+        }}
+      />
     </div>
   );
 }
