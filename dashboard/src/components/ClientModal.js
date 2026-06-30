@@ -5,6 +5,7 @@ import ProductBadge from './ProductBadge';
 import TelegramBadge from './TelegramBadge';
 import TeleIdBadge from './TeleIdBadge';
 import ClientFormFields from './ClientFormFields';
+import ChatTab from './ChatTab';
 import { extractTeleId } from '@/lib/teleIdParser';
 import { WHOP_DISCOUNT_BY_PARTNER, calculateClientDiscount, calculateReferralCommission } from '@/lib/whopLinks';
 
@@ -1230,7 +1231,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
             {[
               { id: 'overview', label: 'Overview' },
               { id: 'products', label: 'Products' },
-              { id: 'payments', label: 'Payments' }
+              { id: 'payments', label: 'Payments' },
+              { id: 'chat', label: '💬 Chat' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -1646,6 +1648,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'chat' && (
+            <ChatTab clientId={client?.id} linkedGroups={linkedGroups} />
           )}
 
           {activeTab === 'payments' && (

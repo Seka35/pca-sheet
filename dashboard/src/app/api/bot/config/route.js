@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getConfig, upsertConfig, getBot, startBot, stopBot } from '@/lib/telegramBot';
+import { getConfig, upsertConfig, getBot, startBot, startBotWithWebhook, stopBot } from '@/lib/telegramBot';
 import { startSweepTimer, stopSweepTimer } from '@/lib/botScheduler';
 import { requirePermission } from '@/lib/apiAuth';
 import { logActivity } from '@/lib/db';
@@ -67,8 +67,9 @@ export async function PUT(req) {
     // Without this, toggling the checkbox in the UI would persist the flag
     // but leave the polling loop in its previous state.
     if (willBeEnabled && !getBot()) {
-      const res = await startBot();
-      console.log('[bot/config] startBot after enable:', res);
+      const useWebhook = !!process.env.WEBHOOK_SECRET;
+      const res = useWebhook ? await startBotWithWebhook() : await startBot();
+      console.log(`[bot/config] ${useWebhook ? 'startBotWithWebhook' : 'startBot'} after enable:`, res);
     } else if (!willBeEnabled && getBot()) {
       await stopBot();
       console.log('[bot/config] stopBot after disable');

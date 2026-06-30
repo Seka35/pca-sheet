@@ -14,10 +14,11 @@ export async function register() {
   }
 
   try {
-    const { startBot } = await import('./lib/telegramBot.js');
-    const res = await startBot();
+    const { startBot, startBotWithWebhook } = await import('./lib/telegramBot.js');
+    const useWebhook = !!process.env.WEBHOOK_SECRET;
+    const res = useWebhook ? await startBotWithWebhook() : await startBot();
     if (res?.started) {
-      console.log('[instrumentation] telegram bot started');
+      console.log(`[instrumentation] telegram bot started (${useWebhook ? 'webhook' : 'polling'})`);
     } else {
       console.log(`[instrumentation] telegram bot not started: ${res?.reason || 'unknown'}`);
     }

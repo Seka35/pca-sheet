@@ -26,6 +26,56 @@ function normName(s) {
   return String(s || '').trim().toLowerCase();
 }
 
+// Store a Telegram group message to the database for the admin chat UI.
+function storeTelegramMessage(msg) {
+  try {
+    const chatId = String(msg.chat?.id || '');
+    if (!chatId) return;
+
+    const link = get(
+      `SELECT client_id FROM bot_group_links WHERE chat_id = ? AND status = 'linked' LIMIT 1`,
+      [chatId]
+    );
+    const from = msg.from || {};
+    const photo = msg.photo?.[msg.photo.length - 1];
+    const doc = msg.document;
+
+    let fileType = null, fileId = null;
+    if (photo) {
+      fileType = 'photo';
+      fileId = photo.file_id;
+    } else if (doc) {
+      fileType = 'document';
+      fileId = doc.file_id;
+    }
+
+    run(
+      `INSERT OR IGNORE INTO telegram_messages
+        (message_id, chat_id, client_id, user_id, username, first_name, last_name,
+         text, file_id, file_type, file_caption, date, is_bot, raw_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        msg.message_id,
+        chatId,
+        link?.client_id || null,
+        String(from.id || ''),
+        from.username || null,
+        from.first_name || null,
+        from.last_name || null,
+        msg.text || null,
+        fileId,
+        fileType,
+        msg.caption || null,
+        msg.date,
+        from.is_bot ? 1 : 0,
+        JSON.stringify(msg),
+      ]
+    );
+  } catch (e) {
+    console.error('[storeTelegramMessage] error:', e.message);
+  }
+}
+
 // Linking logic — called by /start (auto-match by group title) and /link
 // (explicit name match). The Tele ID, when present in the group title, takes
 // priority over the full-name match because it's much more reliable
@@ -644,11 +694,36 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
   await TelegramBotInstance.answerCallbackQuery(query.id);
 }
 
+async function handleEditedMessage(msg) {
+  const chatId = String(msg.chat?.id || '');
+  const messageId = msg.message_id;
+
+  try {
+    run(
+      `INSERT OR REPLACE INTO telegram_edited_messages (message_id, chat_id, edited_at, new_text)
+       VALUES (?, ?, ?, ?)`,
+      [messageId, chatId, msg.edit_date, msg.text || '']
+    );
+    run(
+      `UPDATE telegram_messages SET is_edited = 1, edited_at = ?, text = ?
+       WHERE chat_id = ? AND message_id = ?`,
+      [msg.edit_date, msg.text || '', chatId, messageId]
+    );
+  } catch (e) {
+    console.error('[handleEditedMessage] error:', e.message);
+  }
+}
+
 async function handleMessage(msg, TelegramBotInstance) {
   const text = msg.text || '';
   const chat = msg.chat;
   const chatId = String(chat.id);
   const isGroup = chat.type === 'group' || chat.type === 'supergroup';
+
+  // Store all group messages to DB for the admin chat UI.
+  if (isGroup && !msg.from?.is_bot) {
+    storeTelegramMessage(msg);
+  }
 
   // Private chat: handle payment flow or generic help.
   if (!isGroup) {
@@ -1243,6 +1318,9 @@ export async function startBot() {
       globalThis.__pcaBot = null;
     }
   });
+  bot.on('edited_message', (msg) => {
+    handleEditedMessage(msg).catch((e) => console.error('[telegram] edited_message error', e));
+  });
 
   // Sweep timer.
   startSweepTimer(() => bot);
@@ -1267,10 +1345,123 @@ export async function startBot() {
   return { started: true, reason: 'ok' };
 }
 
+export async function startBotWithWebhook() {
+  if (bot || globalThis.__pcaBot) return { started: true, reason: 'already_running' };
+  globalThis.__pcaTelegramBotStarted = true;
+
+  const cfg = getConfig();
+  if (!cfg) {
+    console.log('[telegram-webhook] no bot_config row, bot disabled');
+    return { started: false, reason: 'no_config' };
+  }
+  const token = cfg.token || process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    console.log('[telegram-webhook] no token, bot disabled');
+    return { started: false, reason: 'no_token' };
+  }
+  if (!cfg.enabled) {
+    console.log('[telegram-webhook] disabled in config');
+    return { started: false, reason: 'disabled' };
+  }
+
+  let TelegramBot;
+  try {
+    TelegramBot = (await import('node-telegram-bot-api')).default;
+  } catch (e) {
+    console.error('[telegram-webhook] failed to import node-telegram-bot-api:', e.message);
+    globalThis.__pcaTelegramBotStarted = false;
+    return { started: false, reason: 'import_error' };
+  }
+
+  const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/telegram`;
+  if (!webhookUrl.startsWith('https://')) {
+    console.error('[telegram-webhook] NEXT_PUBLIC_APP_URL must use https:// for webhook');
+    globalThis.__pcaTelegramBotStarted = false;
+    return { started: false, reason: 'https_required' };
+  }
+
+  try {
+    bot = new TelegramBot(token, { polling: false });
+    globalThis.__pcaBot = bot;
+  } catch (e) {
+    console.error('[telegram-webhook] failed to construct bot:', e.message);
+    globalThis.__pcaTelegramBotStarted = false;
+    return { started: false, reason: 'construct_error' };
+  }
+
+  // Validate the token up front.
+  try {
+    const me = await bot.getMe();
+    globalThis.__pcaBotId = me.id;
+    upsertConfig({ bot_username: me.username });
+    console.log(`[telegram-webhook] started, bot=@${me.username}, webhook=${webhookUrl}`);
+  } catch (e) {
+    console.error('[telegram-webhook] getMe failed (invalid token?):', e.message);
+    bot = null;
+    globalThis.__pcaTelegramBotStarted = false;
+    return { started: false, reason: 'invalid_token' };
+  }
+
+  // Set webhook
+  try {
+    await bot.setWebHook(webhookUrl, {
+      max_connections: 100,
+      allowed_updates: ['message', 'edited_message', 'callback_query', 'my_chat_member'],
+    });
+    console.log(`[telegram-webhook] webhook set to ${webhookUrl}`);
+  } catch (e) {
+    console.error('[telegram-webhook] setWebHook failed:', e.message);
+  }
+
+  // webhook_message instead of 'message' when using webhooks
+  bot.on('webhook_message', (msg) => {
+    handleMessage(msg, bot).catch((e) => console.error('[telegram] webhook handler error', e));
+  });
+  bot.on('callback_query', (query) => {
+    handleCallbackQuery(query, bot).catch((e) => console.error('[telegram] callback error', e));
+  });
+  bot.on('edited_message', (msg) => {
+    handleEditedMessage(msg).catch((e) => console.error('[telegram] edited_message error', e));
+  });
+  bot.on('my_chat_member', (member) => {
+    // Bot was added or removed from a chat
+    console.log(`[telegram] my_chat_member update:`, JSON.stringify(member));
+  });
+
+  // Sweep timer.
+  startSweepTimer(() => bot);
+
+  // Graceful shutdown.
+  const shutdown = async () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    stopSweepTimer();
+    try {
+      if (bot) {
+        console.log('[telegram-webhook] deleting webhook…');
+        await bot.deleteWebHook().catch(() => {});
+      }
+    } catch (e) {
+      console.error('[telegram-webhook] deleteWebHook error', e.message);
+    }
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
+  return { started: true, reason: 'webhook_ok' };
+}
+
 export async function stopBot() {
   stopSweepTimer();
   if (!bot) return;
-  try { await bot.stopPolling(); } catch {}
+  try {
+    // If webhook mode, delete the webhook; otherwise stop polling
+    if (!bot.options?.polling) {
+      await bot.deleteWebHook().catch(() => {});
+    } else {
+      await bot.stopPolling();
+    }
+  } catch {}
   bot = null;
   globalThis.__pcaBot = null;
   globalThis.__pcaTelegramBotStarted = false;

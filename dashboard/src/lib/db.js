@@ -463,6 +463,43 @@ function initDatabase() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_activity_logs_category ON activity_logs(category)`);
 
+  // --- Telegram Messages (chat history stored for admin dashboard) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS telegram_messages (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      message_id       INTEGER NOT NULL,
+      chat_id          TEXT NOT NULL,
+      client_id        INTEGER,
+      user_id          TEXT,
+      username         TEXT,
+      first_name       TEXT,
+      last_name        TEXT,
+      text             TEXT,
+      file_id          TEXT,
+      file_type        TEXT,
+      file_caption     TEXT,
+      date             INTEGER NOT NULL,
+      is_bot           INTEGER DEFAULT 0,
+      is_edited        INTEGER DEFAULT 0,
+      edited_at        INTEGER,
+      raw_json         TEXT,
+      created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(chat_id, message_id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_telegram_messages_chat_client ON telegram_messages(chat_id, client_id, date ASC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_telegram_messages_file ON telegram_messages(file_id) WHERE file_id IS NOT NULL`);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS telegram_edited_messages (
+      message_id       INTEGER NOT NULL,
+      chat_id          TEXT NOT NULL,
+      edited_at        INTEGER NOT NULL,
+      new_text         TEXT,
+      PRIMARY KEY(chat_id, message_id)
+    )
+  `);
+
   // Seed default bank data if empty
   const existingBanks = db.prepare('SELECT COUNT(*) as cnt FROM bank_details').get();
   if (!existingBanks || existingBanks.cnt === 0) {
