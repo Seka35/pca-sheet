@@ -1402,6 +1402,14 @@ export async function startBotWithWebhook() {
     return { started: false, reason: 'invalid_token' };
   }
 
+  // Delete any stale webhook before setting a new one
+  try {
+    await bot.deleteWebHook();
+    console.log('[telegram-webhook] deleted stale webhook');
+  } catch (e) {
+    console.log('[telegram-webhook] deleteWebhook (may have been already unset):', e.message);
+  }
+
   // Set webhook
   try {
     await bot.setWebHook(webhookUrl, {
