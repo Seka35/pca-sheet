@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 const PER_PAGE = 20;
 
@@ -12,10 +12,12 @@ export default function WhopProductsSection() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(true);
-  const [syncMsg, setSyncMsg] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [productOptions, setProductOptions] = useState([]);
+  const [referralOptions, setReferralOptions] = useState([]);
+  const debounceRef = useRef(null);
 
   const fetchProducts = useCallback(async (pageNum = 1, searchTerm = search) => {
     setLoading(true);
@@ -38,11 +40,25 @@ export default function WhopProductsSection() {
     fetchProducts(1, search);
   }, [fetchProducts]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setSearch(searchInput);
-    setPage(1);
-    fetchProducts(1, searchInput);
+  useEffect(() => {
+    fetch('/api/admin/whop-products', { method: 'HEAD' })
+      .then(res => res.json())
+      .then(data => {
+        const prods = [...(data.tiers || []), ...(data.setups || [])];
+        setProductOptions(prods);
+        setReferralOptions(data.referralPartners || []);
+      })
+      .catch(err => console.error('Error fetching options:', err));
+  }, []);
+
+  const handleSearchChange = (value) => {
+    setSearchInput(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearch(value);
+      setPage(1);
+      fetchProducts(1, value);
+    }, 300);
   };
 
   const clearSearch = () => {
@@ -90,8 +106,6 @@ export default function WhopProductsSection() {
     }
   };
 
-  const visibilityOptions = ['public', 'hidden', 'archived'];
-
   return (
     <div style={{
       backgroundColor: 'var(--bg-card)',
@@ -116,19 +130,14 @@ export default function WhopProductsSection() {
             <span style={{ fontSize: '22px' }}>🎫</span> WHOP Products
           </h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0', fontWeight: '500' }}>
-            {total} products total
+            {total} products
           </p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <span style={{ fontSize: '12px', color: '#34D399', fontWeight: '600' }}>
-            ✓ Synced from Whop
-          </span>
         </div>
       </div>
 
       {/* Search Bar */}
       <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '280px', position: 'relative' }}>
             <div style={{ position: 'absolute', left: '14px', top: '12px', color: 'var(--text-secondary)' }}>
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -137,9 +146,9 @@ export default function WhopProductsSection() {
             </div>
             <input
               type="text"
-              placeholder="Search by name, product ID, or price…"
+              placeholder="Search by name, product ID, price, tier, or referral…"
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               style={{
                 width: '100%',
                 backgroundColor: 'var(--bg-main)',
@@ -155,21 +164,6 @@ export default function WhopProductsSection() {
               onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
             />
           </div>
-          <button
-            type="submit"
-            style={{
-              padding: '12px 24px',
-              borderRadius: '10px',
-              border: 'none',
-              backgroundColor: 'var(--primary-accent)',
-              color: '#000',
-              fontSize: '13px',
-              fontWeight: '700',
-              cursor: 'pointer',
-            }}
-          >
-            Search
-          </button>
           {search && (
             <button
               type="button"
@@ -188,15 +182,15 @@ export default function WhopProductsSection() {
               Clear
             </button>
           )}
-        </form>
+        </div>
       </div>
 
       {/* Table */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '900px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', minWidth: '1000px' }}>
           <thead>
             <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)' }}>
-              {['Product ID', 'Name', 'Price', 'Visibility', 'Payment URL', 'Created', ''].map((h) => (
+              {['Product ID', 'Name', 'Price', 'PRODUCT', 'REFERRAL PARTNER', 'Payment URL', 'Created', ''].map((h) => (
                 <th key={h} style={{ padding: '14px 20px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
@@ -204,15 +198,15 @@ export default function WhopProductsSection() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} style={{ padding: '48px', textAlign: 'center' }}>
+                <td colSpan={8} style={{ padding: '48px', textAlign: 'center' }}>
                   <div className="spinner" style={{ width: '28px', height: '28px', border: '3px solid var(--border-color)', borderTopColor: 'var(--primary-accent)', borderRadius: '50%', margin: '0 auto 12px' }}></div>
                   <div style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>Loading products…</div>
                 </td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  {search ? 'No products match your search.' : 'No products found. Click "Sync from JSON" to import.'}
+                <td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  {search ? 'No products match your search.' : 'No products found.'}
                 </td>
               </tr>
             ) : (
@@ -274,12 +268,12 @@ export default function WhopProductsSection() {
                     )}
                   </td>
 
-                  {/* Visibility */}
-                  <td style={{ padding: '14px 20px' }}>
+                  {/* PRODUCT */}
+                  <td style={{ padding: '14px 20px', minWidth: '160px' }}>
                     {editingId === product.id ? (
                       <select
-                        value={editForm.visibility || 'hidden'}
-                        onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value })}
+                        value={editForm.product || ''}
+                        onChange={(e) => setEditForm({ ...editForm, product: e.target.value })}
                         style={{
                           backgroundColor: 'var(--bg-main)',
                           border: '1px solid var(--primary-accent)',
@@ -289,25 +283,47 @@ export default function WhopProductsSection() {
                           fontSize: '12px',
                           outline: 'none',
                           cursor: 'pointer',
+                          width: '100%',
                         }}
                       >
-                        {visibilityOptions.map((v) => (
-                          <option key={v} value={v} style={{ color: '#000' }}>{v}</option>
+                        <option value="" style={{ color: '#000' }}>—</option>
+                        {productOptions.map((opt) => (
+                          <option key={opt} value={opt} style={{ color: '#000' }}>{opt}</option>
                         ))}
                       </select>
                     ) : (
-                      <span style={{
-                        padding: '4px 10px',
-                        borderRadius: '100px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        backgroundColor: product.visibility === 'public' ? 'rgba(16, 185, 129, 0.1)' :
-                          product.visibility === 'archived' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.05)',
-                        color: product.visibility === 'public' ? '#34D399' :
-                          product.visibility === 'archived' ? '#F87171' : 'var(--text-secondary)',
-                        textTransform: 'capitalize',
-                      }}>
-                        {product.visibility || 'hidden'}
+                      <span style={{ fontSize: '12px', color: product.product ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: product.product ? '600' : '400' }}>
+                        {product.product || '—'}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* REFERRAL PARTNER */}
+                  <td style={{ padding: '14px 20px', minWidth: '140px' }}>
+                    {editingId === product.id ? (
+                      <select
+                        value={editForm.referral_partner || ''}
+                        onChange={(e) => setEditForm({ ...editForm, referral_partner: e.target.value })}
+                        style={{
+                          backgroundColor: 'var(--bg-main)',
+                          border: '1px solid var(--primary-accent)',
+                          borderRadius: '6px',
+                          padding: '6px 10px',
+                          color: 'var(--text-primary)',
+                          fontSize: '12px',
+                          outline: 'none',
+                          cursor: 'pointer',
+                          width: '100%',
+                        }}
+                      >
+                        <option value="" style={{ color: '#000' }}>—</option>
+                        {referralOptions.map((opt) => (
+                          <option key={opt} value={opt} style={{ color: '#000' }}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span style={{ fontSize: '12px', color: product.referral_partner ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: product.referral_partner ? '600' : '400' }}>
+                        {product.referral_partner || '—'}
                       </span>
                     )}
                   </td>

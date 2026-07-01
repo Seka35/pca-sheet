@@ -452,16 +452,21 @@ function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_id TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
-      visibility TEXT DEFAULT 'hidden',
       price TEXT DEFAULT '',
       payment_url TEXT DEFAULT '',
       created_at TEXT,
+      product TEXT DEFAULT '',
+      referral_partner TEXT DEFAULT '',
       deleted INTEGER DEFAULT 0,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_whop_products_product_id ON whop_products(product_id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_whop_products_deleted ON whop_products(deleted)`);
+
+  // Migration: add product and referral_partner columns if not exist
+  try { db.exec(`ALTER TABLE whop_products ADD COLUMN product TEXT DEFAULT ''`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE whop_products ADD COLUMN referral_partner TEXT DEFAULT ''`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   // --- Activity Logs (audit trail) ---
   db.exec(`

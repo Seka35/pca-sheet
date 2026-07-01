@@ -17,10 +17,12 @@ export async function GET(request) {
       where += ` AND (
         name LIKE ? OR
         product_id LIKE ? OR
-        price LIKE ?
+        price LIKE ? OR
+        product LIKE ? OR
+        referral_partner LIKE ?
       )`;
       const likeSearch = `%${search}%`;
-      params.push(likeSearch, likeSearch, likeSearch);
+      params.push(likeSearch, likeSearch, likeSearch, likeSearch, likeSearch);
     }
 
     // Total count
@@ -29,7 +31,7 @@ export async function GET(request) {
 
     // Paginated rows
     const rows = all(
-      `SELECT id, product_id, name, visibility, price, payment_url, created_at, deleted
+      `SELECT id, product_id, name, price, payment_url, created_at, product, referral_partner
        FROM whop_products ${where}
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`,
@@ -49,19 +51,37 @@ export async function GET(request) {
   }
 }
 
+// GET /api/admin/whop-products/options — tiers, setups, referral partners
+export async function HEAD(request) {
+  try {
+    const tiers = all(`SELECT DISTINCT tier as value FROM renewals WHERE tier IS NOT NULL AND tier != '' ORDER BY tier`);
+    const setups = all(`SELECT DISTINCT setup_type as value FROM renewals WHERE setup_type IS NOT NULL AND setup_type != '' ORDER BY setup_type`);
+    const refs = all(`SELECT DISTINCT referral_partner_name as value FROM renewals WHERE referral_partner_name IS NOT NULL AND referral_partner_name != '' ORDER BY referral_partner_name`);
+
+    return NextResponse.json({
+      tiers: tiers.map(r => r.value),
+      setups: setups.map(r => r.value),
+      referralPartners: refs.map(r => r.value),
+    });
+  } catch (err) {
+    console.error('[whop-products HEAD]', err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  }
+}
+
 // PUT /api/admin/whop-products — update a product
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { id, name, visibility, price, payment_url } = body;
+    const { id, name, price, payment_url, product, referral_partner } = body;
 
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
     run(
       `UPDATE whop_products
-       SET name = ?, visibility = ?, price = ?, payment_url = ?
+       SET name = ?, price = ?, payment_url = ?, product = ?, referral_partner = ?
        WHERE id = ?`,
-      [name, visibility, price, payment_url, id]
+      [name, price, payment_url, product, referral_partner, id]
     );
 
     const updated = get('SELECT * FROM whop_products WHERE id = ?', [id]);
@@ -84,7 +104,7 @@ export async function DELETE(request) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[whop-products DELETE]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status:  500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -106,11 +126,10 @@ export async function POST(request) {
     let skipped = 0;
 
     const insertOrUpdate = db.prepare(`
-      INSERT INTO whop_products (product_id, name, visibility, price, payment_url, created_at, deleted)
-      VALUES (?, ?, ?, ?, ?, ?, 0)
+      INSERT INTO whop_products (product_id, name, price, payment_url, created_at, deleted)
+      VALUES (?, ?, ?, ?, ?, 0)
       ON CONFLICT(product_id) DO UPDATE SET
         name = excluded.name,
-        visibility = excluded.visibility,
         price = excluded.price,
         payment_url = excluded.payment_url,
         created_at = excluded.created_at,
@@ -122,7 +141,6 @@ export async function POST(request) {
         const result = insertOrUpdate.run(
           p.product_id,
           p.name,
-          p.visibility,
           p.price || '',
           p.payment_url,
           p.created_at

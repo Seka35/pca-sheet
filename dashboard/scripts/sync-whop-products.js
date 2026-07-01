@@ -9,11 +9,10 @@ const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
 const db = new Database(dbPath);
 
 const insertOrUpdate = db.prepare(`
-  INSERT INTO whop_products (product_id, name, visibility, price, payment_url, created_at, deleted)
-  VALUES (?, ?, ?, ?, ?, ?, 0)
+  INSERT INTO whop_products (product_id, name, price, payment_url, created_at, deleted)
+  VALUES (?, ?, ?, ?, ?, 0)
   ON CONFLICT(product_id) DO UPDATE SET
     name = excluded.name,
-    visibility = excluded.visibility,
     price = excluded.price,
     payment_url = excluded.payment_url,
     created_at = excluded.created_at,
@@ -23,7 +22,7 @@ const insertOrUpdate = db.prepare(`
 let imported = 0;
 const sync = db.transaction((products) => {
   for (const p of products) {
-    insertOrUpdate.run(p.product_id, p.name, p.visibility, p.price || '', p.payment_url, p.created_at);
+    insertOrUpdate.run(p.product_id, p.name, p.price || '', p.payment_url, p.created_at);
     imported++;
   }
 });
