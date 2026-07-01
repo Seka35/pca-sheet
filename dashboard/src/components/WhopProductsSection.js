@@ -11,6 +11,8 @@ export default function WhopProductsSection() {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [productFilter, setProductFilter] = useState('');
+  const [referralFilter, setReferralFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -19,10 +21,15 @@ export default function WhopProductsSection() {
   const [referralOptions, setReferralOptions] = useState([]);
   const debounceRef = useRef(null);
 
-  const fetchProducts = useCallback(async (pageNum = 1, searchTerm = search) => {
+  const fetchProducts = useCallback(async (pageNum = 1, searchTerm = search, prodFilter = productFilter, refFilter = referralFilter) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: pageNum, search: searchTerm });
+      const params = new URLSearchParams({
+        page: pageNum,
+        search: searchTerm,
+        product: prodFilter,
+        referral: refFilter,
+      });
       const res = await fetch(`/api/admin/whop-products?${params}`);
       const data = await res.json();
       setProducts(data.products || []);
@@ -34,14 +41,14 @@ export default function WhopProductsSection() {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, productFilter, referralFilter]);
 
   useEffect(() => {
-    fetchProducts(1, search);
+    fetchProducts(1, search, productFilter, referralFilter);
   }, [fetchProducts]);
 
   useEffect(() => {
-    fetch('/api/admin/whop-products', { method: 'HEAD' })
+    fetch('/api/admin/whop-products/options')
       .then(res => res.json())
       .then(data => {
         const prods = [...(data.tiers || []), ...(data.setups || [])];
@@ -57,16 +64,32 @@ export default function WhopProductsSection() {
     debounceRef.current = setTimeout(() => {
       setSearch(value);
       setPage(1);
-      fetchProducts(1, value);
+      fetchProducts(1, value, productFilter, referralFilter);
     }, 300);
   };
 
-  const clearSearch = () => {
+  const handleProductFilterChange = (value) => {
+    setProductFilter(value);
+    setPage(1);
+    fetchProducts(1, search, value, referralFilter);
+  };
+
+  const handleReferralFilterChange = (value) => {
+    setReferralFilter(value);
+    setPage(1);
+    fetchProducts(1, search, productFilter, value);
+  };
+
+  const clearAll = () => {
     setSearchInput('');
     setSearch('');
+    setProductFilter('');
+    setReferralFilter('');
     setPage(1);
-    fetchProducts(1, '');
+    fetchProducts(1, '', '', '');
   };
+
+  const hasFilters = search || productFilter || referralFilter;
 
   const startEdit = (product) => {
     setEditingId(product.id);
@@ -89,7 +112,7 @@ export default function WhopProductsSection() {
       if (res.ok) {
         setEditingId(null);
         setEditForm({});
-        fetchProducts(page, search);
+        fetchProducts(page, search, productFilter, referralFilter);
       }
     } finally {
       setSaving(false);
@@ -100,7 +123,7 @@ export default function WhopProductsSection() {
     if (!confirm('Hide this product from the list?')) return;
     try {
       await fetch(`/api/admin/whop-products?id=${id}`, { method: 'DELETE' });
-      fetchProducts(page, search);
+      fetchProducts(page, search, productFilter, referralFilter);
     } catch (err) {
       console.error('Error deleting product:', err);
     }
@@ -135,54 +158,98 @@ export default function WhopProductsSection() {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '280px', position: 'relative' }}>
-            <div style={{ position: 'absolute', left: '14px', top: '12px', color: 'var(--text-secondary)' }}>
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              placeholder="Search by name, product ID, price, tier, or referral…"
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              style={{
-                width: '100%',
-                backgroundColor: 'var(--bg-main)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '10px',
-                padding: '12px 16px 12px 44px',
-                color: 'var(--text-primary)',
-                outline: 'none',
-                fontSize: '14px',
-                transition: 'all 0.2s',
-              }}
-              onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
-            />
+      {/* Filters Bar */}
+      <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Search */}
+        <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-secondary)' }}>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
-          {search && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              style={{
-                padding: '12px 20px',
-                borderRadius: '10px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'transparent',
-                color: 'var(--text-secondary)',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer',
-              }}
-            >
-              Clear
-            </button>
-          )}
+          <input
+            type="text"
+            placeholder="Search name, ID, price…"
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            style={{
+              width: '100%',
+              backgroundColor: 'var(--bg-main)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '10px 12px 10px 38px',
+              color: 'var(--text-primary)',
+              outline: 'none',
+              fontSize: '13px',
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--primary-accent)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+          />
         </div>
+
+        {/* Product filter */}
+        <select
+          value={productFilter}
+          onChange={(e) => handleProductFilterChange(e.target.value)}
+          style={{
+            backgroundColor: 'var(--bg-main)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            color: productFilter ? 'var(--text-primary)' : 'var(--text-secondary)',
+            outline: 'none',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: productFilter ? '600' : '400',
+            minWidth: '160px',
+          }}
+        >
+          <option value="">All Products</option>
+          {productOptions.map((opt) => (
+            <option key={opt} value={opt} style={{ color: '#000' }}>{opt}</option>
+          ))}
+        </select>
+
+        {/* Referral filter */}
+        <select
+          value={referralFilter}
+          onChange={(e) => handleReferralFilterChange(e.target.value)}
+          style={{
+            backgroundColor: 'var(--bg-main)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            color: referralFilter ? 'var(--text-primary)' : 'var(--text-secondary)',
+            outline: 'none',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: referralFilter ? '600' : '400',
+            minWidth: '160px',
+          }}
+        >
+          <option value="">All Partners</option>
+          {referralOptions.map((opt) => (
+            <option key={opt} value={opt} style={{ color: '#000' }}>{opt}</option>
+          ))}
+        </select>
+
+        {hasFilters && (
+          <button
+            onClick={clearAll}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'transparent',
+              color: 'var(--text-secondary)',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer',
+            }}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -206,7 +273,7 @@ export default function WhopProductsSection() {
             ) : products.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  {search ? 'No products match your search.' : 'No products found.'}
+                  {hasFilters ? 'No products match your filters.' : 'No products found.'}
                 </td>
               </tr>
             ) : (
@@ -371,75 +438,19 @@ export default function WhopProductsSection() {
                   <td style={{ padding: '14px 20px', whiteSpace: 'nowrap' }}>
                     {editingId === product.id ? (
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          onClick={saveEdit}
-                          disabled={saving}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: 'var(--primary-accent)',
-                            color: '#000',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: saving ? 'not-allowed' : 'pointer',
-                            opacity: saving ? 0.6 : 1,
-                          }}
-                        >
+                        <button onClick={saveEdit} disabled={saving} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--primary-accent)', color: '#000', fontSize: '11px', fontWeight: '700', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
                           Save
                         </button>
-                        <button
-                          onClick={cancelEdit}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-color)',
-                            backgroundColor: 'transparent',
-                            color: 'var(--text-secondary)',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                          }}
-                        >
+                        <button onClick={cancelEdit} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
                           Cancel
                         </button>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          onClick={() => startEdit(product)}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-color)',
-                            backgroundColor: 'transparent',
-                            color: 'var(--text-secondary)',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s',
-                          }}
-                          onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--primary-accent)'; e.currentTarget.style.color = 'var(--primary-accent)'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                        >
+                        <button onClick={() => startEdit(product)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s' }} onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--primary-accent)'; e.currentTarget.style.color = 'var(--primary-accent)'; }} onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
                           Edit
                         </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            backgroundColor: 'transparent',
-                            color: '#F87171',
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s',
-                          }}
-                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)'; }}
-                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                        >
+                        <button onClick={() => handleDelete(product.id)} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.3)', backgroundColor: 'transparent', color: '#F87171', fontSize: '11px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s' }} onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)'; }} onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
                           Hide
                         </button>
                       </div>
@@ -454,117 +465,34 @@ export default function WhopProductsSection() {
 
       {/* Pagination */}
       {!loading && products.length > 0 && (
-        <div style={{
-          padding: '16px 24px',
-          borderTop: '1px solid var(--border-color)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-        }}>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '500' }}>
             Showing {((page - 1) * PER_PAGE) + 1}–{Math.min(page * PER_PAGE, total)} of {total} products
-            {search && ` (filtered)`}
+            {hasFilters && ' (filtered)'}
           </span>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <button
-              onClick={() => { setPage(1); fetchProducts(1, search); }}
-              disabled={page === 1}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'transparent',
-                color: page === 1 ? 'var(--text-secondary)' : 'var(--text-primary)',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: page === 1 ? 'not-allowed' : 'pointer',
-                opacity: page === 1 ? 0.4 : 1,
-              }}
-            >
+            <button onClick={() => { setPage(1); fetchProducts(1, search, productFilter, referralFilter); }} disabled={page === 1} style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: page === 1 ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '12px', fontWeight: '600', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}>
               «
             </button>
-            <button
-              onClick={() => { const p = page - 1; setPage(p); fetchProducts(p, search); }}
-              disabled={page === 1}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'transparent',
-                color: page === 1 ? 'var(--text-secondary)' : 'var(--text-primary)',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: page === 1 ? 'not-allowed' : 'pointer',
-                opacity: page === 1 ? 0.4 : 1,
-              }}
-            >
+            <button onClick={() => { const p = page - 1; setPage(p); fetchProducts(p, search, productFilter, referralFilter); }} disabled={page === 1} style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: page === 1 ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '12px', fontWeight: '600', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}>
               ‹ Prev
             </button>
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let p;
-              if (totalPages <= 5) {
-                p = i + 1;
-              } else if (page <= 3) {
-                p = i + 1;
-              } else if (page >= totalPages - 2) {
-                p = totalPages - 4 + i;
-              } else {
-                p = page - 2 + i;
-              }
+              if (totalPages <= 5) p = i + 1;
+              else if (page <= 3) p = i + 1;
+              else if (page >= totalPages - 2) p = totalPages - 4 + i;
+              else p = page - 2 + i;
               return (
-                <button
-                  key={p}
-                  onClick={() => { setPage(p); fetchProducts(p, search); }}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid',
-                    borderColor: page === p ? 'var(--primary-accent)' : 'var(--border-color)',
-                    backgroundColor: page === p ? 'var(--primary-accent)' : 'transparent',
-                    color: page === p ? '#000' : 'var(--text-primary)',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button key={p} onClick={() => { setPage(p); fetchProducts(p, search, productFilter, referralFilter); }} style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid', borderColor: page === p ? 'var(--primary-accent)' : 'var(--border-color)', backgroundColor: page === p ? 'var(--primary-accent)' : 'transparent', color: page === p ? '#000' : 'var(--text-primary)', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
                   {p}
                 </button>
               );
             })}
-            <button
-              onClick={() => { const p = page + 1; setPage(p); fetchProducts(p, search); }}
-              disabled={page === totalPages}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'transparent',
-                color: page === totalPages ? 'var(--text-secondary)' : 'var(--text-primary)',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                opacity: page === totalPages ? 0.4 : 1,
-              }}
-            >
+            <button onClick={() => { const p = page + 1; setPage(p); fetchProducts(p, search, productFilter, referralFilter); }} disabled={page === totalPages} style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: page === totalPages ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '12px', fontWeight: '600', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1 }}>
               Next ›
             </button>
-            <button
-              onClick={() => { setPage(totalPages); fetchProducts(totalPages, search); }}
-              disabled={page === totalPages}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: 'transparent',
-                color: page === totalPages ? 'var(--text-secondary)' : 'var(--text-primary)',
-                fontSize: '12px',
-                fontWeight: '600',
-                cursor: page === totalPages ? 'not-allowed' : 'pointer',
-                opacity: page === totalPages ? 0.4 : 1,
-              }}
-            >
+            <button onClick={() => { setPage(totalPages); fetchProducts(totalPages, search, productFilter, referralFilter); }} disabled={page === totalPages} style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: page === totalPages ? 'var(--text-secondary)' : 'var(--text-primary)', fontSize: '12px', fontWeight: '600', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1 }}>
               »
             </button>
           </div>

@@ -25,6 +25,19 @@ export async function GET(request) {
       params.push(likeSearch, likeSearch, likeSearch, likeSearch, likeSearch);
     }
 
+    const productFilter = searchParams.get('product') || '';
+    const referralFilter = searchParams.get('referral') || '';
+
+    if (productFilter) {
+      where += ` AND product = ?`;
+      params.push(productFilter);
+    }
+
+    if (referralFilter) {
+      where += ` AND referral_partner = ?`;
+      params.push(referralFilter);
+    }
+
     // Total count
     const totalResult = get(`SELECT COUNT(*) as cnt FROM whop_products ${where}`, params);
     const total = totalResult?.cnt || 0;
@@ -47,24 +60,6 @@ export async function GET(request) {
     });
   } catch (err) {
     console.error('[whop-products GET]', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
-  }
-}
-
-// GET /api/admin/whop-products/options — tiers, setups, referral partners
-export async function HEAD(request) {
-  try {
-    const tiers = all(`SELECT DISTINCT tier as value FROM renewals WHERE tier IS NOT NULL AND tier != '' ORDER BY tier`);
-    const setups = all(`SELECT DISTINCT setup_type as value FROM renewals WHERE setup_type IS NOT NULL AND setup_type != '' ORDER BY setup_type`);
-    const refs = all(`SELECT DISTINCT referral_partner_name as value FROM renewals WHERE referral_partner_name IS NOT NULL AND referral_partner_name != '' ORDER BY referral_partner_name`);
-
-    return NextResponse.json({
-      tiers: tiers.map(r => r.value),
-      setups: setups.map(r => r.value),
-      referralPartners: refs.map(r => r.value),
-    });
-  } catch (err) {
-    console.error('[whop-products HEAD]', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
