@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductBadge from '@/components/ProductBadge';
+import SpendProgressBar from '@/components/SpendProgressBar';
 
 const fmtUSD = (n) => {
   if (n === null || n === undefined || isNaN(n)) return '—';
@@ -126,6 +127,13 @@ function ProductCard({ product, onClick }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <Row label="N°" value={product.sr_no} bold />
+        <div style={{ marginTop: '-4px' }}>
+          <SpendProgressBar
+            current={product.current_spend || 0}
+            limit={product.ad_spend_limit || 0}
+            showAmount={true}
+          />
+        </div>
         <Row label="Monthly Fee" value={product.subscription_fee ? fmtUSD(product.subscription_fee) : '—'} />
         {product.setup_fee && parseFloat(product.setup_fee) > 0 && (
           <Row label="Setup Fee" value={fmtUSD(product.setup_fee)} />
@@ -219,6 +227,17 @@ function ProductModal({ product, onClose }) {
             <InfoRow label="AD Account" value={product.ad_id_number || '—'} />
             <InfoRow label="Account Type" value={product.ad_account_type || '—'} />
             <InfoRow label="Spend Limit" value={adSpendLimit > 0 ? fmtUSD(adSpendLimit) : '—'} />
+            <InfoRow label="Spend" value={(() => {
+              const spend = parseFloat(String(product.current_spend || '0').replace(/[^0-9.-]+/g, '')) || 0;
+              return fmtUSD(spend);
+            })()} />
+            <div style={{ marginTop: '6px', marginBottom: '4px' }}>
+              <SpendProgressBar
+                current={product.current_spend || 0}
+                limit={product.ad_spend_limit || 0}
+                showAmount={true}
+              />
+            </div>
             <InfoRow label="Start Date" value={product.start_date || '—'} />
             <InfoRow label="Renewal Date" value={product.valid_stopped_date || '—'} />
             <InfoRow label="Billing Month" value={product.month || '—'} />

@@ -6,6 +6,7 @@ import TelegramBadge from './TelegramBadge';
 import TeleIdBadge from './TeleIdBadge';
 import ClientFormFields from './ClientFormFields';
 import ChatTab from './ChatTab';
+import SpendProgressBar from './SpendProgressBar';
 import { extractTeleId } from '@/lib/teleIdParser';
 import { WHOP_DISCOUNT_BY_PARTNER, calculateClientDiscount, calculateReferralCommission } from '@/lib/whopLinks';
 
@@ -474,6 +475,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         ad_id_number: h.ad_id_number || '',
         ad_account_type: h.ad_account_type || '',
         ad_spend_limit: h.ad_spend_limit || '',
+        current_spend: h.current_spend || '0',
         referral_partner_name: h.referral_partner_name || '',
         referral_amount: h.referral_amount || '',
         bank_name: h.bank_name || '',
@@ -1591,6 +1593,20 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Limit</span>
                                 <span style={{ fontWeight: '600', color: 'var(--primary-accent)' }}>{product.ad_spend_limit || '—'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Spend</span>
+                                <span style={{ fontWeight: '600' }}>{(() => {
+                                  const spend = parseFloat(String(product.current_spend || '0').replace(/[^0-9.-]+/g, '')) || 0;
+                                  return '$' + spend.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                                })()}</span>
+                              </div>
+                              <div style={{ marginTop: '4px' }}>
+                                <SpendProgressBar
+                                  current={product.current_spend || 0}
+                                  limit={product.ad_spend_limit || 0}
+                                  showAmount={true}
+                                />
                               </div>
                             </div>
                           </div>

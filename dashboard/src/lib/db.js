@@ -416,6 +416,7 @@ function initDatabase() {
   try { db.exec(`ALTER TABLE renewals ADD COLUMN transaction_id TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   try { db.exec(`ALTER TABLE renewals ADD COLUMN payment_proof_url TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   try { db.exec(`ALTER TABLE renewals ADD COLUMN paid_at TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN current_spend TEXT DEFAULT '0'`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   try { db.exec(`ALTER TABLE renewals ADD COLUMN is_trial INTEGER DEFAULT 0`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
   // --- Invoice Settings ---

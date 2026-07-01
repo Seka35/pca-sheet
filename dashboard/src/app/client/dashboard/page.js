@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductBadge from '@/components/ProductBadge';
+import SpendProgressBar from '@/components/SpendProgressBar';
 
 const fmtUSD = (n) => {
   if (n === null || n === undefined || isNaN(n)) return '—';
@@ -252,6 +253,7 @@ export default function ClientDashboardPage() {
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-card)' }}>
                   <TableHeader>N°</TableHeader>
+                  <TableHeader>SPEND</TableHeader>
                   <TableHeader>Product</TableHeader>
                   <TableHeader>Monthly Fee</TableHeader>
                   <TableHeader>CL Amount</TableHeader>
@@ -265,6 +267,12 @@ export default function ClientDashboardPage() {
                   return (
                   <tr key={r.sr_no} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <TableCell style={{ color: 'var(--text-secondary)' }}>{r.sr_no}</TableCell>
+                    <TableCell>
+                      <SpendProgressBar
+                        current={r.current_spend || 0}
+                        limit={r.ad_spend_limit || 0}
+                      />
+                    </TableCell>
                     <TableCell><ProductBadge tier={r.tier} setup_type={r.setup_type} is_trial={r.is_trial} /></TableCell>
                     <TableCell style={{ fontWeight: '500' }}>{(() => { const sub = parseFloat(String(r.subscription_fee || '0').replace(/[^0-9.-]+/g, '')) || 0; const setup = parseFloat(String(r.setup_fee || '0').replace(/[^0-9.-]+/g, '')) || 0; const disc = parseFloat(String(r.discount || '0').replace(/[^0-9.-]+/g, '')) || 0; const total = sub + setup - disc; return total > 0 ? fmtUSD(total) : '—'; })()}</TableCell>
                     <TableCell style={{ fontWeight: '500', color: clAmount > 0 ? '#a78bfa' : 'var(--text-secondary)' }}>{clAmount > 0 ? fmtUSD(clAmount) : '—'}</TableCell>

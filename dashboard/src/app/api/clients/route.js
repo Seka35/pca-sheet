@@ -71,6 +71,8 @@ export async function GET(req) {
             tier: p.tier,
             setup_type: p.setup_type,
             is_trial: p.is_trial === 1,
+            current_spend: p.current_spend || '0',
+            ad_spend_limit: p.ad_spend_limit || '0',
           });
         }
 
