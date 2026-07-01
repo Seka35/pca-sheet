@@ -446,6 +446,23 @@ function initDatabase() {
   try { db.exec(`ALTER TABLE users ADD COLUMN client_id INTEGER REFERENCES clients(id)`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_client_id ON users(client_id)`); } catch (e) { /* index may already exist */ }
 
+  // --- WHOP Products ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS whop_products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      visibility TEXT DEFAULT 'hidden',
+      price TEXT DEFAULT '',
+      payment_url TEXT DEFAULT '',
+      created_at TEXT,
+      deleted INTEGER DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_whop_products_product_id ON whop_products(product_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_whop_products_deleted ON whop_products(deleted)`);
+
   // --- Activity Logs (audit trail) ---
   db.exec(`
     CREATE TABLE IF NOT EXISTS activity_logs (

@@ -5,6 +5,7 @@ import ClientModal from '@/components/ClientModal';
 import InvoiceTab from '@/components/InvoiceTab';
 import ProductBadge from '@/components/ProductBadge';
 import { WHOP_REFERRAL_PARTNERS, WHOP_TIER_LINKS, WHOP_DISCOUNT_BY_PARTNER, WHOP_SETUP_LINKS } from '@/lib/whopLinks';
+import WhopProductsSection from '@/components/WhopProductsSection';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
@@ -807,6 +808,8 @@ export default function PaymentsPage() {
           })}
         </div>
       )}
+
+      {activeTab === 'banks' && <WhopProductsSection />}
 
       {activeTab === 'invoice' && (
         <div className="card" style={{ padding: '32px', maxWidth: '800px', margin: '0 auto', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
