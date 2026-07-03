@@ -24,12 +24,16 @@ export default function PaymentsPage() {
   const [banks, setBanks] = useState([]);
   const [editingBank, setEditingBank] = useState(null);
   const [bankFormData, setBankFormData] = useState({});
+  const [paymentsOffset, setPaymentsOffset] = useState(0);
+  const [paymentsTotal, setPaymentsTotal] = useState(0);
+  const paymentsLimit = 20;
 
   useEffect(() => {
     fetch('/api/payments')
       .then(res => res.json())
       .then(data => {
         setPayments(data.payments || []);
+        setPaymentsTotal(data.payments?.length || 0);
         setSummary(data.summary || {
           totalCollected: 0,
           failedPaymentsCount: 0,
@@ -139,6 +143,9 @@ export default function PaymentsPage() {
     return matchesSearch && matchesChannel && matchesProduct;
   });
 
+  const paginatedPayments = filteredPayments.slice(paymentsOffset, paymentsOffset + paymentsLimit);
+  const totalFiltered = filteredPayments.length;
+
   const uniqueChannels = ['All Channels', ...new Set(payments.map(p => p.channel).filter(Boolean))];
   const uniqueProducts = ['All Products', ...new Set(payments.map(p => p.tier).filter(Boolean)), ...new Set(payments.map(p => p.setup_type).filter(Boolean))].filter(Boolean);
 
@@ -150,7 +157,7 @@ export default function PaymentsPage() {
         <div>
           <h1 style={{ fontSize: '28px', fontWeight: '800', marginBottom: '4px', letterSpacing: '-0.5px' }}>Financial Overview</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500' }}>
-            {activeTab === 'payments' ? `Track and manage your ${payments.length} payment records` : activeTab === 'banks' ? 'Configure and share your payment methods' : 'Customize your invoice generation settings'}
+            {activeTab === 'payments' ? `Showing ${paginatedPayments.length > 0 ? paymentsOffset + 1 : 0}–${paymentsOffset + paginatedPayments.length} of ${totalFiltered} payment records` : activeTab === 'banks' ? 'Configure and share your payment methods' : 'Customize your invoice generation settings'}
           </p>
         </div>
         
@@ -302,7 +309,7 @@ export default function PaymentsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPayments.map((row) => (
+                    {paginatedPayments.map((row) => (
                       <tr
                         key={row.id || row.sr_no}
                         onClick={() => openClientModal(row.client_id)}
@@ -361,6 +368,49 @@ export default function PaymentsPage() {
                     ))}
                   </tbody>
                 </table>
+
+                {/* Pagination */}
+                {totalFiltered > paymentsLimit && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderTop: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      Page {Math.floor(paymentsOffset / paymentsLimit) + 1} of {Math.ceil(totalFiltered / paymentsLimit)}
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => setPaymentsOffset(o => Math.max(0, o - paymentsLimit))}
+                        disabled={paymentsOffset === 0}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: paymentsOffset === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.08)',
+                          color: paymentsOffset === 0 ? 'var(--text-secondary)' : 'var(--text-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          cursor: paymentsOffset === 0 ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        ← Previous
+                      </button>
+                      <button
+                        onClick={() => setPaymentsOffset(o => o + paymentsLimit)}
+                        disabled={paymentsOffset + paymentsLimit >= totalFiltered}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: paymentsOffset + paymentsLimit >= totalFiltered ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.08)',
+                          color: paymentsOffset + paymentsLimit >= totalFiltered ? 'var(--text-secondary)' : 'var(--text-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          cursor: paymentsOffset + paymentsLimit >= totalFiltered ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -60,6 +60,9 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
+  const [clientsTotal, setClientsTotal] = useState(0);
+  const [clientsOffset, setClientsOffset] = useState(0);
+  const clientsLimit = 20;
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -103,16 +106,20 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab === 'clients') {
       // Fetch only clients that have login accounts (users with role='client')
-      fetch('/api/admin/clients')
+      const params = new URLSearchParams({ limit: clientsLimit, offset: clientsOffset });
+      fetch(`/api/admin/clients?${params}`)
         .then(res => res.json())
         .then(data => {
-          if (Array.isArray(data)) {
+          if (data.clients) {
+            setClients(data.clients);
+            setClientsTotal(data.total);
+          } else if (Array.isArray(data)) {
             setClients(data);
           }
         })
         .catch(() => {});
     }
-  }, [activeTab]);
+  }, [activeTab, clientsOffset]);
 
   if (loading) {
     return (
@@ -200,7 +207,7 @@ export default function AdminPage() {
             <div>
               <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '4px' }}>Client Accounts</h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-                {clients.length} client{clients.length !== 1 ? 's' : ''} with portal access
+                Showing {clients.length > 0 ? clientsOffset + 1 : 0}–{clientsOffset + clients.length} of {clientsTotal} clients with portal access
               </p>
             </div>
             <Link href="/clients">
@@ -250,6 +257,49 @@ export default function AdminPage() {
                 )}
               </tbody>
             </table>
+
+            {/* Pagination */}
+            {clientsTotal > clientsLimit && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderTop: '1px solid var(--border-color)' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  Page {Math.floor(clientsOffset / clientsLimit) + 1} of {Math.ceil(clientsTotal / clientsLimit)}
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => setClientsOffset(o => Math.max(0, o - clientsLimit))}
+                    disabled={clientsOffset === 0}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: clientsOffset === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.08)',
+                      color: clientsOffset === 0 ? 'var(--text-secondary)' : 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: clientsOffset === 0 ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    ← Previous
+                  </button>
+                  <button
+                    onClick={() => setClientsOffset(o => o + clientsLimit)}
+                    disabled={clientsOffset + clientsLimit >= clientsTotal}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: clientsOffset + clientsLimit >= clientsTotal ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.08)',
+                      color: clientsOffset + clientsLimit >= clientsTotal ? 'var(--text-secondary)' : 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: clientsOffset + clientsLimit >= clientsTotal ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

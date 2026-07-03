@@ -1828,13 +1828,30 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     {clientPayments.length > 0 && clientPayments.map((payment) => {
                       const product = history?.find(h => h.sr_no === payment.renewal_sr_no);
                       const billing = getBillingInfo(product || {});
+                      // Calculate billing status for this payment entry
+                      const sub = parseAmount(product?.subscription_fee);
+                      const setup = parseAmount(product?.setup_fee);
+                      const disc = parseAmount(product?.discount);
+                      const received = parseAmount(payment.amount_received);
+                      const totalDue = (sub + setup) - disc;
+                      const isZeroOrEmpty = !payment.amount_received || payment.amount_received === '0' || payment.amount_received === '';
+                      let paymentBillingStatus = 'UNPAID';
+                      if (payment.is_topup === 1) {
+                        paymentBillingStatus = 'TOPUP';
+                      } else if (isZeroOrEmpty) {
+                        paymentBillingStatus = 'UNPAID';
+                      } else if (received >= totalDue && totalDue > 0) {
+                        paymentBillingStatus = 'PAID';
+                      } else if (received > 0) {
+                        paymentBillingStatus = 'PARTIAL';
+                      }
                       return (
-                        <tr key={`payment-${payment.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: 'rgba(16, 185, 129, 0.03)' }}>
+                        <tr key={`payment-${payment.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: paymentBillingStatus === 'UNPAID' ? 'rgba(239, 68, 68, 0.03)' : paymentBillingStatus === 'PARTIAL' ? 'rgba(245, 158, 11, 0.03)' : 'rgba(16, 185, 129, 0.03)' }}>
                           <td style={{ padding: '16px 8px' }}>
-                            {payment.is_topup === 1 ? (
+                            {paymentBillingStatus === 'TOPUP' ? (
                               <span style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#A78BFA', fontWeight: '700', fontSize: '11px', padding: '2px 8px', borderRadius: '4px' }}>TOP-UP</span>
                             ) : (
-                              <span style={{ color: '#10B981', fontWeight: '700', fontSize: '11px' }}>PAID</span>
+                              <span style={{ color: paymentBillingStatus === 'PAID' ? '#10B981' : paymentBillingStatus === 'PARTIAL' ? '#F59E0B' : '#EF4444', fontWeight: '700', fontSize: '11px' }}>{paymentBillingStatus}</span>
                             )}
                           </td>
                           <td style={{ padding: '16px 8px', fontWeight: '600' }}>{payment.payment_received_month || payment.period || '—'}</td>
@@ -1856,6 +1873,17 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                              {/* Send invoice button - only for UNPAID and PARTIAL (not TOPUP, not PAID) */}
+                              {paymentBillingStatus !== 'TOPUP' && paymentBillingStatus !== 'PAID' && (
+                                <button
+                                  onClick={() => sendInvoiceViaTelegram(product || { ...payment, sr_no: payment.renewal_sr_no, tier: payment.tier, setup_type: payment.setup_type, subscription_fee: payment.subscription_fee, setup_fee: payment.setup_fee, discount: payment.discount, amount_received: payment.amount_received, valid_stopped_date: payment.valid_stopped_date })}
+                                  disabled={sendingRowSrNo === product?.sr_no}
+                                  title="Send invoice via Telegram"
+                                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: sendingRowSrNo === product?.sr_no ? 'rgba(20, 184, 166, 0.3)' : 'rgba(20, 184, 166, 0.15)', color: '#14b8a6', border: '1px solid rgba(20, 184, 166, 0.4)', cursor: sendingRowSrNo === product?.sr_no ? 'not-allowed' : 'pointer' }}
+                                >
+                                  {sendingRowSrNo === product?.sr_no ? <IconTelegram size={16} color="#14b8a6" /> : <IconSend size={16} color="#14b8a6" />}
+                                </button>
+                              )}
                               <a
                                 href={buildInvoiceUrl(payment, product, billing)}
                                 target="_blank" rel="noopener noreferrer"

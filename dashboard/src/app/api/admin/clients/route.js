@@ -10,7 +10,15 @@ export async function GET(req) {
   }
 
   try {
-    // Get all users with role='client' and their associated client info
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Get total count
+    const countResult = get(`SELECT COUNT(*) as cnt FROM users WHERE role = 'client'`);
+    const total = countResult?.cnt || 0;
+
+    // Get paginated users with role='client' and their associated client info
     const clientUsers = all(`
       SELECT u.id as user_id, u.username, u.role, u.created_at as login_created,
              c.id as client_id, c.name, c.status, c.telegram_group_id, c.tele_id
@@ -18,7 +26,8 @@ export async function GET(req) {
       LEFT JOIN clients c ON u.client_id = c.id
       WHERE u.role = 'client'
       ORDER BY c.name ASC
-    `);
+      LIMIT ? OFFSET ?
+    `, [limit, offset]);
 
     const formattedClients = clientUsers.map(row => ({
       user_id: row.user_id,
@@ -31,7 +40,12 @@ export async function GET(req) {
       login_created: row.login_created,
     }));
 
-    return NextResponse.json(formattedClients);
+    return NextResponse.json({
+      clients: formattedClients,
+      total,
+      limit,
+      offset
+    });
   } catch (error) {
     console.error('[GET /api/admin/clients]', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

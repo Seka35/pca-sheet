@@ -183,7 +183,8 @@ export async function GET(req) {
 
     return NextResponse.json({
       summary: { totalCollected, failedPaymentsCount, totalRefunds: 0, collectedByChannel },
-      payments: allPayments
+      payments: allPayments,
+      total: allPayments.length
     });
 
   } catch (error) {
@@ -368,11 +369,16 @@ export async function POST(req) {
         }
 
         // Check if product is paid in full: amount_received >= (subscription + setup - discount)
+        // Only mark as paid and create next renewal if there is actually an amount due > 0
         const amountDue = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
         if (totalAmount >= amountDue && amountDue > 0) {
           // Product paid in full → create new renewal row for next month
           const newSrNo = createNextMonthRenewal(existingRenewal, payment_received_date || latestPayment?.payment_received_date);
           logActivity(auth.user?.id, auth.user?.username || 'system', 'CREATE', 'renewals', null, `Auto-created next renewal ${newSrNo} from ${renewal_sr_no}`);
+        } else if (totalAmount > 0 && amountDue <= 0) {
+          // Edge case: payment was made but amountDue is 0 (e.g., discount covered everything)
+          // Don't create next renewal automatically - require manual intervention
+          logActivity(auth.user?.id, auth.user?.username || 'system', 'NOTE', 'renewals', renewal_sr_no, `Payment of ${totalAmount} received but amountDue is ${amountDue} - manual review needed`);
         }
       }
     }

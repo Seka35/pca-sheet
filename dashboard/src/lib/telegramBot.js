@@ -30,12 +30,20 @@ function normName(s) {
 function storeTelegramMessage(msg) {
   try {
     const chatId = String(msg.chat?.id || '');
-    if (!chatId) return;
+    if (!chatId) {
+      console.log('[storeTelegramMessage] no chatId, skipping');
+      return;
+    }
 
     const link = get(
       `SELECT client_id FROM bot_group_links WHERE chat_id = ? AND status = 'linked' LIMIT 1`,
       [chatId]
     );
+    if (!link) {
+      console.log(`[storeTelegramMessage] chatId ${chatId} not linked, skipping`);
+      return;
+    }
+    console.log(`[storeTelegramMessage] storing message from chatId ${chatId}, client_id=${link.client_id}`);
     const from = msg.from || {};
     const photo = msg.photo?.[msg.photo.length - 1];
     const doc = msg.document;
@@ -287,8 +295,11 @@ function escapeHtml(s) {
 //   remind_later → snooze
 //   create_client / cancel_create → client creation flow
 async function handleCallbackQuery(query, TelegramBotInstance) {
+  console.log(`[callback_query] received: data="${query.data}", from=${query.from?.id}`);
   const parsed = parseCallbackData(query.data || '');
+  console.log(`[callback_query] parsed: action=${parsed.action}, srNo=${parsed.srNo}, chatId=${parsed.chatId}`);
   if (!parsed.action) {
+    console.log(`[callback_query] no action parsed, ignoring`);
     await TelegramBotInstance.answerCallbackQuery(query.id);
     return;
   }
@@ -311,9 +322,25 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
   // ── Payment buttons ────────────────────────────────────────────────────────
   if (parsed.action === 'pay_now') {
     const { srNo, chatId } = parsed;
-    const renewal = get('SELECT r.*, c.tele_id FROM renewals r JOIN clients c ON c.id = r.client_id WHERE r.sr_no = ?', [srNo]);
+    let renewal = get('SELECT r.*, c.tele_id FROM renewals r JOIN clients c ON c.id = r.client_id WHERE r.sr_no = ?', [srNo]);
+
+    // If not found, try to find a matching renewal for the same client (sr_no might have formatting issues like 808.01 vs 808.1)
+    if (!renewal && srNo) {
+      const clientIdMatch = srNo.match(/^(\d+)\./);
+      if (clientIdMatch) {
+        const clientId = clientIdMatch[1];
+        // Try to find the most recent renewal for this client
+        renewal = get(
+          `SELECT r.*, c.tele_id FROM renewals r JOIN clients c ON c.id = r.client_id WHERE r.client_id = ? ORDER BY r.sr_no DESC LIMIT 1`,
+          [clientId]
+        );
+        console.log(`[pay_now] srNo ${srNo} not found, found替代 renewal ${renewal?.sr_no} for client ${clientId}`);
+      }
+    }
+
     if (!renewal) {
-      await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Renewal not found.', show_alert: true });
+      console.error(`[pay_now] Renewal not found for srNo=${srNo}, chatId=${chatId}`);
+      await TelegramBotInstance.answerCallbackQuery(query.id, { text: 'Renewal not found. Please contact support.', show_alert: true });
       return;
     }
 
@@ -334,12 +361,23 @@ async function handleCallbackQuery(query, TelegramBotInstance) {
       `Select how you want to pay:`;
 
     const keyboard = buildPaymentMethodKeyboard(srNo, chatId, bankKey);
+    console.log(`[pay_now] sending payment options to chatId=${chatId}, srNo=${srNo}`);
     // Send a new message instead of editing (more reliable for document messages)
-    await TelegramBotInstance.sendMessage(chatId, msg, {
-      parse_mode: 'HTML',
-      reply_markup: JSON.stringify(keyboard.reply_markup),
-    });
-    await TelegramBotInstance.answerCallbackQuery(query.id);
+    try {
+      await TelegramBotInstance.sendMessage(chatId, msg, {
+        parse_mode: 'HTML',
+        reply_markup: JSON.stringify(keyboard.reply_markup),
+      });
+      console.log(`[pay_now] message sent successfully`);
+      await TelegramBotInstance.answerCallbackQuery(query.id);
+    } catch (e) {
+      console.error(`[pay_now] sendMessage failed: ${e.message}`);
+      // Tell the user something went wrong
+      await TelegramBotInstance.answerCallbackQuery(query.id, {
+        text: `Error: ${e.message.slice(0, 200)}`,
+        show_alert: true
+      });
+    }
     return;
   }
 
@@ -719,6 +757,7 @@ async function handleMessage(msg, TelegramBotInstance) {
   const chat = msg.chat;
   const chatId = String(chat.id);
   const isGroup = chat.type === 'group' || chat.type === 'supergroup';
+  console.log(`[handleMessage] chatId=${chatId}, isGroup=${isGroup}, text=${text?.slice(0, 50)}`);
 
   // Store all group messages to DB for the admin chat UI.
   if (isGroup && !msg.from?.is_bot) {

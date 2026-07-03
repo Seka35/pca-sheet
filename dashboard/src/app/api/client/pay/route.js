@@ -46,13 +46,14 @@ export async function POST(req) {
       amountDue = parseAmount(renewal.subscription_fee) + parseAmount(renewal.setup_fee) - parseAmount(renewal.discount);
 
       run(`
-        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at)
-        VALUES (?, ?, 'AWAIT_TX', ?, ?)
+        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at, client_id)
+        VALUES (?, ?, 'AWAIT_TX', ?, ?, ?)
         ON CONFLICT(sr_no, chat_id) DO UPDATE SET
           step = 'AWAIT_TX',
           transaction_id = excluded.transaction_id,
-          submitted_at = excluded.submitted_at
-      `, [sr_no, 'client_portal', transaction_id, now]);
+          submitted_at = excluded.submitted_at,
+          client_id = excluded.client_id
+      `, [sr_no, 'client_portal', transaction_id, now, user.client_id]);
     }
 
     // Insert into payment_proofs (required for approval_queue)
