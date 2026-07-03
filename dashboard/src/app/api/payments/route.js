@@ -368,18 +368,9 @@ export async function POST(req) {
           run(`UPDATE renewals SET referral_amount = COALESCE(NULLIF(referral_amount, ''), ?) WHERE sr_no = ?`, [referralAmt, renewal_sr_no]);
         }
 
-        // Check if product is paid in full: amount_received >= (subscription + setup - discount)
-        // Only mark as paid and create next renewal if there is actually an amount due > 0
-        const amountDue = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
-        if (totalAmount >= amountDue && amountDue > 0) {
-          // Product paid in full → create new renewal row for next month
-          const newSrNo = createNextMonthRenewal(existingRenewal, payment_received_date || latestPayment?.payment_received_date);
-          logActivity(auth.user?.id, auth.user?.username || 'system', 'CREATE', 'renewals', null, `Auto-created next renewal ${newSrNo} from ${renewal_sr_no}`);
-        } else if (totalAmount > 0 && amountDue <= 0) {
-          // Edge case: payment was made but amountDue is 0 (e.g., discount covered everything)
-          // Don't create next renewal automatically - require manual intervention
-          logActivity(auth.user?.id, auth.user?.username || 'system', 'NOTE', 'renewals', renewal_sr_no, `Payment of ${totalAmount} received but amountDue is ${amountDue} - manual review needed`);
-        }
+        // NOTE: We do NOT create a new renewal automatically.
+        // The product stays as ONE product. Each payment is recorded in the payments table.
+        // The renewal's valid_stopped_date is updated above to extend the current product.
       }
     }
 

@@ -209,12 +209,9 @@ export async function POST(req) {
         // Also activate the client if payment is approved
         run(`UPDATE clients SET status = 'Actif' WHERE id = ?`, [entry.client_id]);
 
-        // Check if product is paid in full → create new renewal row for next month
-        const amountDueCheck = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
-        if (amountDue >= amountDueCheck && amountDueCheck > 0) {
-          const todayStr = new Date().toISOString().split('T')[0];
-          createNextMonthRenewal(existingRenewal, todayStr);
-        }
+        // NOTE: We do NOT create a new renewal here. The product stays as ONE product.
+        // Each payment is recorded in the payments table for history.
+        // The renewal's valid_stopped_date is updated above to extend the current product.
       }
     } else {
       // Renewal doesn't exist - create it with the approval data
