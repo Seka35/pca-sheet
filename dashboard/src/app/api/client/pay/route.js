@@ -16,9 +16,9 @@ export async function POST(req) {
   }
 
   try {
-    const { sr_no, bank_name, transaction_id, is_topup, topup_amount } = await req.json();
+    const { sr_no, bank_name, transaction_id, is_topup, topup_amount, whop_product_payments_json } = await req.json();
 
-    if (!sr_no || !bank_name || !transaction_id) {
+    if (!sr_no || !bank_name) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -38,22 +38,23 @@ export async function POST(req) {
 
       // Insert into pending_payments with unique chat_id
       run(`
-        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at, topup_amount, tele_id, client_id)
-        VALUES (?, ?, 'AWAIT_TX', ?, ?, ?, ?, ?)
-      `, [sr_no, `topup_${user.client_id}_${Date.now()}`, transaction_id, now, topup_amount || null, String(user.tele_id || ''), user.client_id]);
+        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at, topup_amount, tele_id, client_id, whop_product_payments_json)
+        VALUES (?, ?, 'AWAIT_TX', ?, ?, ?, ?, ?, ?)
+      `, [sr_no, `topup_${user.client_id}_${Date.now()}`, transaction_id, now, topup_amount || null, String(user.tele_id || ''), user.client_id, whop_product_payments_json || null]);
     } else {
       // Regular renewal: calculate amount due
       amountDue = parseAmount(renewal.subscription_fee) + parseAmount(renewal.setup_fee) - parseAmount(renewal.discount);
 
       run(`
-        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at, client_id)
-        VALUES (?, ?, 'AWAIT_TX', ?, ?, ?)
+        INSERT INTO pending_payments (sr_no, chat_id, step, transaction_id, submitted_at, client_id, whop_product_payments_json)
+        VALUES (?, ?, 'AWAIT_TX', ?, ?, ?, ?)
         ON CONFLICT(sr_no, chat_id) DO UPDATE SET
           step = 'AWAIT_TX',
           transaction_id = excluded.transaction_id,
           submitted_at = excluded.submitted_at,
-          client_id = excluded.client_id
-      `, [sr_no, 'client_portal', transaction_id, now, user.client_id]);
+          client_id = excluded.client_id,
+          whop_product_payments_json = excluded.whop_product_payments_json
+      `, [sr_no, 'client_portal', transaction_id, now, user.client_id, whop_product_payments_json || null]);
     }
 
     // Insert into payment_proofs (required for approval_queue)
@@ -70,8 +71,8 @@ export async function POST(req) {
 
     // Insert into approval_queue for admin review
     run(
-      `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, submitted_at, status, is_topup, topup_amount)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING', ?, ?)`,
+      `INSERT INTO approval_queue (proof_id, sr_no, client_id, client_name, tele_id, product_type, amount_due, due_date, bank_name, transaction_id, submitted_at, status, is_topup, topup_amount, whop_product_payments_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'PENDING', ?, ?, ?)`,
       [
         proofRow.id,
         sr_no,
@@ -85,6 +86,7 @@ export async function POST(req) {
         transaction_id,
         isTopupFlag,
         is_topup ? (topup_amount || null) : null,
+        whop_product_payments_json || null,
       ]
     );
 

@@ -285,7 +285,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes, is_topup } = body;
+    const { client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes, is_topup, whop_product_payments_json } = body;
 
     if (!client_id || !renewal_sr_no) {
       return NextResponse.json({ error: 'client_id and renewal_sr_no are required' }, { status: 400 });
@@ -307,6 +307,24 @@ export async function POST(req) {
       notes || '',
       isTopUp ? 1 : 0
     ]);
+
+    // Handle WHOP product payments - store email/reference per product component
+    if (whop_product_payments_json && bank_name === 'WHOP') {
+      try {
+        const whopPayments = JSON.parse(whop_product_payments_json);
+        // Delete old entries for this renewal
+        run(`DELETE FROM whop_product_payments WHERE renewal_sr_no = ?`, [renewal_sr_no]);
+        // Insert new entries
+        for (const payment of whopPayments) {
+          run(
+            `INSERT INTO whop_product_payments (renewal_sr_no, product_type, product_name, whop_email, whop_payment_reference) VALUES (?, ?, ?, ?, ?)`,
+            [renewal_sr_no, payment.product_type, payment.product_name, payment.whop_email || '', payment.whop_payment_reference || '']
+          );
+        }
+      } catch (e) {
+        console.error('[POST /api/payments] whop_product_payments error:', e.message);
+      }
+    }
 
     // Update renewal: top-up payments accumulate in cl_amount, regular payments update amount_received
     const existingRenewal = get('SELECT * FROM renewals WHERE sr_no = ?', [renewal_sr_no]);

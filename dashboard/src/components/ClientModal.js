@@ -305,6 +305,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setup_fee: '',
     discount: '',
     valid_stopped_date: '',
+    whop_product_payments_json: '[]',
   });
 
   // Active products from history for dropdown selection
@@ -717,6 +718,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         setup_fee: '',
         discount: '',
         valid_stopped_date: '',
+        whop_product_payments_json: '[]',
       });
     } else {
       // Pre-fill from selected product
@@ -736,6 +738,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           valid_stopped_date: product.valid_stopped_date || '',
           referral_partner_name: product.referral_partner_name || '',
           referral_amount: product.referral_amount || '',
+          whop_product_payments_json: product.whop_product_payments_json || '[]',
         });
       }
     }
@@ -758,6 +761,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       setup_fee: product?.setup_fee || '',
       discount: product?.discount || '',
       valid_stopped_date: product?.valid_stopped_date || '',
+      whop_product_payments_json: product?.whop_product_payments_json || '[]',
     });
   };
 
@@ -868,6 +872,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           bank_name: manualPaymentForm.bank_name || '',
           notes: 'MANUAL_ENTRY',
           is_topup: manualPaymentForm.is_topup === true ? 1 : 0,
+          whop_product_payments_json: manualPaymentForm.whop_product_payments_json,
         }),
       });
 
@@ -1751,6 +1756,75 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                         {BANK_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
                       </select>
                     </div>
+
+                    {manualPaymentForm.bank_name === 'WHOP' && (() => {
+                      const whopPayments = JSON.parse(manualPaymentForm.whop_product_payments_json || '[]');
+                      const hasTier = manualPaymentForm.tier;
+                      const hasSetup = manualPaymentForm.setup_type;
+                      return (
+                        <div style={{ gridColumn: '1 / -1', backgroundColor: 'rgba(34, 197, 94, 0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                          <p style={{ fontSize: '12px', fontWeight: '600', color: '#22c55e', marginBottom: '12px' }}>WHOP Payment Details</p>
+                          {hasTier && (
+                            <div style={{ marginBottom: '12px' }}>
+                              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>{manualPaymentForm.tier} - Email & Reference</p>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                <input
+                                  type="email"
+                                  placeholder="WHOP email for TIER"
+                                  value={whopPayments.find(p => p.product_type === 'tier')?.whop_email || ''}
+                                  onChange={(e) => {
+                                    const updated = whopPayments.filter(p => p.product_type !== 'tier');
+                                    updated.push({ product_type: 'tier', product_name: manualPaymentForm.tier, whop_email: e.target.value, whop_payment_reference: whopPayments.find(p => p.product_type === 'tier')?.whop_payment_reference || '' });
+                                    setManualPaymentForm(prev => ({ ...prev, whop_product_payments_json: JSON.stringify(updated) }));
+                                  }}
+                                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', color: '#fff', fontSize: '12px' }}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="WHOP reference (optional)"
+                                  value={whopPayments.find(p => p.product_type === 'tier')?.whop_payment_reference || ''}
+                                  onChange={(e) => {
+                                    const updated = whopPayments.filter(p => p.product_type !== 'tier');
+                                    updated.push({ product_type: 'tier', product_name: manualPaymentForm.tier, whop_email: whopPayments.find(p => p.product_type === 'tier')?.whop_email || '', whop_payment_reference: e.target.value });
+                                    setManualPaymentForm(prev => ({ ...prev, whop_product_payments_json: JSON.stringify(updated) }));
+                                  }}
+                                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', color: '#fff', fontSize: '12px' }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                          {hasSetup && (
+                            <div>
+                              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>{manualPaymentForm.setup_type} Setup - Email & Reference</p>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                <input
+                                  type="email"
+                                  placeholder="WHOP email for SETUP"
+                                  value={whopPayments.find(p => p.product_type === 'setup')?.whop_email || ''}
+                                  onChange={(e) => {
+                                    const updated = whopPayments.filter(p => p.product_type !== 'setup');
+                                    updated.push({ product_type: 'setup', product_name: manualPaymentForm.setup_type, whop_email: e.target.value, whop_payment_reference: whopPayments.find(p => p.product_type === 'setup')?.whop_payment_reference || '' });
+                                    setManualPaymentForm(prev => ({ ...prev, whop_product_payments_json: JSON.stringify(updated) }));
+                                  }}
+                                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', color: '#fff', fontSize: '12px' }}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="WHOP reference (optional)"
+                                  value={whopPayments.find(p => p.product_type === 'setup')?.whop_payment_reference || ''}
+                                  onChange={(e) => {
+                                    const updated = whopPayments.filter(p => p.product_type !== 'setup');
+                                    updated.push({ product_type: 'setup', product_name: manualPaymentForm.setup_type, whop_email: whopPayments.find(p => p.product_type === 'setup')?.whop_email || '', whop_payment_reference: e.target.value });
+                                    setManualPaymentForm(prev => ({ ...prev, whop_product_payments_json: JSON.stringify(updated) }));
+                                  }}
+                                  style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px', color: '#fff', fontSize: '12px' }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Amount Received</label>

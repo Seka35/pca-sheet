@@ -38,18 +38,76 @@ const IconArrowRight = ({ size = 14, color = 'currentColor' }) => (
   </svg>
 );
 
+const OTHER_PRODUCTS = [
+  { type: 'tier', name: 'TIER 1', tier: 'TIER 1', price: '$199/mo', spend_limit: '$2,500' },
+  { type: 'tier', name: 'TIER 2', tier: 'TIER 2', price: '$299/mo', spend_limit: '$5,000' },
+  { type: 'tier', name: 'TIER 3', tier: 'TIER 3', price: '$499/mo', spend_limit: '$10,000' },
+  { type: 'tier', name: 'TIER 4', tier: 'TIER 4', price: '$799/mo', spend_limit: '$20,000' },
+  { type: 'tier', name: 'TIER 5', tier: 'TIER 5', price: '$1,399/mo', spend_limit: '$40,000' },
+  { type: 'tier', name: 'TIER 6', tier: 'TIER 6', price: '$1,999/mo', spend_limit: 'Unlimited' },
+  { type: 'setup', name: 'Starter Setup', setup_type: 'Starter', price: '$399', spend_limit: null },
+  { type: 'setup', name: 'Premium Setup', setup_type: 'Premium', price: '$499', spend_limit: null },
+  { type: 'setup', name: 'VIP Setup', setup_type: 'VIP', price: '$699', spend_limit: null },
+  { type: 'extra', name: 'Extra Facebook Profile', price: '$50/mo', spend_limit: null },
+  { type: 'extra', name: 'Extra Facebook Page', price: '$50/mo', spend_limit: null },
+  { type: 'extra', name: 'Extra Business Manager', price: '$100/mo', spend_limit: null },
+];
+
 export default function ProductsPage() {
   const [renewals, setRenewals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedOtherProducts, setSelectedOtherProducts] = useState([]);
+  const [productRequests, setProductRequests] = useState([]);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    fetch('/api/client/renewals')
-      .then(r => r.json())
-      .then(data => { setRenewals(data); setLoading(false); })
-      .catch(() => setLoading(false));
+    Promise.all([
+      fetch('/api/client/renewals').then(r => r.json()),
+      fetch('/api/product-requests?status=PENDING').then(r => r.json()).catch(() => []),
+    ]).then(([renewalsData, requestsData]) => {
+      setRenewals(renewalsData);
+      setProductRequests(Array.isArray(requestsData) ? requestsData : []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
+
+  const toggleOtherProduct = (product) => {
+    setSelectedOtherProducts(prev => {
+      const exists = prev.find(p => p.name === product.name);
+      if (exists) {
+        return prev.filter(p => p.name !== product.name);
+      }
+      return [...prev, product];
+    });
+  };
+
+  const handleRequestProducts = async () => {
+    if (selectedOtherProducts.length === 0) return;
+    setRequestLoading(true);
+    try {
+      const res = await fetch('/api/product-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: selectedOtherProducts })
+      });
+      if (res.ok) {
+        setRequestSuccess(true);
+        setSelectedOtherProducts([]);
+        // Refresh requests
+        const requestsRes = await fetch('/api/product-requests?status=PENDING').catch(() => ({ json: () => [] }));
+        const requestsData = await requestsRes.json().catch(() => []);
+        setProductRequests(Array.isArray(requestsData) ? requestsData : []);
+        setTimeout(() => setRequestSuccess(false), 3000);
+      }
+    } catch (e) {
+      console.error('Request failed:', e);
+    } finally {
+      setRequestLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -90,6 +148,106 @@ export default function ProductsPage() {
 
       {selectedProduct && (
         <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+      )}
+
+      {/* Other Products Section */}
+      <div style={{ borderTop: '2px solid var(--border-color)', paddingTop: '24px', marginTop: '8px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>Other Products</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+            Request additional products or upgrades
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+          {OTHER_PRODUCTS.map(product => {
+            const isSelected = selectedOtherProducts.some(p => p.name === product.name);
+            return (
+              <div
+                key={product.name}
+                onClick={() => toggleOtherProduct(product)}
+                style={{
+                  padding: '16px',
+                  borderRadius: '10px',
+                  border: `2px solid ${isSelected ? 'var(--primary-accent)' : 'var(--border-color)'}`,
+                  backgroundColor: isSelected ? 'rgba(0, 245, 160, 0.08)' : 'var(--bg-card)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{product.name}</span>
+                  {isSelected && (
+                    <span style={{ color: 'var(--primary-accent)', fontSize: '16px' }}>✓</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#22c55e' }}>{product.price}</span>
+                  {product.spend_limit && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Spend Limit: {product.spend_limit}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {selectedOtherProducts.length > 0 && (
+          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '12px' }}>
+              {selectedOtherProducts.length} product{selectedOtherProducts.length !== 1 ? 's' : ''} selected
+            </p>
+            <button
+              onClick={handleRequestProducts}
+              disabled={requestLoading}
+              style={{
+                padding: '12px 32px',
+                backgroundColor: requestLoading ? 'var(--border-color)' : 'var(--primary-accent)',
+                color: requestLoading ? 'var(--text-secondary)' : '#0B111A',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: requestLoading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {requestLoading ? 'Submitting...' : requestSuccess ? 'Request Submitted!' : 'Request Selected Products'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* My Requests Section */}
+      {productRequests.length > 0 && (
+        <div style={{ borderTop: '2px solid var(--border-color)', paddingTop: '24px', marginTop: '8px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '16px' }}>My Pending Requests</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {productRequests.map(request => (
+              <div key={request.id} className="card" style={{ padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600' }}>
+                    {request.products.map(p => p.name).join(', ')}
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '4px' }}>
+                    Requested {new Date(request.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <span style={{
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  backgroundColor: request.status === 'PENDING' ? 'rgba(251, 191, 36, 0.15)' :
+                    request.status === 'APPROVED' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: request.status === 'PENDING' ? '#fbbf24' :
+                    request.status === 'APPROVED' ? '#22c55e' : '#ef4444',
+                }}>
+                  {request.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

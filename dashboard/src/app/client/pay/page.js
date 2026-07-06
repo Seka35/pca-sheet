@@ -124,6 +124,7 @@ export default function PayPage() {
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState('');
   const [paySuccess, setPaySuccess] = useState(false);
+  const [whopProductPayments, setWhopProductPayments] = useState([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -151,6 +152,19 @@ export default function PayPage() {
   const handleContinue = () => {
     const product = payType === 'renewal' ? selectedProduct : topupProduct;
     if (!product || !selectedBank) return;
+
+    // Build WHOP product payments array if WHOP is selected
+    if (selectedBank === 'whop') {
+      const payments = [];
+      if (product.tier) {
+        payments.push({ product_type: 'tier', product_name: product.tier, whop_email: '', whop_payment_reference: '' });
+      }
+      if (product.setup_type) {
+        payments.push({ product_type: 'setup', product_name: product.setup_type, whop_email: '', whop_payment_reference: '' });
+      }
+      setWhopProductPayments(payments);
+    }
+
     setStep(2);
   };
 
@@ -168,6 +182,10 @@ export default function PayPage() {
         if (topupAmount) body.topup_amount = topupAmount;
       } else {
         body.sr_no = product.sr_no;
+      }
+      // Include WHOP product payments if WHOP is selected
+      if (selectedBank === 'whop' && whopProductPayments.length > 0) {
+        body.whop_product_payments_json = JSON.stringify(whopProductPayments);
       }
       const res = await fetch('/api/client/pay', {
         method: 'POST',
@@ -384,15 +402,63 @@ export default function PayPage() {
             )}
 
             {selectedBank === 'whop' && (
-              <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', border: '1px solid var(--border-color)', padding: '16px', textAlign: 'center' }}>
-                <p style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>Payment via Whop platform</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>You will receive a payment link from our team after submitting your request.</p>
+              <div style={{ backgroundColor: 'var(--bg-main)', borderRadius: '10px', border: '1px solid var(--border-color)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#22c55e' }}>WHOP</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Payment via Whop platform</span>
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>For each product component, please provide the WHOP email used for payment and the payment reference.</p>
+
+                {whopProductPayments.map((payment, index) => (
+                  <div key={index} style={{ borderTop: index > 0 ? '1px solid var(--border-color)' : 'none', paddingTop: index > 0 ? '12px' : '0', marginTop: index > 0 ? '4px' : '0' }}>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', marginBottom: '10px' }}>
+                      {payment.product_type === 'tier' ? payment.product_name : payment.setup_type}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          WHOP Email Used for Payment
+                        </label>
+                        <input
+                          type="email"
+                          value={payment.whop_email}
+                          onChange={(e) => {
+                            const updated = [...whopProductPayments];
+                            updated[index].whop_email = e.target.value;
+                            setWhopProductPayments(updated);
+                          }}
+                          required
+                          placeholder="email@whop.com"
+                          style={{ width: '100%', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          WHOP Payment Reference
+                        </label>
+                        <input
+                          type="text"
+                          value={payment.whop_payment_reference}
+                          onChange={(e) => {
+                            const updated = [...whopProductPayments];
+                            updated[index].whop_payment_reference = e.target.value;
+                            setWhopProductPayments(updated);
+                          }}
+                          placeholder="WHOP-XXXXX or email reference"
+                          style={{ width: '100%', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '13px', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Transaction ID (TX ID)</label>
-              <input type="text" value={txId} onChange={e => setTxId(e.target.value)} required placeholder="Enter your transaction ID" style={{ width: '100%', padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} />
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Transaction ID (TX ID) {selectedBank === 'whop' && <span style={{ fontWeight: '400', textTransform: 'none' }}>(Optional for WHOP)</span>}
+              </label>
+              <input type="text" value={txId} onChange={e => setTxId(e.target.value)} required={selectedBank !== 'whop'} placeholder="Enter your transaction ID" style={{ width: '100%', padding: '12px 16px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '14px', outline: 'none' }} />
               <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>For Crypto: paste your USDT or BTC transaction hash. For bank transfers: paste your transfer reference.</p>
             </div>
 

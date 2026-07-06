@@ -5,11 +5,13 @@ import ApprovalsTabs from '@/components/ApprovalsTabs';
 
 export default function ApprovalQueuePage() {
   const [approvals, setApprovals] = useState([]);
+  const [productRequestsCount, setProductRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [rejectModal, setRejectModal] = useState({ open: false, id: null, reason: '' });
 
   useEffect(() => {
     fetchApprovals();
+    fetchProductRequestsCount();
     const interval = setInterval(fetchApprovals, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -23,6 +25,16 @@ export default function ApprovalQueuePage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProductRequestsCount = async () => {
+    try {
+      const res = await fetch('/api/product-requests?status=PENDING');
+      const data = await res.json();
+      setProductRequestsCount(Array.isArray(data) ? data.length : 0);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -64,7 +76,7 @@ export default function ApprovalQueuePage() {
         Review client payment submissions and approve or reject them.
       </p>
 
-      <ApprovalsTabs pendingCount={pending.length} />
+      <ApprovalsTabs pendingCount={pending.length} productRequestsCount={productRequestsCount} />
 
       {loading ? (
         <p>Loading...</p>

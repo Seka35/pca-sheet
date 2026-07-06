@@ -525,6 +525,47 @@ function initDatabase() {
     )
   `);
 
+  // --- WHOP Product Payments (email + reference per product component) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS whop_product_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      renewal_sr_no TEXT NOT NULL,
+      product_type TEXT NOT NULL,
+      product_name TEXT NOT NULL,
+      whop_email TEXT NOT NULL,
+      whop_payment_reference TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(renewal_sr_no) REFERENCES renewals(sr_no)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_whop_product_payments_renewal ON whop_product_payments(renewal_sr_no)`);
+
+  // --- Product Requests (client requests for new products) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS product_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL,
+      client_name TEXT,
+      tele_id TEXT,
+      chat_id TEXT,
+      products_json TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at DATETIME,
+      reviewed_by TEXT,
+      reject_reason TEXT,
+      FOREIGN KEY(client_id) REFERENCES clients(id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_product_requests_status ON product_requests(status)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_product_requests_client ON product_requests(client_id)`);
+
+  // Migration: add whop_product_payments_json to approval_queue
+  try { db.exec(`ALTER TABLE approval_queue ADD COLUMN whop_product_payments_json TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
+  // Migration: add whop_product_payments_json to pending_payments
+  try { db.exec(`ALTER TABLE pending_payments ADD COLUMN whop_product_payments_json TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
   // Seed default bank data if empty
   const existingBanks = db.prepare('SELECT COUNT(*) as cnt FROM bank_details').get();
   if (!existingBanks || existingBanks.cnt === 0) {

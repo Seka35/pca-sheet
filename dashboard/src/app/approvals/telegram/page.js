@@ -5,11 +5,13 @@ import ApprovalsTabs from '@/components/ApprovalsTabs';
 
 export default function TelegramApprovalsPage() {
   const [approvals, setApprovals] = useState([]);
+  const [productRequestsCount, setProductRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [rejectModal, setRejectModal] = useState({ open: false, id: null, reason: '' });
 
   useEffect(() => {
     fetchApprovals();
+    fetchProductRequestsCount();
     const interval = setInterval(fetchApprovals, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -23,6 +25,16 @@ export default function TelegramApprovalsPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProductRequestsCount = async () => {
+    try {
+      const res = await fetch('/api/product-requests?status=PENDING');
+      const data = await res.json();
+      setProductRequestsCount(Array.isArray(data) ? data.length : 0);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -67,7 +79,7 @@ export default function TelegramApprovalsPage() {
         Review Telegram reminder messages before they are sent to clients. Approve to send, or reject to discard.
       </p>
 
-      <ApprovalsTabs telegramCount={pending.length} />
+      <ApprovalsTabs telegramCount={pending.length} productRequestsCount={productRequestsCount} />
 
       {loading ? (
         <p>Loading...</p>

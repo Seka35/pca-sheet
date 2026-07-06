@@ -17,7 +17,15 @@ const IconTelegram = ({ size = 14, color = 'currentColor' }) => (
   </svg>
 );
 
-export default function ApprovalsTabs({ pendingCount = 0, telegramCount = 0 }) {
+const IconPackage = ({ size = 14, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+    <line x1="12" y1="22.08" x2="12" y2="12" />
+  </svg>
+);
+
+export default function ApprovalsTabs({ pendingCount = 0, telegramCount = 0, productRequestsCount = 0 }) {
   const pathname = usePathname();
 
   return (
@@ -34,6 +42,19 @@ export default function ApprovalsTabs({ pendingCount = 0, telegramCount = 0 }) {
       }}>
         <IconPayments size={14} color={pathname === '/approvals/payment' ? 'var(--primary-accent)' : 'var(--text-secondary)'} />
         Payments {pendingCount > 0 && <span style={{ background: 'var(--primary-accent)', color: '#000', borderRadius: '10px', padding: '2px 6px', fontSize: '11px' }}>{pendingCount}</span>}
+      </Link>
+      <Link href="/approvals/product" style={{
+        padding: '10px 20px',
+        textDecoration: 'none',
+        color: pathname === '/approvals/product' ? 'var(--primary-accent)' : 'var(--text-secondary)',
+        borderBottom: pathname === '/approvals/product' ? '2px solid var(--primary-accent)' : '2px solid transparent',
+        fontWeight: pathname === '/approvals/product' ? '600' : '400',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+      }}>
+        <IconPackage size={14} color={pathname === '/approvals/product' ? 'var(--primary-accent)' : 'var(--text-secondary)'} />
+        Products {productRequestsCount > 0 && <span style={{ background: '#22c55e', color: '#fff', borderRadius: '10px', padding: '2px 6px', fontSize: '11px' }}>{productRequestsCount}</span>}
       </Link>
       <Link href="/approvals/telegram" style={{
         padding: '10px 20px',
