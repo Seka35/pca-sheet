@@ -560,6 +560,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     return dateB - dateA;
   });
 
+
   const totalDue = displayProducts.reduce((acc, p) => acc + calculateProductDue(p), 0);
 
   // Tele ID derived from the (possibly edited) name.
@@ -578,7 +579,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     }
   };
   const addProduct = () => {
-    setFormProducts((prev) => [...prev, emptyProduct()]);
+    setFormProducts((prev) => [emptyProduct(), ...prev]);
   };
 
   const cancelEdit = () => {
