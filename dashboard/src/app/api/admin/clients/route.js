@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { all } from '@/lib/db';
+import { all, get } from '@/lib/db';
 import { requirePermission } from '@/lib/apiAuth';
 
 // GET /api/admin/clients - List clients that have login accounts (role='client')

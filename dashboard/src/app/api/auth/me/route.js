@@ -15,11 +15,9 @@ export async function GET(req) {
     return NextResponse.json({ authenticated: false });
   }
 
-  // Verify the role in session matches the user's actual role (defense in depth)
-  if (session.role !== user.role) {
-    // Role was changed after session was created, invalidate
-    return NextResponse.json({ authenticated: false });
-  }
+  // Note: we intentionally don't check session.role !== user.role here.
+  // If an admin changes a user's role, the user's existing session stays valid —
+  // permissions are re-evaluated on each /api/auth/me call via parseUserPermissions.
 
   const permissions = parseUserPermissions(user);
 

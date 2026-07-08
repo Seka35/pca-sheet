@@ -8,8 +8,8 @@ function checkManageUsers(req) {
   if (!session?.userId) return { ok: false, status: 401 };
   const user = getUserById(session.userId);
   if (!user) return { ok: false, status: 401 };
-  // Verify role matches session (defense in depth)
-  if (session.role !== user.role) return { ok: false, status: 401 };
+  // Note: session.role check intentionally omitted — if admin changes a user's role,
+  // the user's existing session stays valid. Permissions are re-evaluated on each request.
   // super_admin bypasses all permission checks
   if (user.role === 'super_admin') return { ok: true, user };
   if (!hasPermission(user, 'read_users')) return { ok: false, status: 403 };

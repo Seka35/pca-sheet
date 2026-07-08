@@ -8,8 +8,8 @@ function checkManageUsers(req) {
   if (!session?.userId) return { ok: false, status: 401 };
   const user = getUserById(session.userId);
   if (!user) return { ok: false, status: 401 };
-  // Verify role matches session (defense in depth)
-  if (session.role !== user.role) return { ok: false, status: 401 };
+  // Note: session.role check intentionally omitted — if admin changes a user's role,
+  // the user's existing session stays valid. Permissions are re-evaluated on each request.
   // super_admin bypasses all permission checks
   if (user.role === 'super_admin') return { ok: true, user };
   if (!hasPermission(user, 'read_users')) return { ok: false, status: 403 };
@@ -24,11 +24,12 @@ export async function PUT(req, { params }) {
   }
 
   try {
-    const id = parseInt(params.id, 10);
+    const { id } = await params;
+    const numericId = parseInt(id, 10);
     const { username, password, role, permissions } = await req.json();
 
     // Check if user exists
-    const existingUser = getUserById(id);
+    const existingUser = getUserById(numericId);
     if (!existingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -65,8 +66,8 @@ export async function PUT(req, { params }) {
     }
 
     if (Object.keys(updates).length > 0) {
-      updateUser(id, updates);
-      logActivity(auth.user.id, auth.user.username, 'UPDATE', 'users', id, existingUser.username, updates);
+      updateUser(numericId, updates);
+      logActivity(auth.user.id, auth.user.username, 'UPDATE', 'users', numericId, existingUser.username, updates);
     }
 
     return NextResponse.json({ ok: true });
@@ -87,20 +88,21 @@ export async function DELETE(req, { params }) {
   }
 
   try {
-    const id = parseInt(params.id, 10);
+    const { id } = await params;
+    const numericId = parseInt(id, 10);
 
     // Prevent self-deletion
-    if (id === auth.user.id) {
+    if (numericId === auth.user.id) {
       return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 });
     }
 
-    const existingUser = getUserById(id);
-    const result = deleteUser(id);
+    const existingUser = getUserById(numericId);
+    const result = deleteUser(numericId);
     if (!result) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    logActivity(auth.user.id, auth.user.username, 'DELETE', 'users', id, existingUser?.username, null);
+    logActivity(auth.user.id, auth.user.username, 'DELETE', 'users', numericId, existingUser?.username, null);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
