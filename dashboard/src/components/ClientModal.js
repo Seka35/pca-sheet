@@ -550,7 +550,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       uniqueProductsMap[key] = p;
     }
   });
-  const displayProducts = Object.values(uniqueProductsMap);
+  const displayProducts = Object.values(uniqueProductsMap).sort((a, b) => {
+    // Sort by start_date descending (most recent first)
+    const dateA = a.start_date ? new Date(a.start_date) : new Date(0);
+    const dateB = b.start_date ? new Date(b.start_date) : new Date(0);
+    return dateB - dateA;
+  });
 
   const totalDue = displayProducts.reduce((acc, p) => acc + calculateProductDue(p), 0);
 
