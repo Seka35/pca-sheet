@@ -552,8 +552,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   });
   const displayProducts = Object.values(uniqueProductsMap).sort((a, b) => {
     // Sort by start_date descending (most recent first)
-    const dateA = a.start_date ? new Date(a.start_date) : new Date(0);
-    const dateB = b.start_date ? new Date(b.start_date) : new Date(0);
+    // Products with no start_date (new/unsaved) go to the top
+    if (!a.start_date && b.start_date) return -1;
+    if (a.start_date && !b.start_date) return 1;
+    const dateA = a.start_date ? new Date(a.start_date) : new Date(9999, 11, 31);
+    const dateB = b.start_date ? new Date(b.start_date) : new Date(9999, 11, 31);
     return dateB - dateA;
   });
 
