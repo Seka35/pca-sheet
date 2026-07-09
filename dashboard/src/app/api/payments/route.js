@@ -295,8 +295,8 @@ export async function POST(req) {
     const isTopUp = is_topup === 1 || is_topup === true;
 
     const result = run(`
-      INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes, is_topup)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO payments (client_id, renewal_sr_no, amount_received, payment_received_date, payment_received_month, reference_no, bank_name, notes, is_topup, whop_product_payments_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       client_id, renewal_sr_no,
       amount_received || '',
@@ -305,10 +305,11 @@ export async function POST(req) {
       reference_no || '',
       bank_name || '',
       notes || '',
-      isTopUp ? 1 : 0
+      isTopUp ? 1 : 0,
+      whop_product_payments_json || null
     ]);
 
-    // Handle WHOP product payments - store email/reference per product component
+    // Also store WHOP payment details in the separate table for backward compatibility
     if (whop_product_payments_json && bank_name === 'WHOP') {
       try {
         const whopPayments = JSON.parse(whop_product_payments_json);

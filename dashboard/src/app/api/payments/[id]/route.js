@@ -18,7 +18,7 @@ export async function PUT(req, { params }) {
     }
 
     const body = await req.json();
-    const { amount_received, payment_received_date, payment_received_month, reference_no, bank_name } = body;
+    const { amount_received, payment_received_date, payment_received_month, reference_no, bank_name, whop_product_payments_json } = body;
 
     const payment = get('SELECT * FROM payments WHERE id = ?', [id]);
     if (!payment) {
@@ -32,7 +32,8 @@ export async function PUT(req, { params }) {
         payment_received_month = ?,
         reference_no = ?,
         bank_name = ?,
-        is_topup = ?
+        is_topup = ?,
+        whop_product_payments_json = ?
       WHERE id = ?
     `, [
       amount_received || '0',
@@ -41,8 +42,25 @@ export async function PUT(req, { params }) {
       reference_no || '',
       bank_name || '',
       body.is_topup ? 1 : 0,
+      whop_product_payments_json || null,
       id
     ]);
+
+    // Also update WHOP product payments table if WHOP bank selected
+    if (whop_product_payments_json && bank_name === 'WHOP') {
+      try {
+        const whopPayments = JSON.parse(whop_product_payments_json);
+        run(`DELETE FROM whop_product_payments WHERE renewal_sr_no = ?`, [payment.renewal_sr_no]);
+        for (const p of whopPayments) {
+          run(
+            `INSERT INTO whop_product_payments (renewal_sr_no, product_type, product_name, whop_email, whop_payment_reference) VALUES (?, ?, ?, ?, ?)`,
+            [payment.renewal_sr_no, p.product_type, p.product_name, p.whop_email || '', p.whop_payment_reference || '']
+          );
+        }
+      } catch (e) {
+        console.error('[PUT /api/payments/[id]] whop_product_payments error:', e.message);
+      }
+    }
 
     // Recalculate the renewal based on payment type (top-up vs regular)
     const isTopUp = payment.is_topup === 1;

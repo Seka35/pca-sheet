@@ -127,6 +127,9 @@ function initDatabase() {
   // Migration: add is_topup column to payments table if not exists
   try { db.exec(`ALTER TABLE payments ADD COLUMN is_topup INTEGER DEFAULT 0`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
+  // Migration: add whop_product_payments_json to payments table if not exists
+  try { db.exec(`ALTER TABLE payments ADD COLUMN whop_product_payments_json TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS pending_updates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

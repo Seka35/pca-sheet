@@ -645,6 +645,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       referral_partner_name: prefilledPartner,
       valid_stopped_date: '',
       is_topup: false,
+      whop_product_payments_json: '[]',
     });
   };
 
@@ -773,7 +774,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       setup_fee: product?.setup_fee || '',
       discount: product?.discount || '',
       valid_stopped_date: product?.valid_stopped_date || '',
-      whop_product_payments_json: product?.whop_product_payments_json || '[]',
+      whop_product_payments_json: payment.whop_product_payments_json || product?.whop_product_payments_json || '[]',
     });
   };
 
@@ -831,19 +832,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const cancelPaymentEdit = () => {
     setEditingPayment(null);
     setSelectedProductSrNo('');
-    setManualPaymentForm({
-      month: '',
-      bank_name: '',
-      amount_received: '',
-      payment_received_date: '',
-      reference_no: '',
-      tier: '',
-      setup_type: '',
-      subscription_fee: '',
-      setup_fee: '',
-      discount: '',
-      valid_stopped_date: '',
-    });
+    setManualPaymentForm(prev => ({
+      ...prev,
+      whop_product_payments_json: '[]',
+    }));
   };
 
   const saveManualPayment = async () => {
@@ -1970,7 +1962,39 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           <td style={{ padding: '16px 8px' }}>{payment.bank_name || '—'}</td>
                           <td style={{ padding: '16px 8px', color: 'var(--primary-accent)', fontWeight: '700' }}>{payment.amount_received}</td>
                           <td style={{ padding: '16px 8px' }}>{product?.valid_stopped_date || '—'}</td>
-                          <td style={{ padding: '16px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</td>
+                          <td style={{ padding: '16px 8px' }}>
+                            {payment.bank_name === 'WHOP' && payment.whop_product_payments_json ? (
+                              (() => {
+                                try {
+                                  const whopPayments = JSON.parse(payment.whop_product_payments_json);
+                                  if (whopPayments.length === 0) return <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>—</span>;
+                                  return (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                      {whopPayments.map((wp, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <span style={{
+                                            fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px',
+                                            backgroundColor: wp.product_type === 'tier' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                                            color: wp.product_type === 'tier' ? '#A78BFA' : '#22c55e',
+                                            textTransform: 'uppercase', letterSpacing: '0.5px'
+                                          }}>
+                                            {wp.product_type === 'tier' ? 'T' : 'S'}
+                                          </span>
+                                          {wp.whop_payment_reference ? (
+                                            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-primary)' }}>{wp.whop_payment_reference}</span>
+                                          ) : (
+                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No ref</span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                } catch { return <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>—</span>; }
+                              })()
+                            ) : (
+                              <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</span>
+                            )}
+                          </td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                               {/* Send invoice button - only for UNPAID and PARTIAL (not TOPUP, not PAID) */}
