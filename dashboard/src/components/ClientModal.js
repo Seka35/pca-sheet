@@ -1108,6 +1108,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     if ((formStatus || '') !== (client?.status || 'inactif')) return true;
     if ((formTrustpilotReviewed ? 1 : 0) !== (client?.trustpilot_reviewed || 0)) return true;
     if ((formChurnReason || '') !== (client?.churn_reason || '')) return true;
+    if ((formReferralPartner || '') !== (client?.referral_partner_name || '')) return true;
     if (removedSrNos.length > 0) return true;
     const original = history || [];
     if (formProducts.length !== original.length) return true;
@@ -1132,7 +1133,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       if (fTrial !== oTrial) return true;
     }
     return false;
-  }, [mode, formName, formFirstName, formLastName, formEmail, formAddress, formTelegramGroupId, formStatus, formTrustpilotReviewed, formChurnReason, formProducts, removedSrNos, client, history]);
+  }, [mode, formName, formFirstName, formLastName, formEmail, formAddress, formTelegramGroupId, formStatus, formTrustpilotReviewed, formChurnReason, formReferralPartner, formProducts, removedSrNos, client, history]);
 
   const primaryBtn = {
     backgroundColor: '#14b8a6', color: '#fff', padding: '8px 16px',
@@ -1444,7 +1445,25 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Referral Partner</label>
                       <select
                         value={formReferralPartner}
-                        onChange={(e) => setFormReferralPartner(e.target.value)}
+                        onChange={(e) => {
+                          const newPartner = e.target.value;
+                          setFormReferralPartner(newPartner);
+                          // Apply discount and commission to all products
+                          setFormProducts(prev => prev.map(p => {
+                            const newDiscount = calculateClientDiscount(newPartner, p.subscription_fee, p.setup_fee);
+                            // Calculate referral_amount based on partner rate
+                            const rates = { 'Chris': 10, 'No Limit': 2.5, '8 Labs': 2.5, 'Master': 5 };
+                            const rate = rates[newPartner] || 0;
+                            const baseAmount = (parseFloat(p.subscription_fee) || 0) + (parseFloat(p.setup_fee) || 0) - newDiscount;
+                            const newReferralAmount = rate > 0 ? Math.round(baseAmount * rate / 100) : 0;
+                            return {
+                              ...p,
+                              referral_partner_name: newPartner,
+                              discount: String(newDiscount),
+                              referral_amount: String(newReferralAmount),
+                            };
+                          }));
+                        }}
                         disabled={saving}
                         style={{
                           width: '100%', backgroundColor: 'var(--bg-main)',
