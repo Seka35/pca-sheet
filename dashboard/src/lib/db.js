@@ -566,6 +566,65 @@ function initDatabase() {
   // Migration: add whop_product_payments_json to pending_payments
   try { db.exec(`ALTER TABLE pending_payments ADD COLUMN whop_product_payments_json TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
+  // --- Referral Partners (linked at client level, not product level) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS referral_partners (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      commission_percentage REAL NOT NULL DEFAULT 0,
+      client_discount_percentage REAL NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Add referral_partner_name to clients table if not exists (moved from renewals)
+  try { db.exec(`ALTER TABLE clients ADD COLUMN referral_partner_name TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
+  // Seed default referral partners if empty
+  const existingPartners = db.prepare('SELECT COUNT(*) as cnt FROM referral_partners').get();
+  if (!existingPartners || existingPartners.cnt === 0) {
+    const defaultPartners = [
+      { name: 'N.A.', commission_percentage: 0, client_discount_percentage: 0 },
+      { name: 'Chris', commission_percentage: 10, client_discount_percentage: 0 },
+      { name: 'No Limit', commission_percentage: 2.5, client_discount_percentage: 15 },
+      { name: '8 Labs', commission_percentage: 2.5, client_discount_percentage: 15 },
+      { name: 'Master', commission_percentage: 5, client_discount_percentage: 15 },
+    ];
+    const insertPartner = db.prepare('INSERT INTO referral_partners (name, commission_percentage, client_discount_percentage) VALUES (?, ?, ?)');
+    for (const p of defaultPartners) {
+      insertPartner.run(p.name, p.commission_percentage, p.client_discount_percentage);
+    }
+  }
+
+  // --- Upgrade Requests ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS upgrade_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL,
+      renewal_sr_no TEXT NOT NULL,
+      component_type TEXT NOT NULL,  -- 'tier' or 'setup'
+      from_tier TEXT,
+      to_tier TEXT,
+      from_setup TEXT,
+      to_setup TEXT,
+      prorata_amount TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING_PAYMENT',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at DATETIME,
+      reviewed_by TEXT,
+      reject_reason TEXT,
+      FOREIGN KEY(client_id) REFERENCES clients(id),
+      FOREIGN KEY(renewal_sr_no) REFERENCES renewals(sr_no)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_upgrade_requests_status ON upgrade_requests(status)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_upgrade_requests_client ON upgrade_requests(client_id)`);
+
+  // Add upgrade_status column to renewals table
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN upgrade_status TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
   // Seed default bank data if empty
   const existingBanks = db.prepare('SELECT COUNT(*) as cnt FROM bank_details').get();
   if (!existingBanks || existingBanks.cnt === 0) {

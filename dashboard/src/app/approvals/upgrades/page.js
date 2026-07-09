@@ -3,23 +3,28 @@
 import { useEffect, useState } from 'react';
 import ApprovalsTabs from '@/components/ApprovalsTabs';
 
-export default function ProductApprovalsPage() {
+const STATUS_COLORS = {
+  'PENDING_PAYMENT': { bg: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' },
+  'PAYMENT_APPROVED': { bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' },
+  'COMPLETED': { bg: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' },
+  'REJECTED': { bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' },
+};
+
+export default function UpgradeApprovalsPage() {
   const [requests, setRequests] = useState([]);
-  const [upgradeRequestsCount, setUpgradeRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [rejectModal, setRejectModal] = useState({ open: false, id: null, reason: '' });
   const [processing, setProcessing] = useState(null);
 
   useEffect(() => {
     fetchRequests();
-    fetchUpgradeRequestsCount();
     const interval = setInterval(fetchRequests, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch('/api/product-requests');
+      const res = await fetch('/api/upgrade-requests');
       const data = await res.json();
       setRequests(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -29,21 +34,10 @@ export default function ProductApprovalsPage() {
     }
   };
 
-  const fetchUpgradeRequestsCount = async () => {
-    try {
-      const res = await fetch('/api/upgrade-requests');
-      const data = await res.json();
-      const pending = Array.isArray(data) ? data.filter(r => r.status === 'PENDING_PAYMENT' || r.status === 'PAYMENT_APPROVED') : [];
-      setUpgradeRequestsCount(pending.length);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleApprove = async (id) => {
+  const handleApprove = async (id, currentStatus) => {
     setProcessing(id);
     try {
-      const res = await fetch(`/api/product-requests/${id}/approve`, { method: 'POST' });
+      const res = await fetch(`/api/upgrade-requests/${id}/approve`, { method: 'POST' });
       if (res.ok) {
         setRequests(requests.filter(r => r.id !== id));
       }
@@ -58,7 +52,7 @@ export default function ProductApprovalsPage() {
     if (!rejectModal.id) return;
     setProcessing(rejectModal.id);
     try {
-      const res = await fetch(`/api/product-requests/${rejectModal.id}/reject`, {
+      const res = await fetch(`/api/upgrade-requests/${rejectModal.id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reject_reason: rejectModal.reason })
@@ -74,17 +68,17 @@ export default function ProductApprovalsPage() {
     }
   };
 
-  const pending = requests.filter(r => r.status === 'PENDING');
-  const history = requests.filter(r => r.status !== 'PENDING');
+  const pending = requests.filter(r => r.status === 'PENDING_PAYMENT' || r.status === 'PAYMENT_APPROVED');
+  const history = requests.filter(r => r.status === 'COMPLETED' || r.status === 'REJECTED');
 
   return (
     <div>
-      <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Product Approvals</h1>
+      <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Upgrade Approvals</h1>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-        Review client product requests and approve or reject them.
+        Review and approve client upgrade requests.
       </p>
 
-      <ApprovalsTabs productRequestsCount={pending.length} upgradeRequestsCount={upgradeRequestsCount} />
+      <ApprovalsTabs />
 
       {loading ? (
         <p>Loading...</p>
@@ -97,15 +91,15 @@ export default function ProductApprovalsPage() {
             </h2>
             {pending.length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: '32px' }}>
-                <p style={{ color: 'var(--text-secondary)' }}>No pending product requests to review.</p>
+                <p style={{ color: 'var(--text-secondary)' }}>No pending upgrade requests.</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {pending.map(r => (
-                  <ProductRequestCard
+                  <UpgradeRequestCard
                     key={r.id}
                     request={r}
-                    onApprove={() => handleApprove(r.id)}
+                    onApprove={() => handleApprove(r.id, r.status)}
                     onReject={() => setRejectModal({ open: true, id: r.id, reason: '' })}
                     processing={processing === r.id}
                   />
@@ -137,9 +131,9 @@ export default function ProductApprovalsPage() {
           alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
           <div className="card" style={{ width: '480px', maxWidth: '90vw' }}>
-            <h3 style={{ marginBottom: '16px' }}>Reject Product Request</h3>
+            <h3 style={{ marginBottom: '16px' }}>Reject Upgrade Request</h3>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '14px' }}>
-              Tell the client why their product request was rejected. They will be notified.
+              Tell the client why their upgrade request was rejected. They will be notified.
             </p>
             <textarea
               value={rejectModal.reason}
@@ -178,8 +172,18 @@ export default function ProductApprovalsPage() {
   );
 }
 
-function ProductRequestCard({ request, onApprove, onReject, processing }) {
-  const products = request.products || [];
+function UpgradeRequestCard({ request, onApprove, onReject, processing }) {
+  const statusColors = STATUS_COLORS[request.status] || { bg: 'rgba(107, 114, 128, 0.15)', color: '#6b7280' };
+  const isPaymentApproved = request.status === 'PAYMENT_APPROVED';
+
+  const getUpgradeLabel = () => {
+    if (request.component_type === 'tier') {
+      return `${request.from_tier || '?'} → ${request.to_tier || '?'}`;
+    } else if (request.component_type === 'setup') {
+      return `${request.from_setup || '?'} → ${request.to_setup || '?'}`;
+    }
+    return 'Unknown';
+  };
 
   return (
     <div className="card" style={{ padding: '20px' }}>
@@ -191,42 +195,51 @@ function ProductRequestCard({ request, onApprove, onReject, processing }) {
             <div style={{ fontSize: '16px', fontWeight: '600' }}>{request.client_name || 'N/A'}</div>
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Client ID</span>
-            <div style={{ fontSize: '14px' }}>{request.client_id || 'N/A'}</div>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Product</span>
+            <div style={{ fontSize: '14px' }}>{request.renewal_sr_no || 'N/A'}</div>
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tele ID</span>
-            <div style={{ fontSize: '14px' }}>{request.tele_id || 'N/A'}</div>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Current</span>
+            <div style={{ fontSize: '14px' }}>
+              {request.component_type === 'tier' ? request.current_tier : request.current_setup || 'N/A'}
+            </div>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</span>
+            <div style={{ marginTop: '4px' }}>
+              <span style={{
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+                backgroundColor: statusColors.bg,
+                color: statusColors.color,
+              }}>
+                {request.status.replace(/_/g, ' ')}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Right: Product Details */}
+        {/* Right: Upgrade Details */}
         <div>
           <div style={{ marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Requested Products</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-              {products.map((p, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    backgroundColor: p.type === 'tier' ? 'rgba(0, 245, 160, 0.15)' :
-                      p.type === 'setup' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                    color: p.type === 'tier' ? '#00F5A0' :
-                      p.type === 'setup' ? '#A78BFA' : '#60A5FA',
-                  }}>
-                    {p.type?.toUpperCase()}
-                  </span>
-                  <span style={{ fontSize: '14px', fontWeight: '600' }}>{p.name}</span>
-                </div>
-              ))}
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Upgrade</span>
+            <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--primary-accent)' }}>
+              {request.component_type === 'tier' ? 'Tier' : 'Setup'}: {getUpgradeLabel()}
+            </div>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount Due</span>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>
+              ${request.prorata_amount || '0'}
             </div>
           </div>
           <div style={{ marginBottom: '12px' }}>
             <span style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Requested At</span>
-            <div style={{ fontSize: '14px' }}>{request.created_at ? new Date(request.created_at).toLocaleString() : 'N/A'}</div>
+            <div style={{ fontSize: '14px' }}>
+              {request.created_at ? new Date(request.created_at).toLocaleString() : 'N/A'}
+            </div>
           </div>
         </div>
       </div>
@@ -234,29 +247,10 @@ function ProductRequestCard({ request, onApprove, onReject, processing }) {
       {/* Actions */}
       <div style={{ display: 'flex', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
         <button
-          onClick={onApprove}
-          disabled={processing}
-          style={{
-            flex: 1,
-            padding: '10px 16px',
-            borderRadius: '8px',
-            background: '#22c55e',
-            color: '#fff',
-            border: 'none',
-            fontWeight: '600',
-            fontSize: '14px',
-            cursor: processing ? 'not-allowed' : 'pointer',
-            opacity: processing ? 0.5 : 1,
-          }}
-        >
-          {processing ? 'Processing...' : '✓ Approve'}
-        </button>
-        <button
           onClick={onReject}
           disabled={processing}
           style={{
-            flex: 1,
-            padding: '10px 16px',
+            padding: '10px 20px',
             borderRadius: '8px',
             background: 'transparent',
             color: '#ef4444',
@@ -269,13 +263,40 @@ function ProductRequestCard({ request, onApprove, onReject, processing }) {
         >
           ✕ Reject
         </button>
+        <button
+          onClick={onApprove}
+          disabled={processing}
+          style={{
+            flex: 1,
+            padding: '10px 20px',
+            borderRadius: '8px',
+            background: isPaymentApproved ? '#22c55e' : '#60a5fa',
+            color: '#fff',
+            border: 'none',
+            fontWeight: '600',
+            fontSize: '14px',
+            cursor: processing ? 'not-allowed' : 'pointer',
+            opacity: processing ? 0.5 : 1,
+          }}
+        >
+          {processing ? 'Processing...' : isPaymentApproved ? '✓ Complete Upgrade' : '✓ Approve Payment'}
+        </button>
       </div>
     </div>
   );
 }
 
 function HistoryRow({ request }) {
-  const products = request.products || [];
+  const statusColors = STATUS_COLORS[request.status] || { bg: 'rgba(107, 114, 128, 0.15)', color: '#6b7280' };
+
+  const getUpgradeLabel = () => {
+    if (request.component_type === 'tier') {
+      return `${request.from_tier || '?'} → ${request.to_tier || '?'}`;
+    } else if (request.component_type === 'setup') {
+      return `${request.from_setup || '?'} → ${request.to_setup || '?'}`;
+    }
+    return 'Unknown';
+  };
 
   return (
     <div className="card" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -285,19 +306,21 @@ function HistoryRow({ request }) {
           borderRadius: '4px',
           fontSize: '11px',
           fontWeight: '600',
-          backgroundColor: request.status === 'APPROVED' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-          color: request.status === 'APPROVED' ? '#22c55e' : '#ef4444',
+          backgroundColor: statusColors.bg,
+          color: statusColors.color,
         }}>
-          {request.status}
+          {request.status.replace(/_/g, ' ')}
         </span>
-        <span style={{ fontSize: '14px', fontWeight: '500' }}>{request.client_name}</span>
-        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-          {products.map(p => p.name).join(', ')}
+        <span style={{ fontSize: '14px', fontWeight: '600' }}>{request.client_name}</span>
+        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+          {request.component_type === 'tier' ? 'Tier' : 'Setup'}: {getUpgradeLabel()}
         </span>
+        <span style={{ fontSize: '13px', color: '#ef4444' }}>${request.prorata_amount}</span>
       </div>
-      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
         {request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString() : new Date(request.created_at).toLocaleDateString()}
-      </span>
+        {request.reject_reason && <span style={{ color: '#ef4444', marginLeft: '8px' }}>— {request.reject_reason}</span>}
+      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProductBadge from '@/components/ProductBadge';
 import SpendProgressBar from '@/components/SpendProgressBar';
+import UpgradeModal from '@/components/UpgradeModal';
 
 const fmtUSD = (n) => {
   if (n === null || n === undefined || isNaN(n)) return '—';
@@ -57,6 +58,7 @@ export default function ProductsPage() {
   const [renewals, setRenewals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [upgradeProduct, setUpgradeProduct] = useState(null);
   const [selectedOtherProducts, setSelectedOtherProducts] = useState([]);
   const [productRequests, setProductRequests] = useState([]);
   const [requestLoading, setRequestLoading] = useState(false);
@@ -141,13 +143,33 @@ export default function ProductsPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
           {activeProducts.map(r => (
-            <ProductCard key={r.sr_no} product={r} onClick={() => setSelectedProduct(r)} />
+            <ProductCard
+              key={r.sr_no}
+              product={r}
+              onClick={() => setSelectedProduct(r)}
+              onUpgrade={() => setUpgradeProduct(r)}
+            />
           ))}
         </div>
       )}
 
       {selectedProduct && (
-        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+        <ProductModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onUpgrade={() => { setUpgradeProduct(selectedProduct); setSelectedProduct(null); }}
+        />
+      )}
+
+      {upgradeProduct && (
+        <UpgradeModal
+          product={upgradeProduct}
+          onClose={() => setUpgradeProduct(null)}
+          onUpgradeInitiated={() => {
+            // Refresh renewals
+            fetch('/api/client/renewals').then(r => r.json()).then(data => setRenewals(data));
+          }}
+        />
       )}
 
       {/* Other Products Section */}
@@ -253,7 +275,7 @@ export default function ProductsPage() {
   );
 }
 
-function ProductCard({ product, onClick }) {
+function ProductCard({ product, onClick, onUpgrade }) {
   const clAmount = parseFloat(String(product.cl_amount || '0').replace(/[^0-9.]/g, '')) || 0;
   const adSpendLimit = parseFloat(String(product.ad_spend_limit || '0').replace(/[^0-9.]/g, '')) || 0;
 
@@ -281,6 +303,18 @@ function ProductCard({ product, onClick }) {
         <span style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', backgroundColor: statusBg, color: statusColor }}>
           {product.billing_status}
         </span>
+        {product.upgrade_status && (
+          <span style={{
+            padding: '3px 8px',
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontWeight: '600',
+            backgroundColor: product.upgrade_status === 'PAYMENT_APPROVED' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(251, 191, 36, 0.15)',
+            color: product.upgrade_status === 'PAYMENT_APPROVED' ? '#60a5fa' : '#fbbf24',
+          }}>
+            {product.upgrade_status === 'PENDING_PAYMENT' ? 'Upgrade Pending' : 'Upgrade Approved'}
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -309,10 +343,32 @@ function ProductCard({ product, onClick }) {
         <Row label="Renewal Date" value={product.valid_stopped_date || '—'} />
       </div>
 
-      <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'center' }}>
-        <span style={{ color: 'var(--primary-accent)', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+        <button
+          onClick={onClick}
+          style={{ background: 'none', border: 'none', color: 'var(--primary-accent)', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '0' }}
+        >
           View Details <IconArrowRight size={12} />
-        </span>
+        </button>
+        {(product.tier || product.setup_type) && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onUpgrade(); }}
+            style={{
+              background: 'rgba(168, 85, 247, 0.15)',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              color: '#A78BFA',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              padding: '6px 16px',
+              borderRadius: '6px',
+              width: '100%',
+              maxWidth: '200px',
+            }}
+          >
+            Upgrade
+          </button>
+        )}
       </div>
     </div>
   );
@@ -328,7 +384,7 @@ function Row({ label, value, bold, green, purple }) {
   );
 }
 
-function ProductModal({ product, onClose }) {
+function ProductModal({ product, onClose, onUpgrade }) {
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleEsc);
@@ -416,6 +472,27 @@ function ProductModal({ product, onClose }) {
             <Section title="Payment">
               <InfoRow label="Reference No." value={product.reference_no} />
             </Section>
+          )}
+
+          {/* Upgrade Button */}
+          {(product.tier || product.setup_type) && (
+            <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'center' }}>
+              <button
+                onClick={onUpgrade}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  background: 'rgba(168, 85, 247, 0.15)',
+                  color: '#A78BFA',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                Upgrade Product
+              </button>
+            </div>
           )}
         </div>
       </div>

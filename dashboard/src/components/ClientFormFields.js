@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from 'react';
-import { WHOP_DISCOUNT_BY_PARTNER, calculateClientDiscount } from '@/lib/whopLinks';
 
 // SVG Icons matching sidebar style
 const IconDollar = ({ size = 14, color = 'currentColor' }) => (
@@ -51,6 +50,18 @@ const inputStyle = {
   fontFamily: 'inherit',
 };
 
+const compactInputStyle = {
+  width: '100%',
+  backgroundColor: 'var(--bg-main)',
+  border: '1px solid var(--border-color)',
+  borderRadius: '4px',
+  padding: '6px 8px',
+  color: 'var(--text-primary)',
+  outline: 'none',
+  fontSize: '12px',
+  fontFamily: 'inherit',
+};
+
 const labelStyle = {
   fontSize: '11px',
   color: 'var(--text-secondary)',
@@ -61,18 +72,28 @@ const labelStyle = {
   display: 'block',
 };
 
+const compactLabelStyle = {
+  fontSize: '10px',
+  color: 'var(--text-secondary)',
+  fontWeight: '500',
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+  marginBottom: '3px',
+  display: 'block',
+};
+
 const fieldWrapStyle = { display: 'flex', flexDirection: 'column' };
 
-function Field({ label, children }) {
+function Field({ label, children, compact = false }) {
   return (
     <div style={fieldWrapStyle}>
-      <label style={labelStyle}>{label}</label>
+      <label style={compact ? compactLabelStyle : labelStyle}>{label}</label>
       {children}
     </div>
   );
 }
 
-function TextInput({ value, onChange, placeholder, type = 'text', disabled, style }) {
+function TextInput({ value, onChange, placeholder, type = 'text', disabled, style, compact = false }) {
   return (
     <input
       type={type}
@@ -80,25 +101,25 @@ function TextInput({ value, onChange, placeholder, type = 'text', disabled, styl
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
-      style={{ ...inputStyle, ...style }}
+      style={{ ...(compact ? compactInputStyle : inputStyle), ...style }}
     />
   );
 }
 
-function Select({ value, onChange, options, placeholder = '—', disabled }) {
+function Select({ value, onChange, options, placeholder = '—', disabled, compact = false }) {
   return (
     <select
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       style={{
-        ...inputStyle,
+        ...(compact ? compactInputStyle : inputStyle),
         cursor: disabled ? 'not-allowed' : 'pointer',
         appearance: 'none',
         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23718699' d='M2 4l4 4 4-4'/%3E%3C/svg%3E")`,
         backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'right 10px center',
-        paddingRight: '30px',
+        backgroundPosition: `right ${compact ? '8px' : '10px'} center`,
+        paddingRight: compact ? '26px' : '30px',
       }}
     >
       {placeholder && <option value="">{placeholder}</option>}
@@ -138,6 +159,7 @@ export default function ClientFormFields({
   showRemove = true,
   headerLabel,
   isNew = false,
+  compact = false,
 }) {
   const set = (key) => (val) => onChange({ ...product, [key]: val });
 
@@ -147,12 +169,6 @@ export default function ClientFormFields({
       updates.subscription_fee = TIER_PRICING[val].subscription_fee;
       updates.ad_spend_limit = TIER_PRICING[val].ad_spend_limit;
     }
-    // Recalculate discount based on new subscription + current setup
-    if (product.referral_partner_name) {
-      const newSub = updates.subscription_fee || product.subscription_fee;
-      const currentSetup = product.setup_fee;
-      updates.discount = String(calculateClientDiscount(product.referral_partner_name, newSub, currentSetup));
-    }
     onChange({ ...product, ...updates });
   };
 
@@ -161,66 +177,57 @@ export default function ClientFormFields({
     if (SETUP_PRICING[val]) {
       updates.setup_fee = SETUP_PRICING[val].setup_fee;
     }
-    // Recalculate discount based on new setup + current subscription
-    if (product.referral_partner_name) {
-      const currentSub = product.subscription_fee;
-      const newSetup = updates.setup_fee || product.setup_fee;
-      updates.discount = String(calculateClientDiscount(product.referral_partner_name, currentSub, newSetup));
-    }
-    onChange({ ...product, ...updates });
-  };
-
-  const handleReferralPartnerChange = (val) => {
-    const updates = { referral_partner_name: val };
-    if (val) {
-      const discountAmt = calculateClientDiscount(val, product.subscription_fee, product.setup_fee);
-      updates.discount = String(discountAmt);
-    }
     onChange({ ...product, ...updates });
   };
 
   const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
   const SETUP_OPTIONS = ['Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
 
+  // Compact styles
+  const pad = compact ? '16px' : '24px';
+  const gap = compact ? '16px' : '24px';
+  const sectionPad = compact ? '12px' : '16px';
+  const gridGap = compact ? '10px' : '12px';
+  const sectionRadius = compact ? '10px' : '12px';
+
   return (
     <div
       style={{
         backgroundColor: 'var(--bg-main)',
-        padding: '24px',
-        borderRadius: '16px',
+        padding: pad,
+        borderRadius: compact ? '12px' : '16px',
         border: '1px solid var(--border-color)',
-        borderLeft: '6px solid var(--primary-accent)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+        borderLeft: `5px solid var(--primary-accent)`,
         display: 'flex',
         flexDirection: 'column',
-        gap: '24px',
+        gap: gap,
       }}
     >
       {/* Header row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: compact ? '8px' : '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{
-            width: '36px', height: '36px', borderRadius: '10px',
+            width: compact ? '28px' : '36px', height: compact ? '28px' : '36px', borderRadius: compact ? '8px' : '10px',
             backgroundColor: 'rgba(20, 184, 166, 0.15)',
             border: '1px solid rgba(20, 184, 166, 0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '14px', fontWeight: '800', color: 'var(--primary-accent)'
+            fontSize: compact ? '12px' : '14px', fontWeight: '800', color: 'var(--primary-accent)'
           }}>
             {index + 1}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>
+            <div style={{ fontSize: compact ? '12px' : '14px', fontWeight: '700', color: 'var(--text-primary)' }}>
               {product.tier || 'Product'} {product.setup_type ? `- ${product.setup_type}` : ''}
             </div>
             {product.sr_no && (
-              <div style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--text-secondary)' }}>
                 {product.sr_no}
               </div>
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', cursor: disabled ? 'not-allowed' : 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: compact ? '10px' : '16px', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: compact ? '11px' : '12px', color: 'var(--text-secondary)', cursor: disabled ? 'not-allowed' : 'pointer' }}>
             <input
               type="checkbox"
               checked={product.active !== false}
@@ -229,7 +236,7 @@ export default function ClientFormFields({
             />
             Active
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: product.is_trial ? '#FBBF24' : 'var(--text-secondary)', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: product.is_trial ? '600' : '400' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: compact ? '11px' : '12px', color: product.is_trial ? '#FBBF24' : 'var(--text-secondary)', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: product.is_trial ? '600' : '400' }}>
             <input
               type="checkbox"
               checked={product.is_trial == 1}
@@ -273,89 +280,80 @@ export default function ClientFormFields({
       </div>
 
       {/* Product Identity */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-        <Field label="Tier">
+      <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(auto-fit, minmax(140px, 1fr))' : 'repeat(auto-fit, minmax(160px, 1fr))', gap: gridGap }}>
+        <Field label="Tier" compact={compact}>
           <Select
             value={product.tier}
             onChange={handleTierChange}
             options={TIER_OPTIONS}
             placeholder="—"
             disabled={disabled}
+            compact={compact}
           />
         </Field>
-        <Field label="Setup type">
+        <Field label="Setup type" compact={compact}>
           <Select
             value={product.setup_type}
             onChange={handleSetupTypeChange}
             options={SETUP_OPTIONS}
             placeholder="—"
             disabled={disabled}
+            compact={compact}
           />
         </Field>
       </div>
 
       {/* Financials section */}
-      <div style={sectionCardStyle}>
+      <div style={{ ...sectionCardStyle, padding: sectionPad, borderRadius: sectionRadius }}>
         <div style={sectionHeaderStyle}><IconDollar size={14} /> Financials</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-          <Field label="Subscription fee">
-            <TextInput value={product.subscription_fee} onChange={set('subscription_fee')} placeholder="0" disabled={disabled} />
+        <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(auto-fit, minmax(120px, 1fr))' : 'repeat(auto-fit, minmax(140px, 1fr))', gap: gridGap }}>
+          <Field label="Subscription fee" compact={compact}>
+            <TextInput value={product.subscription_fee} onChange={set('subscription_fee')} placeholder="0" disabled={disabled} compact={compact} />
           </Field>
-          <Field label="Setup fee">
-            <TextInput value={product.setup_fee} onChange={set('setup_fee')} placeholder="0" disabled={disabled} />
+          <Field label="Setup fee" compact={compact}>
+            <TextInput value={product.setup_fee} onChange={set('setup_fee')} placeholder="0" disabled={disabled} compact={compact} />
           </Field>
-          <Field label="Discount">
-            <TextInput value={product.discount} onChange={set('discount')} placeholder="0" disabled={disabled} />
+          <Field label="Discount" compact={compact}>
+            <TextInput value={product.discount} onChange={set('discount')} placeholder="0" disabled={disabled} compact={compact} />
           </Field>
-          <Field label="CL amount">
-            <TextInput value={product.cl_amount} onChange={set('cl_amount')} placeholder="—" disabled={disabled} />
+          <Field label="CL amount" compact={compact}>
+            <TextInput value={product.cl_amount} onChange={set('cl_amount')} placeholder="—" disabled={disabled} compact={compact} />
           </Field>
         </div>
       </div>
 
       {/* Ad Account section */}
-      <div style={sectionCardStyle}>
+      <div style={{ ...sectionCardStyle, padding: sectionPad, borderRadius: sectionRadius }}>
         <div style={sectionHeaderStyle}><IconChart size={14} /> Ad Account</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-          <Field label="Ad ID number">
-            <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} />
+        <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(auto-fit, minmax(120px, 1fr))' : 'repeat(auto-fit, minmax(140px, 1fr))', gap: gridGap }}>
+          <Field label="Ad ID number" compact={compact}>
+            <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} compact={compact} />
           </Field>
-          <Field label="Ad account type">
+          <Field label="Ad account type" compact={compact}>
             <Select
               value={product.ad_account_type}
               onChange={set('ad_account_type')}
               options={['CC', 'CL']}
               placeholder="—"
               disabled={disabled}
+              compact={compact}
             />
           </Field>
-          <Field label="Ad spend limit">
-            <TextInput value={product.ad_spend_limit} onChange={set('ad_spend_limit')} placeholder="—" disabled={disabled} />
+          <Field label="Ad spend limit" compact={compact}>
+            <TextInput value={product.ad_spend_limit} onChange={set('ad_spend_limit')} placeholder="—" disabled={disabled} compact={compact} />
           </Field>
         </div>
       </div>
 
-      {/* Lifecycle & Referral section */}
-      <div style={sectionCardStyle}>
-        <div style={sectionHeaderStyle}><IconCalendar size={14} /> Lifecycle & Referral</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-          <Field label="Start date">
-            <TextInput value={product.start_date} onChange={set('start_date')} type="date" disabled={disabled} />
+      {/* Lifecycle section */}
+      <div style={{ ...sectionCardStyle, padding: sectionPad, borderRadius: sectionRadius }}>
+        <div style={sectionHeaderStyle}><IconCalendar size={14} /> Lifecycle</div>
+        <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(auto-fit, minmax(120px, 1fr))' : 'repeat(auto-fit, minmax(140px, 1fr))', gap: gridGap }}>
+          <Field label="Start date" compact={compact}>
+            <TextInput value={product.start_date} onChange={set('start_date')} type="date" disabled={disabled} compact={compact} />
           </Field>
-          <Field label="Valid until">
-            <TextInput value={product.valid_stopped_date} onChange={set('valid_stopped_date')} type="date" disabled={disabled} />
-          </Field>
-          <Field label="Referral partner">
-            <Select
-              value={product.referral_partner_name}
-              onChange={handleReferralPartnerChange}
-              options={['Chris', 'Master', 'N.A.', 'No Limit', '8 Labs', 'Mathias']}
-              placeholder="—"
-              disabled={disabled}
-            />
-          </Field>
-          <Field label="Referral amount">
-            <TextInput value={product.referral_amount} onChange={set('referral_amount')} placeholder="0" disabled={disabled} />
+          <Field label="Valid until" compact={compact}>
+            <TextInput value={product.valid_stopped_date} onChange={set('valid_stopped_date')} type="date" disabled={disabled} compact={compact} />
           </Field>
         </div>
       </div>

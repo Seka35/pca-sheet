@@ -251,6 +251,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const [error, setError] = useState(null);
   const [formTrustpilotReviewed, setFormTrustpilotReviewed] = useState(client?.trustpilot_reviewed ? true : false);
   const [formChurnReason, setFormChurnReason] = useState(client?.churn_reason || '');
+  const [formReferralPartner, setFormReferralPartner] = useState(client?.referral_partner_name || 'N.A.');
   const [uploadingContract, setUploadingContract] = useState(false);
   const [computedData, setComputedData] = useState(selectedClient?.computed || null);
   const [invoiceSending, setInvoiceSending] = useState(false);
@@ -460,6 +461,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setFormAddress(client.address || '');
     setFormTelegramGroupId(client.telegram_group_id || '');
     setFormStatus(client.status || 'inactif');
+    setFormReferralPartner(client.referral_partner_name || 'N.A.');
     setFormProducts(
       (history || []).map((h) => ({
         sr_no: h.sr_no,
@@ -598,6 +600,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setRemovedSrNos([]);
     setFormTrustpilotReviewed(client?.trustpilot_reviewed ? true : false);
     setFormChurnReason(client?.churn_reason || '');
+    setFormReferralPartner(client?.referral_partner_name || 'N.A.');
     setComputedData(selectedClient?.computed || {});
     setFormProducts(
       (history || []).map((h) => ({
@@ -1026,6 +1029,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           removed_sr_nos: removedSrNos,
           trustpilot_reviewed: formTrustpilotReviewed ? 1 : 0,
           churn_reason: formChurnReason || null,
+          referral_partner_name: formReferralPartner,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1163,7 +1167,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '16px',
     }} onClick={() => { if (!saving) onClose(); }}>
-      <div className="card" style={{ width: '100%', maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', display: 'flex', flexDirection: 'column', gap: '20px' }} onClick={e => e.stopPropagation()}>
+      <div className="card" style={{ width: '100%', maxWidth: '100%', height: '90vh', maxHeight: '90vh', overflowY: 'auto', position: 'relative', display: 'flex', flexDirection: 'column', gap: '20px' }} onClick={e => e.stopPropagation()}>
         <button
           onClick={() => { if (!saving) onClose(); }}
           style={{ position: 'absolute', top: '16px', right: '16px', color: 'var(--text-secondary)', fontSize: '20px', cursor: saving ? 'not-allowed' : 'pointer', background: 'transparent', border: 'none', zIndex: 10 }}
@@ -1301,6 +1305,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                             {client.trustpilot_reviewed ? <IconCheck size={14} color="var(--status-active)" /> : <IconRemove size={14} color="#f87171" />}
                             {client.trustpilot_reviewed ? 'Reviewed' : 'Not reviewed'}
                           </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Referral Partner</span>
+                          <span style={{ fontWeight: '600', fontSize: '13px', color: '#A78BFA' }}>{client.referral_partner_name || 'N.A.'}</span>
                         </div>
                       </div>
                     </div>
@@ -1440,6 +1448,24 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                         <option value="inactif">Inactive</option>
                       </select>
                     </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Referral Partner</label>
+                      <select
+                        value={formReferralPartner}
+                        onChange={(e) => setFormReferralPartner(e.target.value)}
+                        disabled={saving}
+                        style={{
+                          width: '100%', backgroundColor: 'var(--bg-main)',
+                          border: '1px solid var(--border-color)', borderRadius: '8px',
+                          padding: '12px', color: 'var(--text-primary)', outline: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {REFERRAL_OPTIONS.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   <div>
                     <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Address</label>
@@ -1522,41 +1548,40 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               </div>
 
               {mode === 'view' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '16px' }}>
                   {displayProducts.length > 0 ? displayProducts.map((product, idx) => {
                     const productDue = calculateProductDue(product);
                     const billingStatus = getProductBillingStatus(product);
                     const isPaid = billingStatus.status === 'FULLY PAID';
                     return (
                       <div key={idx} style={{
-                        backgroundColor: 'var(--bg-main)', padding: '24px', borderRadius: '16px',
-                        border: '1px solid var(--border-color)', borderLeft: `6px solid ${billingStatus.color}`,
-                        display: 'flex', flexDirection: 'column', gap: '24px',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                        backgroundColor: 'var(--bg-main)', padding: '16px', borderRadius: '12px',
+                        border: '1px solid var(--border-color)', borderLeft: `5px solid ${billingStatus.color}`,
+                        display: 'flex', flexDirection: 'column', gap: '16px',
                       }}>
                         {/* Top Row: Product Identity & Main Status */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                           <div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '700' }}>Product Bundle</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px', fontWeight: '700' }}>Product Bundle</div>
                             <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
                           </div>
-                          <div style={{ textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px', fontWeight: '700' }}>Billing Status</div>
-                            <div style={{ fontSize: '20px', fontWeight: '800', color: billingStatus.color }}>
-                              {billingStatus.status === 'FULLY PAID' ? <><IconCheck size={18} color={billingStatus.color} /> Fully Paid</> : billingStatus.status === 'PARTIALLY PAID' ? <><IconWarning size={18} color={billingStatus.color} /> {billingStatus.status}</> : billingStatus.status === 'TRIAL' ? <><IconGift size={18} color={billingStatus.color} /> Trial</> : <><IconWarning size={18} color={billingStatus.color} /> Due: {formatCurrency(productDue)}</>}
+                          <div style={{ textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.02)', padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px', fontWeight: '700' }}>Billing Status</div>
+                            <div style={{ fontSize: '16px', fontWeight: '800', color: billingStatus.color }}>
+                              {billingStatus.status === 'FULLY PAID' ? <><IconCheck size={14} color={billingStatus.color} /> Fully Paid</> : billingStatus.status === 'PARTIALLY PAID' ? <><IconWarning size={14} color={billingStatus.color} /> {billingStatus.status}</> : billingStatus.status === 'TRIAL' ? <><IconGift size={14} color={billingStatus.color} /> Trial</> : <><IconWarning size={14} color={billingStatus.color} /> Due: {formatCurrency(productDue)}</>}
                             </div>
                           </div>
                         </div>
 
                         {/* Middle Row: Metrics Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                          
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+
                           {/* Financial Breakdown */}
-                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <IconDollar size={16} /> Financials
+                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <IconDollar size={14} /> Financials
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Subscription</span>
                                 <span style={{ fontWeight: '600' }}>{formatCurrency(parseAmount(product.subscription_fee))}</span>
@@ -1567,7 +1592,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                               </div>
                               {(product.discount || product.cl_amount) && (
                                 <>
-                                  <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '4px 0' }}></div>
+                                  <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '2px 0' }}></div>
                                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <span style={{ color: 'var(--text-secondary)' }}>Discount</span>
                                     <span style={{ fontWeight: '600', color: 'var(--status-active)' }}>{product.discount || '—'}</span>
@@ -1578,7 +1603,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                                   </div>
                                 </>
                               )}
-                              <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '4px 0' }}></div>
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '2px 0' }}></div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Received</span>
                                 <span style={{ fontWeight: '600', color: 'var(--primary-accent)' }}>{formatCurrency(parseAmount(product.amount_received))}</span>
@@ -1591,11 +1616,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           </div>
 
                           {/* Ad Account */}
-                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <IconChart size={16} /> Ad Account
+                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <IconChart size={14} /> Ad Account
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>ID</span>
                                 <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{product.ad_id_number || '—'}</span>
@@ -1615,7 +1640,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                                   return '$' + spend.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
                                 })()}</span>
                               </div>
-                              <div style={{ marginTop: '4px' }}>
+                              <div style={{ marginTop: '2px' }}>
                                 <SpendProgressBar
                                   current={product.current_spend || 0}
                                   limit={product.ad_spend_limit || 0}
@@ -1626,11 +1651,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           </div>
 
                           {/* Lifecycle & Referral */}
-                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <IconCalendar size={16} /> Lifecycle & Referral
+                          <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <IconCalendar size={14} /> Lifecycle
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Start Date</span>
                                 <span style={{ fontWeight: '600' }}>{product.start_date || '—'}</span>
@@ -1638,15 +1663,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Valid Until</span>
                                 <span style={{ fontWeight: '600' }}>{product.valid_stopped_date || '—'}</span>
-                              </div>
-                              <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '4px 0' }}></div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Partner</span>
-                                <span style={{ fontWeight: '600', color: '#A855F7' }}>{product.referral_partner_name || '—'}</span>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Ref. Commission</span>
-                                <span style={{ fontWeight: '600', color: '#A855F7' }}>{product.referral_amount ? `$${product.referral_amount}` : '—'}</span>
                               </div>
                             </div>
                           </div>
@@ -1662,7 +1678,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                 </div>
               ) : (
                 /* Products Tab - Edit Mode */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '16px' }}>
                   {formProducts.map((p, idx) => (
                     <ClientFormFields
                       key={idx}
@@ -1673,6 +1689,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       isFirst={idx === 0}
                       disabled={saving}
                       headerLabel={`Product #${idx + 1}`}
+                      compact={true}
                     />
                   ))}
                 </div>

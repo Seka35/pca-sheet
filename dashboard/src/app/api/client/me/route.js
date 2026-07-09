@@ -57,6 +57,7 @@ export async function GET(req) {
       trustpilot_reviewed: client.trustpilot_reviewed,
       contract_file_path: client.contract_file_path,
       client_since: clientSince,
+      referral_partner_name: client.referral_partner_name,
     }
   });
 }

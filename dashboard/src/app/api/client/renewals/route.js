@@ -72,6 +72,7 @@ export async function GET(req) {
       current_spend: r.current_spend,
       cl_amount: r.cl_amount,
       ad_account_type: r.ad_account_type,
+      upgrade_status: r.upgrade_status,
     };
   });
 

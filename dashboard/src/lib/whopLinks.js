@@ -4,6 +4,23 @@
 
 export const WHOP_REFERRAL_PARTNERS = ['N.A.', 'Chris', 'No Limit', '8 Labs', 'Master'];
 
+// Tier pricing for upgrades
+export const TIER_PRICING = {
+  'TIER 1': '199',
+  'TIER 2': '299',
+  'TIER 3': '499',
+  'TIER 4': '799',
+  'TIER 5': '1399',
+  'TIER 6': '1999',
+};
+
+// Setup pricing for upgrades
+export const SETUP_PRICING = {
+  'Starter': '399',
+  'Premium': '499',
+  'VIP': '699',
+};
+
 // Discount percentage given to the CLIENT (applied on subscription + setup)
 export const WHOP_DISCOUNT_BY_PARTNER = {
   'N.A.': 0,
@@ -179,6 +196,15 @@ export function getWhopLinksByPartner(referralPartner) {
  * @returns {number} Discount percentage (0 or negative)
  */
 export function getWhopDiscount(referralPartner) {
+  return WHOP_DISCOUNT_BY_PARTNER[referralPartner] || 0;
+}
+
+/**
+ * Get partner discount percentage (alias for getWhopDiscount)
+ * @param {string} referralPartner - Referral partner name
+ * @returns {number} Discount percentage
+ */
+export function getPartnerDiscount(referralPartner) {
   return WHOP_DISCOUNT_BY_PARTNER[referralPartner] || 0;
 }
 

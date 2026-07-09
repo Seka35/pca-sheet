@@ -220,8 +220,8 @@ export async function PUT(req, { params }) {
     try {
       // Update the client header.
       run(
-        `UPDATE clients SET name = ?, first_name = ?, last_name = ?, email = ?, address = ?, telegram_group_id = ?, status = ?, tele_id = ?, trustpilot_reviewed = ?, churn_reason = ?, contract_file_path = ? WHERE id = ?`,
-        [name, body.first_name || '', body.last_name || '', body.email || '', body.address || '', telegram_group_id || '', computedStatus, tele_id || null, trustpilot_reviewed, churn_reason, contract_file_path, clientId]
+        `UPDATE clients SET name = ?, first_name = ?, last_name = ?, email = ?, address = ?, telegram_group_id = ?, status = ?, tele_id = ?, trustpilot_reviewed = ?, churn_reason = ?, contract_file_path = ?, referral_partner_name = ? WHERE id = ?`,
+        [name, body.first_name || '', body.last_name || '', body.email || '', body.address || '', telegram_group_id || '', computedStatus, tele_id || null, trustpilot_reviewed, churn_reason, contract_file_path, body.referral_partner_name || null, clientId]
       );
 
       // Remove the products the user deleted.
