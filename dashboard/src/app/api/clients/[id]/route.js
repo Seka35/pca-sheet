@@ -32,43 +32,60 @@ function parseMonthString(mStr) {
 function computeHealthStatus(client, history) {
   if (!history || history.length === 0) return 'critical';
 
-  // Tenure: months since first renewal
-  const earliest = history[history.length - 1]; // sorted DESC
-  const latest = history[0];
-  const tenureMonths = history.length;
+  // Only consider active products for health status
+  const activeProducts = history.filter(p => p.visual_status === 'Active' || p.active !== false);
 
-  // Renewal count
-  const renewalCount = history.length;
+  if (activeProducts.length === 0) return 'critical';
 
-  // Payment streak: consecutive months with payment
-  let paymentStreak = 0;
-  for (const r of history) {
-    if (r.reference_no && r.reference_no.trim() !== '') {
-      paymentStreak++;
+  let hasOverdue = false;
+  let hasPartial = false;
+  let hasPaid = false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (const p of activeProducts) {
+    // Skip trial products - they're not overdue
+    if (p.is_trial == 1) continue;
+
+    const sub = parseAmount(p.subscription_fee);
+    const setup = parseAmount(p.setup_fee);
+    const disc = parseAmount(p.discount);
+    const received = parseAmount(p.amount_received);
+    const totalDue = Math.max(0, sub + setup - disc);
+
+    // Skip if no payment expected (0 total due)
+    if (totalDue <= 0) {
+      hasPaid = true;
+      continue;
+    }
+
+    if (received >= totalDue) {
+      hasPaid = true;
+    } else if (received > 0) {
+      // Partial payment
+      hasPartial = true;
     } else {
-      break;
+      // No payment received - check if overdue
+      if (p.valid_stopped_date) {
+        const validDate = new Date(p.valid_stopped_date);
+        if (validDate < today) {
+          hasOverdue = true;
+        } else {
+          // Not yet overdue but unpaid
+          hasPartial = true;
+        }
+      } else {
+        // No valid date means it's overdue
+        hasOverdue = true;
+      }
     }
   }
 
-  // Months since last payment
-  let monthsSincePayment = 0;
-  for (let i = 0; i < history.length; i++) {
-    if (history[i].reference_no && history[i].reference_no.trim() !== '') {
-      monthsSincePayment = i;
-      break;
-    }
-  }
-  if (monthsSincePayment === 0 && history[0] && history[0].reference_no && history[0].reference_no.trim() !== '') {
-    monthsSincePayment = 0;
-  } else {
-    monthsSincePayment = Math.min(monthsSincePayment, 12);
-  }
-
-  const score = (tenureMonths * 10) + (renewalCount * 5) + (paymentStreak * 3) - (monthsSincePayment * 2);
-
-  if (score >= 50) return 'healthy';
-  if (score >= 25) return 'at_risk';
-  return 'critical';
+  // Priority: overdue > partial > paid
+  if (hasOverdue) return 'critical';
+  if (hasPartial) return 'at_risk';
+  return 'healthy';
 }
 
 // --- GET: full client detail (enhanced) --------------------------------------
