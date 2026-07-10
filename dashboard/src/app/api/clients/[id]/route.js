@@ -222,6 +222,14 @@ export async function PUT(req, { params }) {
     const trustpilot_reviewed = body.trustpilot_reviewed ? 1 : 0;
     const churn_reason = body.churn_reason || null;
     const contract_file_path = body.contract_file_path || null;
+    // New client enrichment fields
+    const company_name = body.company_name || null;
+    const company_number = body.company_number || null;
+    const landing_pages = body.landing_pages ? JSON.stringify(body.landing_pages) : '[]';
+    const creative_url = body.creative_url || null;
+    const creative_files = body.creative_files ? JSON.stringify(body.creative_files) : '[]';
+    const client_owner = body.client_owner || null;
+    const notes = body.notes || null;
 
     const insertRenewal = `INSERT OR REPLACE INTO renewals (
       sr_no, client_id, client_name, client_status_history, month, start_date,
@@ -237,8 +245,8 @@ export async function PUT(req, { params }) {
     try {
       // Update the client header.
       run(
-        `UPDATE clients SET name = ?, first_name = ?, last_name = ?, email = ?, address = ?, telegram_group_id = ?, status = ?, tele_id = ?, trustpilot_reviewed = ?, churn_reason = ?, contract_file_path = ?, referral_partner_name = ? WHERE id = ?`,
-        [name, body.first_name || '', body.last_name || '', body.email || '', body.address || '', telegram_group_id || '', computedStatus, tele_id || null, trustpilot_reviewed, churn_reason, contract_file_path, body.referral_partner_name || null, clientId]
+        `UPDATE clients SET name = ?, first_name = ?, last_name = ?, email = ?, address = ?, telegram_group_id = ?, status = ?, tele_id = ?, trustpilot_reviewed = ?, churn_reason = ?, contract_file_path = ?, referral_partner_name = ?, company_name = ?, company_number = ?, landing_pages = ?, creative_url = ?, creative_files = ?, client_owner = ?, notes = ? WHERE id = ?`,
+        [name, body.first_name || '', body.last_name || '', body.email || '', body.address || '', telegram_group_id || '', computedStatus, tele_id || null, trustpilot_reviewed, churn_reason, contract_file_path, body.referral_partner_name || null, company_name, company_number, landing_pages, creative_url, creative_files, client_owner, notes, clientId]
       );
 
       // Remove the products the user deleted.

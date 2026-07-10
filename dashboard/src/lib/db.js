@@ -585,6 +585,21 @@ function initDatabase() {
   // Add referral_partner_name to clients table if not exists (moved from renewals)
   try { db.exec(`ALTER TABLE clients ADD COLUMN referral_partner_name TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
+  // --- Client Enrichment Fields ---
+  // Company information
+  try { db.exec(`ALTER TABLE clients ADD COLUMN company_name TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE clients ADD COLUMN company_number TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Landing pages (JSON array of URLs)
+  try { db.exec(`ALTER TABLE clients ADD COLUMN landing_pages TEXT DEFAULT '[]'`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Creative storage (Google Drive URL or uploaded files)
+  try { db.exec(`ALTER TABLE clients ADD COLUMN creative_url TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Uploaded creative files (JSON array of file paths)
+  try { db.exec(`ALTER TABLE clients ADD COLUMN creative_files TEXT DEFAULT '[]'`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Client owner (free text - who owns this client)
+  try { db.exec(`ALTER TABLE clients ADD COLUMN client_owner TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Notes field for team notes
+  try { db.exec(`ALTER TABLE clients ADD COLUMN notes TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
   // Seed default referral partners if empty
   const existingPartners = db.prepare('SELECT COUNT(*) as cnt FROM referral_partners').get();
   if (!existingPartners || existingPartners.cnt === 0) {

@@ -264,6 +264,16 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const [sendingRowSrNo, setSendingRowSrNo] = useState(null); // tracks which row is sending
   const [deletedPaymentSrNos, setDeletedPaymentSrNos] = useState([]); // tracks deleted payments for display
 
+  // New client enrichment fields
+  const [formCompanyName, setFormCompanyName] = useState(client?.company_name || '');
+  const [formCompanyNumber, setFormCompanyNumber] = useState(client?.company_number || '');
+  const [formLandingPages, setFormLandingPages] = useState(client?.landing_pages ? (typeof client.landing_pages === 'string' ? JSON.parse(client.landing_pages) : client.landing_pages) : []);
+  const [formCreativeUrl, setFormCreativeUrl] = useState(client?.creative_url || '');
+  const [formCreativeFiles, setFormCreativeFiles] = useState(client?.creative_files ? (typeof client.creative_files === 'string' ? JSON.parse(client.creative_files) : client.creative_files) : []);
+  const [formClientOwner, setFormClientOwner] = useState(client?.client_owner || '');
+  const [formNotes, setFormNotes] = useState(client?.notes || '');
+  const [uploadingCreative, setUploadingCreative] = useState(false);
+
   // Refetch client detail to get fresh history (especially for ponctual upgrade badges) when modal opens
   useEffect(() => {
     if (!client?.id) return;
@@ -327,11 +337,37 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       const res = await fetch(`/api/clients/${client.id}/contract`, { method: 'POST', body: fd });
       const data = await res.json();
       if (data.ok) {
-        setComputedData(prev => ({ ...prev, contract_file_path: data.path }));
-        onSaved && onSaved();
+        onSaved && onSaved(client.id);
       }
     } catch {}
     finally { setUploadingContract(false); }
+  };
+
+  const uploadCreative = async (file) => {
+    if (!file || saving) return;
+    setUploadingCreative(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`/api/clients/${client.id}/creative`, { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.ok) {
+        setFormCreativeFiles(data.files);
+        onSaved && onSaved();
+      }
+    } catch {}
+    finally { setUploadingCreative(false); }
+  };
+
+  const deleteCreative = async (path) => {
+    try {
+      const res = await fetch(`/api/clients/${client.id}/creative?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.ok) {
+        setFormCreativeFiles(data.files);
+        onSaved && onSaved();
+      }
+    } catch {}
   };
 
   // Manual payment entry state
@@ -510,6 +546,13 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     setFormTelegramGroupId(client.telegram_group_id || '');
     setFormStatus(client.status || 'inactif');
     setFormReferralPartner(client.referral_partner_name || 'N.A.');
+    setFormCompanyName(client.company_name || '');
+    setFormCompanyNumber(client.company_number || '');
+    setFormLandingPages(client.landing_pages ? (typeof client.landing_pages === 'string' ? JSON.parse(client.landing_pages) : client.landing_pages) : []);
+    setFormCreativeUrl(client.creative_url || '');
+    setFormCreativeFiles(client.creative_files ? (typeof client.creative_files === 'string' ? JSON.parse(client.creative_files) : client.creative_files) : []);
+    setFormClientOwner(client.client_owner || '');
+    setFormNotes(client.notes || '');
     setFormProducts(
       (history || []).map((h) => ({
         sr_no: h.sr_no,
@@ -542,7 +585,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         is_trial: Boolean(h.is_trial),
       }))
     );
-  }, [client?.id, client?.name, client?.first_name, client?.last_name, client?.email, client?.address, client?.telegram_group_id, client?.status, history]);
+  }, [client?.id, client?.name, client?.first_name, client?.last_name, client?.email, client?.address, client?.telegram_group_id, client?.status, client?.company_name, client?.company_number, client?.landing_pages, client?.creative_url, client?.creative_files, client?.client_owner, client?.notes, history]);
 
   useEffect(() => {
     if (!client?.id) return;
@@ -1239,6 +1282,13 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           trustpilot_reviewed: formTrustpilotReviewed ? 1 : 0,
           churn_reason: formChurnReason || null,
           referral_partner_name: formReferralPartner,
+          company_name: formCompanyName.trim(),
+          company_number: formCompanyNumber.trim(),
+          landing_pages: formLandingPages,
+          creative_url: formCreativeUrl.trim(),
+          creative_files: formCreativeFiles,
+          client_owner: formClientOwner.trim(),
+          notes: formNotes,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1330,6 +1380,15 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     if ((formTrustpilotReviewed ? 1 : 0) !== (client?.trustpilot_reviewed || 0)) return true;
     if ((formChurnReason || '') !== (client?.churn_reason || '')) return true;
     if ((formReferralPartner || '') !== (client?.referral_partner_name || '')) return true;
+    if ((formCompanyName || '') !== (client?.company_name || '')) return true;
+    if ((formCompanyNumber || '') !== (client?.company_number || '')) return true;
+    const clientLP = client?.landing_pages ? (typeof client.landing_pages === 'string' ? JSON.parse(client.landing_pages) : client.landing_pages) : [];
+    if (JSON.stringify(formLandingPages) !== JSON.stringify(clientLP)) return true;
+    if ((formCreativeUrl || '') !== (client?.creative_url || '')) return true;
+    const clientCF = client?.creative_files ? (typeof client.creative_files === 'string' ? JSON.parse(client.creative_files) : client.creative_files) : [];
+    if (JSON.stringify(formCreativeFiles) !== JSON.stringify(clientCF)) return true;
+    if ((formClientOwner || '') !== (client?.client_owner || '')) return true;
+    if ((formNotes || '') !== (client?.notes || '')) return true;
     if (removedSrNos.length > 0) return true;
     const original = history || [];
     if (formProducts.length !== original.length) return true;
@@ -1354,7 +1413,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
       if (fTrial !== oTrial) return true;
     }
     return false;
-  }, [mode, formName, formFirstName, formLastName, formEmail, formAddress, formTelegramGroupId, formStatus, formTrustpilotReviewed, formChurnReason, formReferralPartner, formProducts, removedSrNos, client, history]);
+  }, [mode, formName, formFirstName, formLastName, formEmail, formAddress, formTelegramGroupId, formStatus, formTrustpilotReviewed, formChurnReason, formReferralPartner, formCompanyName, formCompanyNumber, formLandingPages, formCreativeUrl, formCreativeFiles, formClientOwner, formNotes, formProducts, removedSrNos, client, history]);
 
   const primaryBtn = {
     backgroundColor: '#14b8a6', color: '#fff', padding: '8px 16px',
@@ -1593,6 +1652,94 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       )}
                     </div>
                   </div>
+
+                  {/* Company & Owner Info */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                    {(client.company_name || client.company_number || client.client_owner) && (
+                      <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <h4 style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                          Company Information
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {client.company_name && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Company Name</span>
+                              <span style={{ fontWeight: '600', fontSize: '13px' }}>{client.company_name}</span>
+                            </div>
+                          )}
+                          {client.company_number && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Company Number</span>
+                              <span style={{ fontWeight: '600', fontSize: '13px' }}>{client.company_number}</span>
+                            </div>
+                          )}
+                          {client.client_owner && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Client Owner</span>
+                              <span style={{ fontWeight: '600', fontSize: '13px', color: '#A78BFA' }}>{client.client_owner}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {(client.landing_pages?.length > 0 || client.creative_url) && (
+                      <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <h4 style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                          Landing Pages & Creatives
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {client.landing_pages?.length > 0 && (
+                            <div>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Landing Pages</span>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+                                {(Array.isArray(client.landing_pages) ? client.landing_pages : JSON.parse(client.landing_pages || '[]')).map((url, i) => (
+                                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-accent)', fontSize: '13px', fontWeight: '600', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                    {url.length > 40 ? url.substring(0, 40) + '...' : url}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {client.creative_url && (
+                            <div>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Creative Folder</span>
+                              <a href={client.creative_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary-accent)', fontSize: '13px', fontWeight: '600', textDecoration: 'none', marginTop: '6px' }}>
+                                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                Open Creative Folder
+                              </a>
+                            </div>
+                          )}
+                          {client.creative_files?.length > 0 && (
+                            <div>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase' }}>Uploaded Creatives ({Array.isArray(client.creative_files) ? client.creative_files.length : JSON.parse(client.creative_files || '[]').length})</span>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                                {(Array.isArray(client.creative_files) ? client.creative_files : JSON.parse(client.creative_files || '[]')).map((f, i) => (
+                                  <a key={i} href={f.path} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '6px', color: 'var(--primary-accent)', fontSize: '12px', fontWeight: '600', textDecoration: 'none' }}>
+                                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    {f.name?.substring(0, 15) || 'Image'}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {client.notes && (
+                      <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <h4 style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          Notes
+                        </h4>
+                        <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{client.notes}</div>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 /* Overview Tab - Edit Mode */
@@ -1747,6 +1894,96 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                         </optgroup>
                       </select>
                     </div>
+                  </div>
+
+                  {/* New fields: Company, Landing Pages, Creatives, Owner, Notes */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Company Name</label>
+                      <input value={formCompanyName} onChange={(e) => setFormCompanyName(e.target.value)} disabled={saving} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Company Number</label>
+                      <input value={formCompanyNumber} onChange={(e) => setFormCompanyNumber(e.target.value)} disabled={saving} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Client Owner</label>
+                      <input value={formClientOwner} onChange={(e) => setFormClientOwner(e.target.value)} disabled={saving} placeholder="e.g. Chris, Sarah..." style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Creative Folder URL (Google Drive, Dropbox, etc.)</label>
+                      <input value={formCreativeUrl} onChange={(e) => setFormCreativeUrl(e.target.value)} disabled={saving} placeholder="https://drive.google.com/..." style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }} />
+                    </div>
+                  </div>
+
+                  {/* Landing Pages */}
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Landing Pages</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {formLandingPages.map((url, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input
+                            value={url}
+                            onChange={(e) => {
+                              const updated = [...formLandingPages];
+                              updated[i] = e.target.value;
+                              setFormLandingPages(updated);
+                            }}
+                            disabled={saving}
+                            placeholder="https://..."
+                            style={{ flex: 1, backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }}
+                          />
+                          <button
+                            onClick={() => setFormLandingPages(formLandingPages.filter((_, idx) => idx !== i))}
+                            disabled={saving}
+                            style={{ padding: '8px', backgroundColor: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '6px', cursor: 'pointer', color: '#f87171', display: 'flex', alignItems: 'center' }}
+                          >
+                            <IconTrash size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => setFormLandingPages([...formLandingPages, ''])}
+                        disabled={saving}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', backgroundColor: 'transparent', border: '1px dashed var(--border-color)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                      >
+                        <IconPlus size={12} /> Add Landing Page URL
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Uploaded Creative Files */}
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Uploaded Creatives</label>
+                    {formCreativeFiles.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                        {formCreativeFiles.map((f, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+                            <a href={f.path} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-accent)', fontSize: '12px', fontWeight: '600', textDecoration: 'none' }}>{f.name?.substring(0, 20) || 'Image'}</a>
+                            <button onClick={() => deleteCreative(f.path)} disabled={saving} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: '0', display: 'flex', alignItems: 'center' }}>
+                              <IconTrash size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '600', cursor: uploadingCreative ? 'not-allowed' : 'pointer', border: '1px solid var(--border-color)' }}>
+                      {uploadingCreative ? 'Uploading...' : 'Upload Creative'}
+                      <input type="file" accept="image/*" onChange={e => { if (e.target.files?.[0]) uploadCreative(e.target.files[0]); }} disabled={uploadingCreative} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '8px' }}>Notes</label>
+                    <textarea
+                      value={formNotes}
+                      onChange={(e) => setFormNotes(e.target.value)}
+                      disabled={saving}
+                      rows={4}
+                      placeholder="Important notes for the team..."
+                      style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', color: 'var(--text-primary)', outline: 'none', fontSize: '14px', resize: 'vertical', lineHeight: '1.5' }}
+                    />
                   </div>
                 </div>
               )}

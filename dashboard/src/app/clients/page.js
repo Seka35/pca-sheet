@@ -357,7 +357,7 @@ export default function ClientsPage() {
       <ClientModal
         selectedClient={selectedClientData}
         onClose={() => setSelectedClientData(null)}
-        onSaved={loadClients}
+        onSaved={(id) => loadClients(id)}
       />
       <AddClientModal
         open={addClientOpen}
