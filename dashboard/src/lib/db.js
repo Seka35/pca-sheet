@@ -628,6 +628,37 @@ function initDatabase() {
   // Add upgrade_status column to renewals table
   try { db.exec(`ALTER TABLE renewals ADD COLUMN upgrade_status TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
+  // --- Ponctual Upgrade System ---
+  // New columns for tracking original products vs ponctual upgrades
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN original_tier TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN original_setup TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN is_ponctual_upgrade INTEGER DEFAULT 0`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN parent_sr_no TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  try { db.exec(`ALTER TABLE renewals ADD COLUMN upgrade_chain_json TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+
+  // Payment transactions table - stores all billing events (monthly payments, upgrades, etc.)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      renewal_sr_no TEXT NOT NULL,
+      client_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      from_tier TEXT,
+      to_tier TEXT,
+      from_setup TEXT,
+      to_setup TEXT,
+      prorata_amount TEXT,
+      amount TEXT,
+      date TEXT NOT NULL,
+      until_date TEXT,
+      notes TEXT,
+      is_manual_entry INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_transactions_renewal ON payment_transactions(renewal_sr_no)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_transactions_client ON payment_transactions(client_id)`);
+
   // Seed default bank data if empty
   const existingBanks = db.prepare('SELECT COUNT(*) as cnt FROM bank_details').get();
   if (!existingBanks || existingBanks.cnt === 0) {

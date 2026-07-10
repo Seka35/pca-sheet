@@ -14,6 +14,16 @@ export const TIER_PRICING = {
   'TIER 6': '1999',
 };
 
+// Ad spend limits per tier
+export const TIER_SPEND_LIMITS = {
+  'TIER 1': '2500',
+  'TIER 2': '5000',
+  'TIER 3': '10000',
+  'TIER 4': '20000',
+  'TIER 5': '40000',
+  'TIER 6': 'Unlimited',
+};
+
 // Setup pricing for upgrades
 export const SETUP_PRICING = {
   'Starter': '399',

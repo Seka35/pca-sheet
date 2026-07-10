@@ -23,8 +23,9 @@ export async function GET(req) {
   const renewalSrNo = searchParams.get('renewal_sr_no');
 
   try {
-    // With client_id: return from payments table
+    // With client_id: return from payments table + payment_transactions (for UPGRADE, etc.)
     if (clientId) {
+      // 1. Regular payments from payments table
       const payments = all(`
         SELECT p.*, r.tier, r.setup_type, r.month as product_month, r.client_name
         FROM payments p
@@ -32,7 +33,36 @@ export async function GET(req) {
         WHERE p.client_id = ?
         ORDER BY p.payment_received_date DESC, p.id DESC
       `, [clientId]);
-      return NextResponse.json(payments);
+
+      // 2. Transaction entries from payment_transactions (UPGRADE, RETURN, PROMOTION, etc.)
+      const transactions = all(`
+        SELECT t.*, r.tier, r.setup_type, r.month as product_month, r.client_name
+        FROM payment_transactions t
+        LEFT JOIN renewals r ON t.renewal_sr_no = r.sr_no
+        WHERE t.client_id = ?
+        ORDER BY t.date DESC, t.id DESC
+      `, [clientId]);
+
+      // Combine both, marking source and normalizing column names
+      const combined = [
+        ...payments.map(p => ({ ...p, is_transaction: 0 })),
+        ...transactions.map(t => ({
+          ...t,
+          is_transaction: 1,
+          amount_received: t.amount, // normalize amount column
+          payment_received_date: t.date, // normalize date column
+          payment_id: t.id // normalize id column
+        }))
+      ];
+
+      // Sort by date descending
+      combined.sort((a, b) => {
+        const dateA = a.date || a.payment_received_date || '';
+        const dateB = b.date || b.payment_received_date || '';
+        return dateB.localeCompare(dateA);
+      });
+
+      return NextResponse.json(combined);
     }
 
     // With renewal_sr_no: return payments for that specific product

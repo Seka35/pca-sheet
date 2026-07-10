@@ -7,6 +7,7 @@ import TeleIdBadge from './TeleIdBadge';
 import ClientFormFields from './ClientFormFields';
 import ChatTab from './ChatTab';
 import SpendProgressBar from './SpendProgressBar';
+import PonctualUpgradeModal from './PonctualUpgradeModal';
 import { extractTeleId } from '@/lib/teleIdParser';
 import { WHOP_DISCOUNT_BY_PARTNER, calculateClientDiscount, calculateReferralCommission } from '@/lib/whopLinks';
 
@@ -209,6 +210,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const [mode, setMode] = useState('view'); // 'view' | 'edit'
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'products' | 'payments'
 
+  // Ponctual upgrade modal
+  const [showPonctualUpgradeModal, setShowPonctualUpgradeModal] = useState(false);
+  const [ponctualUpgradeProduct, setPonctualUpgradeProduct] = useState(null);
+
   // Helper to build invoice URL for a payment
   const buildInvoiceUrl = (payment, product, billing) => {
     const isTopup = payment.is_topup === 1;
@@ -259,13 +264,51 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
   const [sendingRowSrNo, setSendingRowSrNo] = useState(null); // tracks which row is sending
   const [deletedPaymentSrNos, setDeletedPaymentSrNos] = useState([]); // tracks deleted payments for display
 
-  // Refetch client detail to get computed fields when modal opens
+  // Refetch client detail to get fresh history (especially for ponctual upgrade badges) when modal opens
   useEffect(() => {
     if (!client?.id) return;
     fetch(`/api/clients/${client.id}`)
       .then(r => r.json())
       .then(data => {
         if (data.computed) setComputedData(data.computed);
+        // Update formProducts with fresh history data (includes is_ponctual_upgrade, original_tier, etc.)
+        if (data.history) {
+          setFormProducts(
+            data.history.map((h) => ({
+              sr_no: h.sr_no,
+              tier: h.tier || '',
+              setup_type: h.setup_type || '',
+              month: h.month || '',
+              subscription_fee: h.subscription_fee || '',
+              setup_fee: h.setup_fee || '',
+              discount: h.discount || '',
+              cl_amount: h.cl_amount || '',
+              start_date: h.start_date || '',
+              valid_stopped_date: h.valid_stopped_date || '',
+              client_ad_id_name: h.client_ad_id_name || '',
+              ad_id_number: h.ad_id_number || '',
+              ad_account_type: h.ad_account_type || '',
+              ad_spend_limit: h.ad_spend_limit || '',
+              referral_partner_name: h.referral_partner_name || '',
+              referral_amount: h.referral_amount || '',
+              bank_name: h.bank_name || '',
+              payment_name: h.payment_name || '',
+              amount_received: h.amount_received || '',
+              payment_received_date: h.payment_received_date || '',
+              payment_received_month: h.payment_received_month || '',
+              reference_no: h.reference_no || '',
+              actual_balance_difference: h.actual_balance_difference || '',
+              client_status_history: h.client_status_history || '',
+              notes: h.notes || '',
+              active: h.visual_status === 'Active',
+              is_trial: Boolean(h.is_trial),
+              is_ponctual_upgrade: h.is_ponctual_upgrade,
+              original_tier: h.original_tier || '',
+              original_setup: h.original_setup || '',
+              upgrade_chain_json: h.upgrade_chain_json || '',
+            }))
+          );
+        }
       })
       .catch(() => {});
   }, [client?.id]);
@@ -307,6 +350,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     discount: '',
     valid_stopped_date: '',
     whop_product_payments_json: '[]',
+    transaction_type: 'MONTHLY', // MONTHLY, UPGRADE, SUB_UPGRADE, RENEWAL_PONCTUAL, RETURN, PROMOTION
+    from_tier: '',
+    to_tier: '',
+    to_setup: '',
+    prorata_amount: '',
   });
 
   // Active products from history for dropdown selection
@@ -330,7 +378,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     }
   }, [activeTab, client?.id]);
 
-  // Build unified payment list: new payments table + old renewals payments
+  // Build unified payment list: new payments table + old renewals payments + transactions
   // Both sources combined for complete payment history
   const allDisplayPayments = useMemo(() => {
     const rows = [];
@@ -522,11 +570,17 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     const setup = parseAmount(p.setup_fee);
     const disc = parseAmount(p.discount);
     const received = parseAmount(p.amount_received);
-    const totalDue = (sub + setup) - disc;
+    let totalDue = (sub + setup) - disc;
+    // For ponctual upgrades: expected payment is the prorata (difference from original tier), not full price
+    if (p.is_ponctual_upgrade == 1 && p.original_tier) {
+      const originalSub = parseAmount(TIER_PRICING[p.original_tier] || '0');
+      const prorata = Math.max(0, sub - originalSub);
+      totalDue = prorata; // Only the prorata is due, not the full subscription
+    }
     // If received >= total due, it's fully paid
     if (received >= totalDue) return 0;
     // Otherwise return what's still due
-    return totalDue - received;
+    return Math.max(0, totalDue - received);
   };
 
   // Get billing status for a product
@@ -537,6 +591,15 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     const disc = parseAmount(p.discount);
     const received = parseAmount(p.amount_received);
     const totalDue = (sub + setup) - disc;
+    // For ponctual upgrades: prorata is the expected amount for month 1, not the full subscription
+    if (p.is_ponctual_upgrade == 1) {
+      // If received equals the prorata (approximated as difference from original tier), consider it PAID
+      const originalSub = parseAmount(p.original_tier ? TIER_PRICING[p.original_tier] || 0 : 0);
+      const prorataExpected = Math.max(0, sub - originalSub);
+      if (received >= prorataExpected && prorataExpected > 0) return { status: 'FULLY PAID', color: '#10B981' };
+      if (received > 0) return { status: 'PARTIALLY PAID', color: '#F59E0B' };
+      return { status: 'UNPAID', color: '#EF4444' };
+    }
     if (received >= totalDue) return { status: 'FULLY PAID', color: '#10B981' };
     if (received > 0) return { status: 'PARTIALLY PAID', color: '#F59E0B' };
     return { status: 'UNPAID', color: '#EF4444' };
@@ -620,6 +683,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
         client_status_history: h.client_status_history || '', notes: h.notes || '',
         active: h.visual_status === 'Active',
         is_trial: Boolean(h.is_trial),
+        is_ponctual_upgrade: h.is_ponctual_upgrade,
+        original_tier: h.original_tier || '',
+        original_setup: h.original_setup || '',
+        upgrade_chain_json: h.upgrade_chain_json || '',
       }))
     );
   };
@@ -757,6 +824,46 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     }
   };
 
+  // Ponctual upgrade handlers
+  const handleRenewPonctual = async (srNo) => {
+    if (!window.confirm('Renew this ponctual upgrade for 1 more month?')) return;
+    try {
+      const res = await fetch(`/api/renewals/${encodeURIComponent(srNo)}/renewal-ponctual`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to renew');
+      // Refresh client data
+      onClientUpdated && onClientUpdated();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  };
+
+  const handleReturnToOriginal = async (srNo) => {
+    if (!window.confirm('Return to the original monthly product? This will end the ponctual upgrade.')) return;
+    try {
+      const res = await fetch(`/api/renewals/${encodeURIComponent(srNo)}/return-to-original`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to return');
+      // Refresh client data
+      onClientUpdated && onClientUpdated();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  };
+
+  const handlePromotePonctual = async (srNo) => {
+    if (!window.confirm('Make this ponctual upgrade permanent? The new tier will become the client\'s regular subscription.')) return;
+    try {
+      const res = await fetch(`/api/renewals/${encodeURIComponent(srNo)}/promote-ponctual`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to promote');
+      // Refresh client data
+      onClientUpdated && onClientUpdated();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  };
+
   const startEditPayment = (payment) => {
     // Find the linked product to get full product details
     const product = history?.find(h => h.sr_no === payment.renewal_sr_no);
@@ -860,31 +967,137 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
 
       const isEditing = editingPayment && editingPayment !== 'new' && editingPayment.row?.id;
 
-      // Use PUT for editing, POST for creating
-      const url = isEditing ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
-      const method = isEditing ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: client.id,
-          renewal_sr_no: renewalSrNo,
-          amount_received: manualPaymentForm.amount_received || '0',
-          payment_received_date: manualPaymentForm.payment_received_date || '',
-          payment_received_month: monthFromDate,
-          reference_no: manualPaymentForm.reference_no || '',
-          bank_name: manualPaymentForm.bank_name || '',
-          notes: 'MANUAL_ENTRY',
-          is_topup: manualPaymentForm.is_topup === true ? 1 : 0,
-          whop_product_payments_json: manualPaymentForm.whop_product_payments_json,
-        }),
-      });
+      // For UPGRADE (Ponctual), we don't create a payment entry - the upgrade-ponctual API creates the new renewal
+      // For other types (MONTHLY, TOPUP, RETURN, etc.), we create a payment entry
+      if (manualPaymentForm.transaction_type !== 'UPGRADE' && manualPaymentForm.transaction_type !== 'UPGRADE_PERMANENT') {
+        // Use PUT for editing, POST for creating
+        const url = isEditing ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
+        const method = isEditing ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: client.id,
+            renewal_sr_no: renewalSrNo,
+            amount_received: manualPaymentForm.amount_received || '0',
+            payment_received_date: manualPaymentForm.payment_received_date || '',
+            payment_received_month: monthFromDate,
+            reference_no: manualPaymentForm.reference_no || '',
+            bank_name: manualPaymentForm.bank_name || '',
+            notes: 'MANUAL_ENTRY',
+            is_topup: manualPaymentForm.transaction_type === 'TOPUP' ? 1 : 0,
+            whop_product_payments_json: manualPaymentForm.whop_product_payments_json,
+          }),
+        });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error || `Request failed (${res.status})`);
-        setSaving(false);
-        return;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(data.error || `Request failed (${res.status})`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Handle transaction types
+      if (manualPaymentForm.transaction_type === 'UPGRADE') {
+        // UPGRADE (Ponctual): Update existing product temporarily with prorata payment
+        const upgradeRes = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/upgrade-ponctual`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to_tier: manualPaymentForm.to_tier || null,
+            to_setup: manualPaymentForm.to_setup || null,
+            expires_at: manualPaymentForm.valid_stopped_date || null,
+            amount_received: manualPaymentForm.amount_received || null,
+          }),
+        });
+        const upgradeData = await upgradeRes.json();
+        if (!upgradeRes.ok) {
+          setError(upgradeData.error || 'Failed to create upgrade');
+          setSaving(false);
+          return;
+        }
+        alert(`Upgrade applied to ${upgradeData.sr_no}: ${upgradeData.from_tier} → ${upgradeData.to_tier}, Prorata: $${upgradeData.prorata_amount}`);
+      } else if (manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT') {
+        const upgradeRes = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/upgrade-permanent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to_tier: manualPaymentForm.to_tier || null,
+            to_setup: manualPaymentForm.to_setup || null,
+            subscription_fee: manualPaymentForm.subscription_fee || null,
+            setup_fee: manualPaymentForm.setup_fee || null,
+            discount: manualPaymentForm.discount || null,
+            amount_received: manualPaymentForm.amount_received || null,
+            bank_name: manualPaymentForm.bank_name || null,
+            whop_product_payments_json: manualPaymentForm.whop_product_payments_json || null,
+            valid_stopped_date: manualPaymentForm.valid_stopped_date || null,
+            payment_received_date: manualPaymentForm.payment_received_date || null,
+            reference_no: manualPaymentForm.reference_no || null,
+          }),
+        });
+        const upgradeData = await upgradeRes.json();
+        if (!upgradeRes.ok) {
+          setError(upgradeData.error || 'Failed to apply permanent upgrade');
+          setSaving(false);
+          return;
+        }
+        // Then record the transaction
+        await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: manualPaymentForm.transaction_type,
+            from_tier: manualPaymentForm.tier || null,
+            from_setup: manualPaymentForm.setup_type || null,
+            to_tier: manualPaymentForm.to_tier || null,
+            to_setup: manualPaymentForm.to_setup || null,
+            prorata_amount: manualPaymentForm.prorata_amount || null,
+            amount: manualPaymentForm.amount_received || null,
+            date: manualPaymentForm.payment_received_date || '',
+            until_date: manualPaymentForm.valid_stopped_date || null,
+            client_id: client.id,
+          }),
+        });
+        alert(`Permanent upgrade applied: ${manualPaymentForm.tier} → ${manualPaymentForm.to_tier || manualPaymentForm.tier}`);
+      } else if (manualPaymentForm.transaction_type === 'RETURN') {
+        // RETURN: Call the dedicated endpoint to return to original product
+        const returnRes = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/return-to-original`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount_received: manualPaymentForm.amount_received || null,
+            bank_name: manualPaymentForm.bank_name || null,
+            whop_product_payments_json: manualPaymentForm.whop_product_payments_json || null,
+            payment_received_date: manualPaymentForm.payment_received_date || null,
+            reference_no: manualPaymentForm.reference_no || null,
+          }),
+        });
+        const returnData = await returnRes.json();
+        if (!returnRes.ok) {
+          setError(returnData.error || 'Failed to return to original product');
+          setSaving(false);
+          return;
+        }
+        alert(`Returned to original product. New sr_no: ${returnData.new_sr_no}`);
+      } else if (manualPaymentForm.transaction_type !== 'MONTHLY') {
+        // TOPUP, etc.: Just create a transaction record
+        await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: manualPaymentForm.transaction_type,
+            from_tier: manualPaymentForm.tier || null,
+            from_setup: manualPaymentForm.setup_type || null,
+            to_tier: manualPaymentForm.to_tier || null,
+            to_setup: manualPaymentForm.to_setup || null,
+            prorata_amount: manualPaymentForm.prorata_amount || null,
+            amount: manualPaymentForm.amount_received || null,
+            date: manualPaymentForm.payment_received_date || '',
+            until_date: manualPaymentForm.valid_stopped_date || null,
+            client_id: client.id,
+          }),
+        });
       }
 
       setEditingPayment(null);
@@ -924,6 +1137,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               notes: h.notes || '',
               active: h.visual_status === 'Active',
               is_trial: Boolean(h.is_trial),
+              is_ponctual_upgrade: h.is_ponctual_upgrade,
+              original_tier: h.original_tier || '',
+              original_setup: h.original_setup || '',
+              upgrade_chain_json: h.upgrade_chain_json || '',
             }))
           );
           setDeletedPaymentSrNos([]);
@@ -1075,6 +1292,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
               notes: h.notes || '',
               active: h.visual_status === 'Active',
               is_trial: Boolean(h.is_trial),
+              is_ponctual_upgrade: h.is_ponctual_upgrade,
+              original_tier: h.original_tier || '',
+              original_setup: h.original_setup || '',
+              upgrade_chain_json: h.upgrade_chain_json || '',
             }))
           );
           setDeletedPaymentSrNos([]);
@@ -1574,7 +1795,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                           <div>
                             <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px', fontWeight: '700' }}>Product Bundle</div>
-                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
+                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} is_ponctual={product.is_ponctual_upgrade == 1} original_tier={product.original_tier} original_setup={product.original_setup} />
                           </div>
                           <div style={{ textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.02)', padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                             <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px', fontWeight: '700' }}>Billing Status</div>
@@ -1675,10 +1896,88 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                                 <span style={{ color: 'var(--text-secondary)' }}>Valid Until</span>
                                 <span style={{ fontWeight: '600' }}>{product.valid_stopped_date || '—'}</span>
                               </div>
+                              {product.is_ponctual_upgrade == 1 && product.upgrade_chain_json && (() => {
+                                const chain = JSON.parse(product.upgrade_chain_json);
+                                if (chain && chain.length > 0) {
+                                  return (
+                                    <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
+                                      <span style={{ color: 'var(--text-secondary)', fontSize: '10px' }}>Upgrade Chain:</span>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                                        {chain.map((step, i) => (
+                                          <div key={i} style={{ fontSize: '11px', color: 'var(--primary-accent)' }}>
+                                            {step.from_tier} → {step.to_tier} ({step.date})
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              {product.is_ponctual_upgrade == 1 && product.parent_sr_no && (
+                                <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
+                                  <span style={{ color: 'var(--text-secondary)', fontSize: '10px' }}>From:</span>
+                                  <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)' }}> {product.original_tier || 'Original'}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
                         </div>
+
+                        {/* Action Buttons for Ponctual Upgrades */}
+                        {product.is_ponctual_upgrade == 1 && (
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleRenewPonctual(product.sr_no)}
+                              style={{
+                                flex: 1, minWidth: '120px',
+                                padding: '8px 12px',
+                                backgroundColor: 'rgba(20, 184, 166, 0.1)',
+                                color: '#14b8a6',
+                                border: '1px solid rgba(20, 184, 166, 0.3)',
+                                borderRadius: '8px',
+                                fontSize: '12px', fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🔄 Renew Ponctual
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReturnToOriginal(product.sr_no)}
+                              style={{
+                                flex: 1, minWidth: '120px',
+                                padding: '8px 12px',
+                                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                                color: '#FB923C',
+                                border: '1px solid rgba(249, 115, 22, 0.3)',
+                                borderRadius: '8px',
+                                fontSize: '12px', fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ← Return {product.original_tier || 'Original'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePromotePonctual(product.sr_no)}
+                              style={{
+                                flex: 1, minWidth: '120px',
+                                padding: '8px 12px',
+                                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                color: '#C084FC',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                borderRadius: '8px',
+                                fontSize: '12px', fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ⭐ Make Permanent
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   }) : (
@@ -1759,7 +2058,18 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                         ))}
                       </select>
                     </div>
-                    
+
+                    <div style={{ gridColumn: '1 / -1', marginBottom: '8px' }}>
+                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Transaction Type</label>
+                      <select value={manualPaymentForm.transaction_type || 'MONTHLY'} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, transaction_type: e.target.value, to_tier: '', to_setup: '', prorata_amount: '' }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
+                        <option value="MONTHLY">Monthly Payment</option>
+                        <option value="TOPUP">Top-up</option>
+                        <option value="UPGRADE_PERMANENT">Upgrade Monthly (Permanent)</option>
+                        <option value="UPGRADE">Upgrade Ponctual (Temp)</option>
+                        <option value="RETURN">Return to Original</option>
+                      </select>
+                    </div>
+
                     <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Period</label>
                       <input
@@ -1770,21 +2080,90 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       />
                     </div>
 
-                    <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>TIER</label>
-                      <select value={manualPaymentForm.tier} onChange={(e) => handlePaymentTierChange(e.target.value)} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
-                        <option value="">Select TIER</option>
-                        {TIER_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
+                    {/* TIER - show for MONTHLY (read-only if product selected) or any UPGRADE type */}
+                    {(manualPaymentForm.transaction_type === 'MONTHLY' || manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT') && (
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
+                          {(manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT') ? 'From Tier' : 'TIER'}
+                        </label>
+                        {(manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT') ? (
+                          <select value={manualPaymentForm.tier} disabled style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff', opacity: 0.7 }}>
+                            <option value={manualPaymentForm.tier}>{manualPaymentForm.tier || 'N/A'}</option>
+                          </select>
+                        ) : (
+                          // MONTHLY: read-only if a product is already linked (selectedProductSrNo is set)
+                          <select
+                            value={manualPaymentForm.tier}
+                            onChange={(e) => handlePaymentTierChange(e.target.value)}
+                            disabled={!!selectedProductSrNo && selectedProductSrNo !== 'new'}
+                            style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff', opacity: selectedProductSrNo && selectedProductSrNo !== 'new' ? 0.7 : 1 }}
+                          >
+                            <option value="">Select TIER</option>
+                            {TIER_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    )}
 
-                    <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>SETUP</label>
-                      <select value={manualPaymentForm.setup_type} onChange={(e) => handlePaymentSetupTypeChange(e.target.value)} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
-                        <option value="">Select SETUP</option>
-                        {SETUP_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
+                    {/* To Tier - for UPGRADE and UPGRADE_PERMANENT (optional - can keep same tier) */}
+                    {(manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT') && (
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>To Tier (optional)</label>
+                        <select value={manualPaymentForm.to_tier || manualPaymentForm.tier} onChange={(e) => {
+                          const toTier = e.target.value;
+                          setManualPaymentForm(prev => {
+                            // Auto-calculate prorata for tier + setup
+                            const fromTierPrice = parseFloat(TIER_PRICING[prev.tier] || 0);
+                            const toTierPrice = parseFloat(TIER_PRICING[toTier] || 0);
+                            const fromSetupPrice = parseFloat(SETUP_PRICING[prev.setup_type] || 0);
+                            const toSetupPrice = parseFloat(SETUP_PRICING[prev.to_setup || prev.setup_type] || 0);
+                            const prorata = Math.max(0, (toTierPrice - fromTierPrice) + (toSetupPrice - fromSetupPrice));
+                            return { ...prev, to_tier: toTier, prorata_amount: prorata > 0 ? prorata.toFixed(2) : '' };
+                          });
+                        }} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
+                          <option value={manualPaymentForm.tier}>Same (keep {manualPaymentForm.tier})</option>
+                          {TIER_OPTIONS.filter(t => t !== manualPaymentForm.tier).map(t => <option key={t} value={t}>{t} (+${(parseFloat(TIER_PRICING[t] || 0) - parseFloat(TIER_PRICING[manualPaymentForm.tier] || 0)).toFixed(2)})</option>)}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* To Setup - for UPGRADE and UPGRADE_PERMANENT (optional - can keep same setup) */}
+                    {(manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT') && (
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>To Setup (optional)</label>
+                        <select value={manualPaymentForm.to_setup || manualPaymentForm.setup_type} onChange={(e) => {
+                          const toSetup = e.target.value;
+                          setManualPaymentForm(prev => {
+                            // Auto-calculate prorata for tier + setup
+                            const fromTierPrice = parseFloat(TIER_PRICING[prev.tier] || 0);
+                            const toTierPrice = parseFloat(TIER_PRICING[prev.to_tier || prev.tier] || 0);
+                            const fromSetupPrice = parseFloat(SETUP_PRICING[prev.setup_type] || 0);
+                            const toSetupPrice = parseFloat(SETUP_PRICING[toSetup] || 0);
+                            const prorata = Math.max(0, (toTierPrice - fromTierPrice) + (toSetupPrice - fromSetupPrice));
+                            return { ...prev, to_setup: toSetup, prorata_amount: prorata > 0 ? prorata.toFixed(2) : '' };
+                          });
+                        }} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }}>
+                          <option value={manualPaymentForm.setup_type}>Same (keep {manualPaymentForm.setup_type})</option>
+                          {SETUP_OPTIONS.filter(s => s !== manualPaymentForm.setup_type).map(s => <option key={s} value={s}>{s} (+${(parseFloat(SETUP_PRICING[s] || 0) - parseFloat(SETUP_PRICING[manualPaymentForm.setup_type] || 0)).toFixed(2)})</option>)}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* SETUP - show only for MONTHLY (read-only if product is already linked) */}
+                    {manualPaymentForm.transaction_type === 'MONTHLY' && (
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>SETUP</label>
+                        <select
+                          value={manualPaymentForm.setup_type}
+                          onChange={(e) => handlePaymentSetupTypeChange(e.target.value)}
+                          disabled={!!selectedProductSrNo && selectedProductSrNo !== 'new'}
+                          style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff', opacity: selectedProductSrNo && selectedProductSrNo !== 'new' ? 0.7 : 1 }}
+                        >
+                          <option value="">Select SETUP</option>
+                          {SETUP_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    )}
 
                     <div>
                       <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Bank</label>
@@ -1794,7 +2173,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       </select>
                     </div>
 
-                    {manualPaymentForm.bank_name === 'WHOP' && (() => {
+                    {/* WHOP details - for MONTHLY, UPGRADE, UPGRADE_PERMANENT, and RETURN */}
+                    {manualPaymentForm.bank_name === 'WHOP' && (manualPaymentForm.transaction_type === 'MONTHLY' || manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT' || manualPaymentForm.transaction_type === 'RETURN') && (() => {
                       const whopPayments = JSON.parse(manualPaymentForm.whop_product_payments_json || '[]');
                       const hasTier = manualPaymentForm.tier;
                       const hasSetup = manualPaymentForm.setup_type;
@@ -1868,41 +2248,44 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       <input type="text" value={manualPaymentForm.amount_received} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, amount_received: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
-                      <input
-                        type="checkbox"
-                        id="topup-checkbox"
-                        checked={manualPaymentForm.is_topup === true}
-                        onChange={(e) => setManualPaymentForm(prev => ({ ...prev, is_topup: e.target.checked }))}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                      />
-                      <label htmlFor="topup-checkbox" style={{ fontSize: '13px', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        Top-up
-                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>(adds to product's CL Amount)</span>
-                      </label>
-                    </div>
+                    {/* Reference - hidden for WHOP (has its own field in the WHOP section above) */}
+                    {manualPaymentForm.bank_name !== 'WHOP' && (
+                      <div>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Reference</label>
+                        <input type="text" value={manualPaymentForm.reference_no} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, reference_no: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                      </div>
+                    )}
 
-                    <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Reference</label>
-                      <input type="text" value={manualPaymentForm.reference_no} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, reference_no: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
-                    </div>
+                    {/* Subscription/Setup/Discount - only for MONTHLY */}
+                    {manualPaymentForm.transaction_type === 'MONTHLY' && (
+                      <>
+                        <div>
+                          <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Subscription Fee</label>
+                          <input type="text" value={manualPaymentForm.subscription_fee} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, subscription_fee: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                        </div>
 
-                    <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Subscription Fee</label>
-                      <input type="text" value={manualPaymentForm.subscription_fee} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, subscription_fee: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
-                    </div>
+                        <div>
+                          <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Setup Fee</label>
+                          <input type="text" value={manualPaymentForm.setup_fee} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, setup_fee: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                        </div>
 
-                    <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Setup Fee</label>
-                      <input type="text" value={manualPaymentForm.setup_fee} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, setup_fee: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
-                    </div>
+                        <div>
+                          <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Discount</label>
+                          <input type="text" value={manualPaymentForm.discount} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, discount: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
+                        </div>
+                      </>
+                    )}
 
-                    <div>
-                      <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Discount</label>
-                      <input type="text" value={manualPaymentForm.discount} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, discount: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
-                    </div>
+                    {/* Prorata - only for UPGRADE (auto-calculated) */}
+                    {(manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT') && manualPaymentForm.prorata_amount && (
+                      <div style={{ backgroundColor: 'rgba(168, 85, 247, 0.1)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Prorata (Auto)</label>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#C084FC' }}>${parseFloat(manualPaymentForm.prorata_amount).toFixed(2)}</div>
+                      </div>
+                    )}
 
-                    {manualPaymentForm.is_topup !== true && (
+                    {/* Valid Until - for MONTHLY, UPGRADE, UPGRADE_PERMANENT and RETURN */}
+                    {(manualPaymentForm.transaction_type === 'MONTHLY' || manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT' || manualPaymentForm.transaction_type === 'RETURN') && (
                       <div>
                         <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Valid Until</label>
                         <input type="date" value={manualPaymentForm.valid_stopped_date} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, valid_stopped_date: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
@@ -1925,7 +2308,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                     <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>
                       <th style={{ padding: '12px 8px' }}>Status</th>
                       <th style={{ padding: '12px 8px' }}>Period</th>
+                      <th style={{ padding: '12px 8px' }}>Type</th>
                       <th style={{ padding: '12px 8px' }}>Product</th>
+                      <th style={{ padding: '12px 8px' }}>From</th>
+                      <th style={{ padding: '12px 8px' }}>To</th>
+                      <th style={{ padding: '12px 8px' }}>Prorata</th>
                       <th style={{ padding: '12px 8px' }}>Fees & Disc.</th>
                       <th style={{ padding: '12px 8px' }}>Bank</th>
                       <th style={{ padding: '12px 8px' }}>Amount</th>
@@ -1940,34 +2327,98 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       const product = history?.find(h => h.sr_no === payment.renewal_sr_no);
                       const billing = getBillingInfo(product || {});
                       // Calculate billing status for this payment entry
-                      const sub = parseAmount(product?.subscription_fee);
-                      const setup = parseAmount(product?.setup_fee);
-                      const disc = parseAmount(product?.discount);
-                      const received = parseAmount(payment.amount_received);
-                      const totalDue = (sub + setup) - disc;
-                      const isZeroOrEmpty = !payment.amount_received || payment.amount_received === '0' || payment.amount_received === '';
                       let paymentBillingStatus = 'UNPAID';
-                      if (payment.is_topup === 1) {
-                        paymentBillingStatus = 'TOPUP';
-                      } else if (isZeroOrEmpty) {
-                        paymentBillingStatus = 'UNPAID';
-                      } else if (received >= totalDue && totalDue > 0) {
-                        paymentBillingStatus = 'PAID';
-                      } else if (received > 0) {
-                        paymentBillingStatus = 'PARTIAL';
+                      let isUpgradePonctual = false;
+                      if (payment.is_transaction) {
+                        if (payment.type === 'UPGRADE' || payment.type === 'SUB_UPGRADE') {
+                          // UPGRADE: show prorata as the paid amount, status = PAID
+                          paymentBillingStatus = 'PAID';
+                          isUpgradePonctual = true;
+                        } else if (payment.type === 'RETURN') {
+                          paymentBillingStatus = 'RETURN';
+                        } else if (payment.type === 'PROMOTION') {
+                          paymentBillingStatus = 'PROMOTED';
+                        } else {
+                          paymentBillingStatus = payment.type || 'TRANSACTION';
+                        }
+                      } else {
+                        // For regular payments
+                        const sub = parseAmount(product?.subscription_fee);
+                        const setup = parseAmount(product?.setup_fee);
+                        const disc = parseAmount(product?.discount);
+                        const received = parseAmount(payment.amount_received);
+                        const totalDue = (sub + setup) - disc;
+                        const isZeroOrEmpty = !payment.amount_received || payment.amount_received === '0' || payment.amount_received === '';
+                        if (payment.is_topup === 1) {
+                          paymentBillingStatus = 'TOPUP';
+                        } else if (isZeroOrEmpty) {
+                          paymentBillingStatus = 'UNPAID';
+                        } else if (received >= totalDue && totalDue > 0) {
+                          paymentBillingStatus = 'PAID';
+                        } else if (received > 0) {
+                          paymentBillingStatus = 'PARTIAL';
+                        }
                       }
+                      // For ponctual upgrades in payment history: show ORIGINAL tier as main badge, UPGRADED tier as golden PONCTUAL badge
+                      // badgeTier = what client originally had (from_tier for UPGRADE, product.tier otherwise)
+                      // badgeOriginalTier = undefined for UPGRADE (since badgeTier already = original), use to_tier for RENEWAL_PONCTUAL
+                      const isUpgradeTx = payment.type === 'UPGRADE' || payment.type === 'SUB_UPGRADE';
+                      const badgeTier = isUpgradeTx ? (payment.from_tier || payment.to_tier) : (payment.tier || product?.tier);
+                      const badgeSetup = isUpgradeTx ? (payment.from_setup || payment.to_setup) : (payment.setup_type || product?.setup_type);
+                      const showPonctualBadge = isUpgradePonctual || payment.type === 'RENEWAL_PONCTUAL';
+                      // For UPGRADE: badgeTier = original, so no separate original_tier needed
+                      // For RENEWAL_PONCTUAL: use to_tier as the "upgraded" tier for the PONCTUAL badge
+                      const badgeOriginalTier = payment.type === 'RENEWAL_PONCTUAL' ? (payment.to_tier) : undefined;
+                      // Period: for transactions show until_date, otherwise payment_received_month
+                      const periodDisplay = payment.is_transaction ? (payment.until_date || '—') : (payment.payment_received_month || payment.period || '—');
                       return (
                         <tr key={`payment-${payment.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: paymentBillingStatus === 'UNPAID' ? 'rgba(239, 68, 68, 0.03)' : paymentBillingStatus === 'PARTIAL' ? 'rgba(245, 158, 11, 0.03)' : 'rgba(16, 185, 129, 0.03)' }}>
                           <td style={{ padding: '16px 8px' }}>
                             {paymentBillingStatus === 'TOPUP' ? (
                               <span style={{ backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#A78BFA', fontWeight: '700', fontSize: '11px', padding: '2px 8px', borderRadius: '4px' }}>TOP-UP</span>
+                            ) : paymentBillingStatus === 'PAID' ? (
+                              <span style={{ color: '#10B981', fontWeight: '700', fontSize: '11px' }}>{isUpgradePonctual ? 'PONCTUAL' : 'PAID'}</span>
                             ) : (
-                              <span style={{ color: paymentBillingStatus === 'PAID' ? '#10B981' : paymentBillingStatus === 'PARTIAL' ? '#F59E0B' : '#EF4444', fontWeight: '700', fontSize: '11px' }}>{paymentBillingStatus}</span>
+                              <span style={{ color: paymentBillingStatus === 'PARTIAL' ? '#F59E0B' : '#EF4444', fontWeight: '700', fontSize: '11px' }}>{paymentBillingStatus}</span>
                             )}
                           </td>
-                          <td style={{ padding: '16px 8px', fontWeight: '600' }}>{payment.payment_received_month || payment.period || '—'}</td>
+                          <td style={{ padding: '16px 8px', fontWeight: '600' }}>{periodDisplay}</td>
                           <td style={{ padding: '16px 8px' }}>
-                            <ProductBadge tier={payment.tier} setup_type={payment.setup_type} is_trial={false} />
+                            {payment.type ? (
+                              <span style={{
+                                backgroundColor: payment.type === 'MONTHLY' ? 'rgba(59, 130, 246, 0.15)' :
+                                  payment.type === 'UPGRADE' || payment.type === 'SUB_UPGRADE' ? 'rgba(168, 85, 247, 0.15)' :
+                                  payment.type === 'RENEWAL_PONCTUAL' ? 'rgba(20, 184, 166, 0.15)' :
+                                  payment.type === 'RETURN' ? 'rgba(249, 115, 22, 0.15)' :
+                                  payment.type === 'PROMOTION' ? 'rgba(236, 72, 153, 0.15)' :
+                                  'rgba(255,255,255,0.05)',
+                                color: payment.type === 'MONTHLY' ? '#60A5FA' :
+                                  payment.type === 'UPGRADE' || payment.type === 'SUB_UPGRADE' ? '#C084FC' :
+                                  payment.type === 'RENEWAL_PONCTUAL' ? '#2DD4BF' :
+                                  payment.type === 'RETURN' ? '#FB923C' :
+                                  payment.type === 'PROMOTION' ? '#F472B6' :
+                                  'var(--text-primary)',
+                                padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700'
+                              }}>
+                                {payment.type.replace('_', ' ')}
+                              </span>
+                            ) : '—'}
+                          </td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <ProductBadge tier={badgeTier} setup_type={badgeSetup} is_trial={false} is_ponctual={showPonctualBadge} original_tier={badgeOriginalTier} showUpgradeBadge={isUpgradeTx && showPonctualBadge} upgradedTier={isUpgradeTx ? payment.to_tier : undefined} />
+                          </td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            {payment.from_tier || payment.from_setup ? (
+                              <span>{payment.from_tier || '—'}{payment.from_setup ? ` + ${payment.from_setup}` : ''}</span>
+                            ) : '—'}
+                          </td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--primary-accent)' }}>
+                            {payment.to_tier || payment.to_setup ? (
+                              <span>{payment.to_tier || '—'}{payment.to_setup ? ` + ${payment.to_setup}` : ''}</span>
+                            ) : '—'}
+                          </td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: payment.prorata_amount ? '#C084FC' : 'var(--text-secondary)' }}>
+                            {payment.prorata_amount ? `+$${payment.prorata_amount}` : '—'}
                           </td>
                           <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -2069,8 +2520,18 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           </td>
                           <td style={{ padding: '16px 8px', fontWeight: '600' }}>{product.month || '—'}</td>
                           <td style={{ padding: '16px 8px' }}>
-                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
+                            {product.is_ponctual_upgrade == 1 ? (
+                              <span style={{ backgroundColor: 'rgba(251, 191, 36, 0.2)', color: '#FBBF36', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700' }}>UPGRADE</span>
+                            ) : (
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>MONTHLY</span>
+                            )}
                           </td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} is_ponctual={product.is_ponctual_upgrade == 1} original_tier={product.original_tier} original_setup={product.original_setup} />
+                          </td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>{product.original_tier || '—'}</td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--primary-accent)' }}>{product.is_ponctual_upgrade == 1 ? product.tier : '—'}</td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>—</td>
                           <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                               <span>Sub: {product.subscription_fee || '0'}</span>
@@ -2127,8 +2588,14 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                           </td>
                           <td style={{ padding: '16px 8px', fontWeight: '600' }}>{product.month || '—'}</td>
                           <td style={{ padding: '16px 8px' }}>
-                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>—</span>
                           </td>
+                          <td style={{ padding: '16px 8px' }}>
+                            <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} is_ponctual={product.is_ponctual_upgrade == 1} original_tier={product.original_tier} original_setup={product.original_setup} />
+                          </td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>—</td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>—</td>
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>—</td>
                           <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                               <span>Sub: {product.subscription_fee || '0'}</span>
@@ -2229,6 +2696,17 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
           </>
         )}
       </div>
+
+      {/* Ponctual Upgrade Modal */}
+      {showPonctualUpgradeModal && (
+        <PonctualUpgradeModal
+          clientId={client?.id}
+          products={displayProducts}
+          currentProduct={ponctualUpgradeProduct}
+          onClose={() => { setShowPonctualUpgradeModal(false); setPonctualUpgradeProduct(null); }}
+          onUpgraded={() => { setShowPonctualUpgradeModal(false); setPonctualUpgradeProduct(null); onClientUpdated && onClientUpdated(); }}
+        />
+      )}
     </div>
   );
 }
