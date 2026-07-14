@@ -585,6 +585,52 @@ function initDatabase() {
   // Add referral_partner_name to clients table if not exists (moved from renewals)
   try { db.exec(`ALTER TABLE clients ADD COLUMN referral_partner_name TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
+  // --- Products (Tiers and Setup Fees) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL CHECK (category IN ('tier', 'setup')),
+      billing_cycle TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_cycle IN ('monthly', 'oneshot', 'annually')),
+      price TEXT NOT NULL,
+      ad_spend_limit TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Migration: add billing_cycle column if not exists and backfill existing products
+  try { db.exec(`ALTER TABLE products ADD COLUMN billing_cycle TEXT DEFAULT 'monthly'`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
+  // Backfill: set billing_cycle based on category for products that have NULL
+  try {
+    db.prepare(`UPDATE products SET billing_cycle = CASE WHEN category = 'setup' THEN 'oneshot' ELSE 'monthly' END WHERE billing_cycle IS NULL`).run();
+  } catch (e) { /* ignore if already set */ }
+
+  // Seed default products if empty
+  const existingProducts = db.prepare('SELECT COUNT(*) as cnt FROM products').get();
+  if (!existingProducts || existingProducts.cnt === 0) {
+    const defaultProducts = [
+      // Tiers
+      { name: 'TIER 1', category: 'tier', billing_cycle: 'monthly', price: '199', ad_spend_limit: '2500', sort_order: 1 },
+      { name: 'TIER 2', category: 'tier', billing_cycle: 'monthly', price: '299', ad_spend_limit: '5000', sort_order: 2 },
+      { name: 'TIER 3', category: 'tier', billing_cycle: 'monthly', price: '499', ad_spend_limit: '10000', sort_order: 3 },
+      { name: 'TIER 4', category: 'tier', billing_cycle: 'monthly', price: '799', ad_spend_limit: '20000', sort_order: 4 },
+      { name: 'TIER 5', category: 'tier', billing_cycle: 'monthly', price: '1399', ad_spend_limit: '40000', sort_order: 5 },
+      { name: 'TIER 6', category: 'tier', billing_cycle: 'monthly', price: '1999', ad_spend_limit: 'Unlimited', sort_order: 6 },
+      // Setup fees
+      { name: 'Invincible set up (old)', category: 'setup', billing_cycle: 'oneshot', price: '299', ad_spend_limit: '', sort_order: 10 },
+      { name: 'Starter', category: 'setup', billing_cycle: 'oneshot', price: '399', ad_spend_limit: '', sort_order: 11 },
+      { name: 'Premium', category: 'setup', billing_cycle: 'oneshot', price: '499', ad_spend_limit: '', sort_order: 12 },
+      { name: 'VIP', category: 'setup', billing_cycle: 'oneshot', price: '699', ad_spend_limit: '', sort_order: 13 },
+    ];
+    const insertProduct = db.prepare('INSERT INTO products (name, category, billing_cycle, price, ad_spend_limit, sort_order) VALUES (?, ?, ?, ?, ?, ?)');
+    for (const p of defaultProducts) {
+      insertProduct.run(p.name, p.category, p.billing_cycle, p.price, p.ad_spend_limit, p.sort_order);
+    }
+  }
+
   // --- Client Enrichment Fields ---
   // Company information
   try { db.exec(`ALTER TABLE clients ADD COLUMN company_name TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }

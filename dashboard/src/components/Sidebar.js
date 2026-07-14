@@ -93,6 +93,13 @@ export default function Sidebar({ onClose }) {
           </Link>
         )}
 
+        {hasPermission('read_clients') && (
+          <Link href="/clients/products" style={getLinkStyle('/clients/products')} onClick={handleLinkClick}>
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            <span>Products</span>
+          </Link>
+        )}
+
         {hasPermission('read_renewals') && (
           <Link href="/renewals" style={getLinkStyle('/renewals')} onClick={handleLinkClick}>
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>

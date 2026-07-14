@@ -77,7 +77,7 @@ const secondaryBtn = {
   cursor: 'pointer',
 };
 
-export default function AddClientModal({ open, onClose, onCreated }) {
+export default function AddClientModal({ open, onClose, onCreated, tierProducts = [], setupProducts = [] }) {
   const [name, setName] = useState('');
   const [telegramGroupId, setTelegramGroupId] = useState('');
   const [products, setProducts] = useState([emptyProduct()]);
@@ -275,6 +275,8 @@ export default function AddClientModal({ open, onClose, onCreated }) {
                 disabled={submitting}
                 isNew={true}
                 headerLabel={`Product Bundle #${idx + 1}`}
+                tierProducts={tierProducts}
+                setupProducts={setupProducts}
               />
             ))}
           </div>

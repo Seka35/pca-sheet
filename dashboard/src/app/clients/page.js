@@ -6,8 +6,10 @@ import AddClientModal from '@/components/AddClientModal';
 import ProductBadge from '@/components/ProductBadge';
 import TelegramBadge from '@/components/TelegramBadge';
 import TeleIdBadge from '@/components/TeleIdBadge';
+import { useProducts } from '@/hooks/useProducts';
 
 export default function ClientsPage() {
+  const { tierProducts, setupProducts } = useProducts();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -358,6 +360,8 @@ export default function ClientsPage() {
         selectedClient={selectedClientData}
         onClose={() => setSelectedClientData(null)}
         onSaved={(id) => loadClients(id)}
+        tierProducts={tierProducts}
+        setupProducts={setupProducts}
       />
       <AddClientModal
         open={addClientOpen}
@@ -366,6 +370,8 @@ export default function ClientsPage() {
           setAddClientOpen(false);
           loadClients();
         }}
+        tierProducts={tierProducts}
+        setupProducts={setupProducts}
       />
 
       {/* Fix Tele IDs result toast */}

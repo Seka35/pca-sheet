@@ -186,8 +186,10 @@ function emptyProduct() {
   };
 }
 
-export default function ClientModal({ selectedClient, onClose, onSaved }) {
+export default function ClientModal({ selectedClient, onClose, onSaved, tierProducts = [], setupProducts = [] }) {
   if (!selectedClient) return null;
+
+  const { client, history } = selectedClient;
 
   const formatCurrency = (val) => '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -205,7 +207,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
     return Math.max(0, sub + setup - disc);
   };
 
-  const { client, history } = selectedClient;
   const [linkedGroups, setLinkedGroups] = useState([]);
   const [mode, setMode] = useState('view'); // 'view' | 'edit'
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'products' | 'payments'
@@ -2381,6 +2382,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved }) {
                       disabled={saving}
                       headerLabel={`Product #${idx + 1}`}
                       compact={true}
+                      tierProducts={tierProducts}
+                      setupProducts={setupProducts}
                     />
                   ))}
                 </div>

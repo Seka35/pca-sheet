@@ -1,43 +1,28 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-
-const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
-const SETUP_OPTIONS = ['Starter', 'Premium', 'VIP'];
-
-const TIER_PRICING = {
-  'TIER 1': 199,
-  'TIER 2': 299,
-  'TIER 3': 499,
-  'TIER 4': 799,
-  'TIER 5': 1399,
-  'TIER 6': 1999,
-};
-
-const SETUP_PRICING = {
-  'Starter': 399,
-  'Premium': 499,
-  'VIP': 699,
-};
-
-const TIER_SPEND_LIMITS = {
-  'TIER 1': '$2,500',
-  'TIER 2': '$5,000',
-  'TIER 3': '$10,000',
-  'TIER 4': '$20,000',
-  'TIER 5': '$40,000',
-  'TIER 6': 'Unlimited',
-};
+import { useProducts } from '@/hooks/useProducts';
 
 const fmtUSD = (n) => '$' + Number(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 export default function UpgradeModal({ product, onClose, onUpgradeInitiated }) {
+  const { tierProducts, setupProducts } = useProducts();
   const [step, setStep] = useState(1); // 1: select component, 2: select target, 3: confirm
   const [componentType, setComponentType] = useState(null); // 'tier' or 'setup'
   const [selectedTarget, setSelectedTarget] = useState(null);
   const [referralPartner, setReferralPartner] = useState('N.A.');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Build lookup maps from dynamic products
+  const tierPricingMap = {};
+  tierProducts.forEach(p => { tierPricingMap[p.name] = p; });
+
+  const setupPricingMap = {};
+  setupProducts.forEach(p => { setupPricingMap[p.name] = p; });
+
+  const TIER_OPTIONS = tierProducts.length > 0 ? tierProducts.map(p => p.name) : ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
+  const SETUP_OPTIONS = setupProducts.length > 0 ? setupProducts.map(p => p.name) : ['Starter', 'Premium', 'VIP'];
 
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
@@ -96,11 +81,11 @@ export default function UpgradeModal({ product, onClose, onUpgradeInitiated }) {
     let newPrice = 0;
 
     if (componentType === 'tier') {
-      currentPrice = TIER_PRICING[product.tier] || 0;
-      newPrice = TIER_PRICING[selectedTarget.tier] || 0;
+      currentPrice = parseFloat(tierPricingMap[product.tier]?.price) || 0;
+      newPrice = parseFloat(tierPricingMap[selectedTarget.tier]?.price) || 0;
     } else if (componentType === 'setup') {
-      currentPrice = SETUP_PRICING[product.setup_type] || 0;
-      newPrice = SETUP_PRICING[selectedTarget.setup] || 0;
+      currentPrice = parseFloat(setupPricingMap[product.setup_type]?.price) || 0;
+      newPrice = parseFloat(setupPricingMap[selectedTarget.setup]?.price) || 0;
     }
 
     const currentWithDiscount = currentPrice * discountFactor;
@@ -283,8 +268,8 @@ export default function UpgradeModal({ product, onClose, onUpgradeInitiated }) {
                   availableTargets.map((target) => {
                     const targetName = componentType === 'tier' ? target.tier : target.setup;
                     const targetPrice = componentType === 'tier'
-                      ? TIER_PRICING[targetName]
-                      : SETUP_PRICING[targetName];
+                      ? tierPricingMap[targetName]?.price
+                      : setupPricingMap[targetName]?.price;
                     const isSelected = selectedTarget && (
                       componentType === 'tier'
                         ? selectedTarget.tier === target.tier
@@ -309,7 +294,7 @@ export default function UpgradeModal({ product, onClose, onUpgradeInitiated }) {
                           <div>
                             <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>{targetName}</div>
                             {componentType === 'tier' && (
-                              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Spend Limit: {TIER_SPEND_LIMITS[targetName]}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Spend Limit: {tierPricingMap[targetName]?.ad_spend_limit || '—'}</div>
                             )}
                           </div>
                           <div style={{ textAlign: 'right' }}>

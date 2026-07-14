@@ -160,28 +160,39 @@ export default function ClientFormFields({
   headerLabel,
   isNew = false,
   compact = false,
+  tierProducts = [],
+  setupProducts = [],
 }) {
   const set = (key) => (val) => onChange({ ...product, [key]: val });
 
+  // Build lookup maps from dynamic products
+  const tierPricingMap = {};
+  tierProducts.forEach(p => { tierPricingMap[p.name] = p; });
+
+  const setupPricingMap = {};
+  setupProducts.forEach(p => { setupPricingMap[p.name] = p; });
+
   const handleTierChange = (val) => {
     const updates = { tier: val };
-    if (TIER_PRICING[val]) {
-      updates.subscription_fee = TIER_PRICING[val].subscription_fee;
-      updates.ad_spend_limit = TIER_PRICING[val].ad_spend_limit;
+    const tierProduct = tierPricingMap[val];
+    if (tierProduct) {
+      updates.subscription_fee = tierProduct.price;
+      updates.ad_spend_limit = tierProduct.ad_spend_limit;
     }
     onChange({ ...product, ...updates });
   };
 
   const handleSetupTypeChange = (val) => {
     const updates = { setup_type: val };
-    if (SETUP_PRICING[val]) {
-      updates.setup_fee = SETUP_PRICING[val].setup_fee;
+    const setupProduct = setupPricingMap[val];
+    if (setupProduct) {
+      updates.setup_fee = setupProduct.price;
     }
     onChange({ ...product, ...updates });
   };
 
-  const TIER_OPTIONS = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
-  const SETUP_OPTIONS = ['Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
+  const TIER_OPTIONS = tierProducts.length > 0 ? tierProducts.map(p => p.name) : ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4', 'TIER 5', 'TIER 6'];
+  const SETUP_OPTIONS = setupProducts.length > 0 ? setupProducts.map(p => p.name) : ['Invincible set up (old)', 'Starter', 'Premium', 'VIP'];
 
   // Compact styles
   const pad = compact ? '16px' : '24px';
