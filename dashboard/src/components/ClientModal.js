@@ -471,10 +471,18 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
       const amt = h.amount_received ? parseFloat(h.amount_received.toString().replace(/[^0-9.-]+/g, '')) || 0 : 0;
       const hasOldPayment = (h.reference_no && h.reference_no.trim() !== '') || amt > 0;
       if (hasOldPayment && !newPaymentSrNos.has(h.sr_no)) {
+        // Determine type from is_ponctual_upgrade and notes
+        let type = 'MONTHLY';
+        if (h.is_ponctual_upgrade == 1) {
+          type = 'UPGRADE';
+        } else if (h.notes && h.notes.includes('RETURN')) {
+          type = 'RETURN';
+        }
         rows.push({
           key: `old-${h.sr_no}`,
           id: null,
           renewal_sr_no: h.sr_no,
+          type,
           month: h.month || '',
           tier: h.tier || '',
           setup_type: h.setup_type || '',
@@ -486,6 +494,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
           amount_received: h.amount_received || '',
           reference_no: h.reference_no || '',
           payment_received_date: h.payment_received_date || '',
+          from_tier: h.original_tier || null,
+          to_tier: (h.is_ponctual_upgrade == 1 || (h.notes && h.notes.includes('RETURN'))) ? h.tier : null,
+          prorata_amount: h.is_ponctual_upgrade == 1 ? (amt > 0 ? String(amt) : null) : null,
           is_topup: 0,
           source: 'old',
         });
