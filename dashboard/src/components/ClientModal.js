@@ -2784,8 +2784,14 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                       // For UPGRADE: badgeTier = original, so no separate original_tier needed
                       // For RENEWAL_PONCTUAL: use to_tier as the "upgraded" tier for the PONCTUAL badge
                       const badgeOriginalTier = payment.type === 'RENEWAL_PONCTUAL' ? (payment.to_tier) : undefined;
-                      // Period: for transactions show until_date, otherwise payment_received_month
-                      const periodDisplay = payment.is_transaction ? (payment.until_date || '—') : (payment.payment_received_month || payment.period || '—');
+                      // Period: use payment_received_date formatted (e.g. "15 Jul 2026"), fallback to payment_received_month
+                      const formatDate = (dateStr) => {
+                        if (!dateStr) return '—';
+                        const d = new Date(dateStr);
+                        if (isNaN(d.getTime())) return dateStr;
+                        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                      };
+                      const periodDisplay = payment.payment_received_date ? formatDate(payment.payment_received_date) : (payment.payment_received_month || payment.period || '—');
                       return (
                         <tr key={`payment-${payment.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: paymentBillingStatus === 'UNPAID' ? 'rgba(239, 68, 68, 0.03)' : paymentBillingStatus === 'PARTIAL' ? 'rgba(245, 158, 11, 0.03)' : 'rgba(16, 185, 129, 0.03)' }}>
                           <td style={{ padding: '16px 8px' }}>
