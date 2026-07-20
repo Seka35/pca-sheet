@@ -1,18 +1,12 @@
-// Shared "create a client" engine — the only code path that inserts a new
-// client block in BOTH the local SQLite DB AND the Google Sheet "Master sheet".
+// Shared "create a client" engine — inserts a new client in the local SQLite DB.
+// If Google Sheets credentials are configured (GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY),
+// also writes to the Sheet. Otherwise runs in DB-only mode.
+//
 // Called by:
 //   - POST /api/clients (dashboard "Add Client" modal)
 //   - src/lib/telegramBot.js (bot auto-create on /start, with header-only)
-//
-// Sheet-first ordering is intentional: the Sheet is the source of truth, so a
-// successful Sheet write will survive a subsequent /api/sync even if the DB
-// write fails. The reverse is not true.
-//
-// `products` may be `[]` — in that case the new client block is a single blue
-// header row in the Sheet and a single row in `clients` with status='inactif'.
-// The bot uses this for auto-create on /start (human adds products later).
 
-import { run } from './db.js';
+import { run, get, all } from './db.js';
 import { extractTeleId } from './teleIdParser.js';
 import { createBackup } from './backup.js';
 import {
@@ -20,6 +14,8 @@ import {
   findNextClientId,
   appendClientBlock,
 } from './googleSheets.js';
+
+const SHEETS_AVAILABLE = !!(process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY);
 
 // Reused INSERT statement, same shape as src/app/api/sync/route.js:213-221
 // and src/app/api/webhook/sheets/route.js:83-127. 30 columns (sr_no + 29 RENEWAL_COLUMNS).
@@ -34,7 +30,7 @@ const INSERT_RENEWAL_SQL = `INSERT OR REPLACE INTO renewals (
 ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 /**
- * Create a new client in the Sheet and the DB.
+ * Create a new client in the DB (and optionally in the Sheet if connected).
  *
  * @param {object}  opts
  * @param {string}  opts.name             - client name (Sheet column B). Required.
@@ -70,8 +66,7 @@ export async function createClient({
   let backupFilename = null;
 
   try {
-    // 1. Best-effort backup. The backup file is named with `pre-<source>` so the
-    //    operator can find it in the backups list.
+    // 1. Best-effort backup.
     try {
       const meta = await createBackup({ source: `pre-${source}` });
       backupFilename = meta.filename;
@@ -80,29 +75,37 @@ export async function createClient({
       console.warn(`[clientCreator] backup failed (continuing): ${e.message}`);
     }
 
-    // 2. Pick the next client id from the Sheet (source of truth).
-    const sheets = await getSheetsClient();
-    clientId = await findNextClientId(sheets);
-    console.log(`[clientCreator] next client id from Sheet: ${clientId} (source=${source})`);
+    // 2. Pick the next client id (from Sheet if available, otherwise from DB).
+    if (SHEETS_AVAILABLE) {
+      const sheets = await getSheetsClient();
+      clientId = await findNextClientId(sheets);
+      console.log(`[clientCreator] next client id from Sheet: ${clientId} (source=${source})`);
 
-    // 3. Write to the Sheet first. If this fails, we abort before touching the DB.
-    const sheetResult = await appendClientBlock({
-      name: cleanName,
-      telegram_group_id: cleanTg,
-      products,
-      baseSrNo: clientId,
-    });
-    if (!sheetResult.ok) {
-      console.error('[clientCreator] Sheet write failed:', sheetResult.error);
-      return {
-        ok: false,
-        code: 'SHEETS_FAIL',
-        error: sheetResult.error || 'Failed to write to Google Sheet',
-        backup: backupFilename,
-      };
+      // 3. Write to Sheet first. If this fails, abort before touching DB.
+      const sheetResult = await appendClientBlock({
+        name: cleanName,
+        telegram_group_id: cleanTg,
+        products,
+        baseSrNo: clientId,
+      });
+      if (!sheetResult.ok) {
+        console.error('[clientCreator] Sheet write failed:', sheetResult.error);
+        return {
+          ok: false,
+          code: 'SHEETS_FAIL',
+          error: sheetResult.error || 'Failed to write to Google Sheet',
+          backup: backupFilename,
+        };
+      }
+      sr_nos = sheetResult.sr_nos;
+      console.log(`[clientCreator] Sheet written: sr_nos=${sr_nos.join(',')} (source=${source})`);
+    } else {
+      // DB-only mode: derive client ID from the DB.
+      const maxRow = get('SELECT MAX(id) as maxId FROM clients');
+      clientId = (maxRow?.maxId || 0) + 1;
+      console.log(`[clientCreator] next client id from DB: ${clientId} (source=${source})`);
+      sr_nos = [String(clientId), ...products.map((_, i) => `${clientId}.${i + 1}`)];
     }
-    sr_nos = sheetResult.sr_nos;
-    console.log(`[clientCreator] Sheet written: sr_nos=${sr_nos.join(',')} (source=${source})`);
 
     // 4. Write to the DB in a transaction. status defaults to 'inactif' for
     //    header-only clients (no products).
@@ -173,7 +176,7 @@ export async function createClient({
     console.error('[clientCreator] error:', error);
     return {
       ok: false,
-      code: sr_nos.length > 0 ? 'SHEETS_OK_DB_FAIL' : 'INTERNAL',
+      code: SHEETS_AVAILABLE && sr_nos.length > 0 ? 'SHEETS_OK_DB_FAIL' : 'INTERNAL',
       error: error.message || String(error),
       client_id: clientId,
       sr_nos,
