@@ -23,7 +23,8 @@ export const COLUMNS = [
   'start_date',                     // E
   'client_ad_id_name',              // F
   'ad_id_number',                   // G
-  'ad_account_type',                // H
+  'setup_id_number',                // H
+  'ad_account_type',                // I
   'tier',                           // I
   'ad_spend_limit',                 // J
   'setup_type',                     // K
@@ -45,8 +46,8 @@ export const COLUMNS = [
   'visual_status',                  // AA
 ];
 
-export const COL_COUNT = COLUMNS.length; // 27
-export const LAST_COL_INDEX = COL_COUNT - 1; // 26 → column AA
+export const COL_COUNT = COLUMNS.length; // 28
+export const LAST_COL_INDEX = COL_COUNT - 1; // 27 → column AB
 
 // Background color constants. RGB normalized to [0, 1] as expected by the
 // Sheets API. Values matched against the existing sheet:
@@ -121,26 +122,27 @@ export function buildProductRow(srNo, name, product) {
   row[4] = product.start_date || '';             // E
   row[5] = product.client_ad_id_name || '';      // F
   row[6] = product.ad_id_number || '';           // G
-  row[7] = product.ad_account_type || '';        // H
-  row[8] = product.tier || '';                   // I
-  row[9] = product.ad_spend_limit || '';         // J
-  row[10] = product.setup_type || '';            // K
-  row[11] = stringifyNumber(product.subscription_fee);  // L
-  row[12] = stringifyNumber(product.setup_fee);         // M
-  row[13] = stringifyNumber(product.discount);          // N
-  row[14] = stringifyNumber(product.cl_amount);         // O
-  row[15] = product.referral_partner_name || '';   // P
-  row[16] = stringifyNumber(product.referral_amount);   // Q
-  row[17] = product.valid_stopped_date || '';     // R
-  row[18] = product.payment_name || '';           // S
-  row[19] = product.bank_name || '';              // T
-  row[20] = stringifyNumber(product.amount_received);  // U
-  row[21] = product.payment_received_date || '';  // V
-  row[22] = product.payment_received_month || ''; // W
-  row[23] = product.reference_no || '';           // X
-  row[24] = stringifyNumber(product.actual_balance_difference);  // Y
-  row[25] = product.notes || '';                  // Z
-  row[26] = product.active === false ? '' : 'Active';  // AA
+  row[7] = product.setup_id_number || '';        // H
+  row[8] = product.ad_account_type || '';        // I
+  row[9] = product.tier || '';                   // J
+  row[10] = product.ad_spend_limit || '';         // K
+  row[11] = product.setup_type || '';            // L
+  row[12] = stringifyNumber(product.subscription_fee);  // M
+  row[13] = stringifyNumber(product.setup_fee);         // N
+  row[14] = stringifyNumber(product.discount);          // O
+  row[15] = stringifyNumber(product.cl_amount);         // P
+  row[16] = product.referral_partner_name || '';   // Q
+  row[17] = stringifyNumber(product.referral_amount);   // R
+  row[18] = product.valid_stopped_date || '';     // S
+  row[19] = product.payment_name || '';           // T
+  row[20] = product.bank_name || '';              // U
+  row[21] = stringifyNumber(product.amount_received);  // V
+  row[22] = product.payment_received_date || '';  // W
+  row[23] = product.payment_received_month || ''; // X
+  row[24] = product.reference_no || '';           // Y
+  row[25] = stringifyNumber(product.actual_balance_difference);  // Z
+  row[26] = product.notes || '';                  // AA
+  row[27] = product.active === false ? '' : 'Active';  // AB
   return row;
 }
 
@@ -164,7 +166,7 @@ export function defaultMonthLabel() {
 // in the Edit Client path.
 export const RENEWAL_COLUMNS = [
   'sr_no', 'client_name', 'client_status_history', 'month', 'start_date',
-  'client_ad_id_name', 'ad_id_number', 'ad_account_type', 'tier', 'ad_spend_limit',
+  'client_ad_id_name', 'ad_id_number', 'setup_id_number', 'ad_account_type', 'tier', 'ad_spend_limit',
   'setup_type', 'subscription_fee', 'setup_fee', 'discount', 'cl_amount',
   'referral_partner_name', 'referral_amount', 'valid_stopped_date',
   'payment_name', 'bank_name', 'amount_received', 'payment_received_date',

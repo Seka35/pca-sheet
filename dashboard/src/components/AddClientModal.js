@@ -17,6 +17,7 @@ function emptyProduct() {
     valid_stopped_date: '',
     client_ad_id_name: '',
     ad_id_number: '',
+    setup_id_number: '',
     ad_account_type: '',
     ad_spend_limit: '',
     referral_partner_name: '',

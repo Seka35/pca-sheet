@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { get, run } from '@/lib/db';
 import { requirePermission } from '@/lib/apiAuth';
-import { TIER_PRICING, SETUP_PRICING, getPartnerDiscount, calculateClientDiscount } from '@/lib/whopLinks';
+import { TIER_PRICING, SETUP_PRICING, TIER_SPEND_LIMITS, getPartnerDiscount, calculateClientDiscount } from '@/lib/whopLinks';
 
 // POST /api/renewals/[sr_no]/sub-upgrade
 // Creates a sub-upgrade on top of an existing ponctual upgrade (same month, chain upgrade)
@@ -77,23 +77,17 @@ export async function POST(req, { params }) {
       prorata: prorataAmount.toFixed(2)
     });
 
-    // Update the EXISTING renewal with the new sub-upgraded tier/setup
+    // Update the EXISTING renewal with the new sub-upgraded spend limit
+    // Do NOT change tier/setup - keep the original product tier so we can return to it
+    // Only ad_spend_limit reflects the currently upgraded tier
     run(
       `UPDATE renewals SET
-        tier = ?,
-        setup_type = ?,
-        subscription_fee = ?,
-        setup_fee = ?,
-        discount = ?,
+        ad_spend_limit = ?,
         valid_stopped_date = ?,
         upgrade_chain_json = ?
        WHERE sr_no = ?`,
       [
-        targetTier,
-        targetSetup,
-        TIER_PRICING[targetTier] || current.subscription_fee,
-        SETUP_PRICING[targetSetup] || current.setup_fee,
-        calculateClientDiscount(referralPartnerName, TIER_PRICING[targetTier] || current.subscription_fee, SETUP_PRICING[targetSetup] || current.setup_fee),
+        TIER_SPEND_LIMITS[targetTier] || current.ad_spend_limit,
         expiresDate,
         JSON.stringify(upgradeChain),
         sr_no

@@ -162,6 +162,8 @@ export default function ClientFormFields({
   compact = false,
   tierProducts = [],
   setupProducts = [],
+  referralPartner = 'N.A.',
+  calculateDiscount = () => 0,
 }) {
   const set = (key) => (val) => onChange({ ...product, [key]: val });
 
@@ -179,6 +181,11 @@ export default function ClientFormFields({
       updates.subscription_fee = tierProduct.price;
       updates.ad_spend_limit = tierProduct.ad_spend_limit;
     }
+    // Recalculate discount based on new subscription + current setup fee + referral partner
+    const newSub = updates.subscription_fee || product.subscription_fee;
+    const currentSetup = product.setup_fee;
+    updates.discount = String(calculateDiscount(referralPartner, newSub, currentSetup));
+    updates.referral_amount = '';
     onChange({ ...product, ...updates });
   };
 
@@ -188,6 +195,11 @@ export default function ClientFormFields({
     if (setupProduct) {
       updates.setup_fee = setupProduct.price;
     }
+    // Recalculate discount based on current subscription + new setup fee + referral partner
+    const currentSub = product.subscription_fee;
+    const newSetup = updates.setup_fee || product.setup_fee;
+    updates.discount = String(calculateDiscount(referralPartner, currentSub, newSetup));
+    updates.referral_amount = '';
     onChange({ ...product, ...updates });
   };
 
@@ -339,6 +351,9 @@ export default function ClientFormFields({
         <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(auto-fit, minmax(120px, 1fr))' : 'repeat(auto-fit, minmax(140px, 1fr))', gap: gridGap }}>
           <Field label="Ad ID number" compact={compact}>
             <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} compact={compact} />
+          </Field>
+          <Field label="Setup ID number" compact={compact}>
+            <TextInput value={product.setup_id_number} onChange={set('setup_id_number')} placeholder="—" disabled={disabled} compact={compact} />
           </Field>
           <Field label="Ad account type" compact={compact}>
             <Select

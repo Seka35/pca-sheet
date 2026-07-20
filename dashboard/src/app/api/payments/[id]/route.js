@@ -33,7 +33,11 @@ export async function PUT(req, { params }) {
         reference_no = ?,
         bank_name = ?,
         is_topup = ?,
-        whop_product_payments_json = ?
+        whop_product_payments_json = ?,
+        discount = ?,
+        subscription_fee = ?,
+        setup_fee = ?,
+        valid_until = ?
       WHERE id = ?
     `, [
       amount_received || '0',
@@ -43,6 +47,10 @@ export async function PUT(req, { params }) {
       bank_name || '',
       body.is_topup ? 1 : 0,
       whop_product_payments_json || null,
+      body.discount || '0',
+      body.subscription_fee || '0',
+      body.setup_fee || '0',
+      body.valid_until || '',
       id
     ]);
 
@@ -92,6 +100,8 @@ export async function PUT(req, { params }) {
         `, [payment.renewal_sr_no]);
 
         if (latestPayment) {
+          // Update valid_stopped_date only if explicitly provided
+          const validUntilSet = body.valid_until ? `, valid_stopped_date = '${body.valid_until}'` : '';
           run(`
             UPDATE renewals SET
               amount_received = ?,
@@ -99,6 +109,7 @@ export async function PUT(req, { params }) {
               payment_received_month = ?,
               reference_no = ?,
               bank_name = ?
+              ${validUntilSet}
             WHERE sr_no = ?
           `, [
             totalAmount.toString(),
@@ -172,6 +183,8 @@ export async function DELETE(req, { params }) {
         `, [payment.renewal_sr_no]);
 
         if (latestPayment) {
+          // Update valid_stopped_date only if explicitly provided
+          const validUntilSet = body.valid_until ? `, valid_stopped_date = '${body.valid_until}'` : '';
           run(`
             UPDATE renewals SET
               amount_received = ?,
@@ -179,6 +192,7 @@ export async function DELETE(req, { params }) {
               payment_received_month = ?,
               reference_no = ?,
               bank_name = ?
+              ${validUntilSet}
             WHERE sr_no = ?
           `, [
             totalAmount.toString(),

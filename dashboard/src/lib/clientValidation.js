@@ -10,7 +10,7 @@ const VALID_SETUP_TYPES = ['Invincible set up (old)', 'Starter', 'Premium', 'VIP
 const PRODUCT_FIELDS = [
   'tier', 'setup_type', 'subscription_fee', 'setup_fee', 'discount', 'cl_amount',
   'month', 'start_date', 'valid_stopped_date',
-  'client_ad_id_name', 'ad_id_number', 'ad_account_type', 'ad_spend_limit',
+  'client_ad_id_name', 'ad_id_number', 'setup_id_number', 'ad_account_type', 'ad_spend_limit',
   'referral_partner_name', 'referral_amount',
   'payment_name', 'bank_name', 'amount_received',
   'payment_received_date', 'payment_received_month',

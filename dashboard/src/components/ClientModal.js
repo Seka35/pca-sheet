@@ -327,6 +327,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
   // Reset deletedPaymentSrNos when selectedClient changes (e.g. after parent refetch)
   useEffect(() => {
     setDeletedPaymentSrNos([]);
+            setRefreshKey(prev => prev + 1);
   }, [selectedClient?.client?.id]);
 
   const uploadContract = async (file) => {
@@ -399,6 +400,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
 
   // Individual payments for Payment History tab (from payments table)
   const [clientPayments, setClientPayments] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Fetch individual payments when payments/products tab is active or client changes
   useEffect(() => {
@@ -415,7 +417,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
         })
         .catch(err => console.error('Error fetching payments:', err));
     }
-  }, [activeTab, client?.id]);
+  }, [activeTab, client?.id, refreshKey]);
 
   // Build unified payment list: new payments table + old renewals payments + transactions
   // Both sources combined for complete payment history
@@ -1074,9 +1076,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
             return;
           }
         } else {
-          // Use PUT for editing, POST for creating regular payments
-          const url = isEditing ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
-          const method = isEditing ? 'PUT' : 'POST';
+          // Use PUT for editing payments with valid ID, POST for new payments or old payments without ID
+          const hasValidId = editingPayment.row?.id && !isNaN(parseInt(editingPayment.row.id));
+          const url = hasValidId ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
+          const method = hasValidId ? 'PUT' : 'POST';
           const res = await fetch(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
@@ -1091,6 +1094,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
               notes: 'MANUAL_ENTRY',
               is_topup: manualPaymentForm.transaction_type === 'TOPUP' ? 1 : 0,
               whop_product_payments_json: manualPaymentForm.whop_product_payments_json,
+              valid_until: manualPaymentForm.valid_until || '',
             }),
           });
 
@@ -1332,6 +1336,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
             }))
           );
           setDeletedPaymentSrNos([]);
+            setRefreshKey(prev => prev + 1);
           // Also refresh the individual payments list
           try {
             const paymentsRes = await fetch(`/api/payments?client_id=${client.id}`);
@@ -1494,6 +1499,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
             }))
           );
           setDeletedPaymentSrNos([]);
+            setRefreshKey(prev => prev + 1);
           // Also update computed data (for Overview totals)
           if (fresh.computed) {
             setComputedData(fresh.computed);

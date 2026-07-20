@@ -22,16 +22,16 @@ import {
 } from './googleSheets.js';
 
 // Reused INSERT statement, same shape as src/app/api/sync/route.js:213-221
-// and src/app/api/webhook/sheets/route.js:83-127. 29 columns (sr_no + 28 RENEWAL_COLUMNS).
+// and src/app/api/webhook/sheets/route.js:83-127. 30 columns (sr_no + 29 RENEWAL_COLUMNS).
 const INSERT_RENEWAL_SQL = `INSERT OR REPLACE INTO renewals (
   sr_no, client_id, client_name, client_status_history, month, start_date,
-  client_ad_id_name, ad_id_number, ad_account_type, tier, ad_spend_limit,
+  client_ad_id_name, ad_id_number, setup_id_number, ad_account_type, tier, ad_spend_limit,
   setup_type, subscription_fee, setup_fee, discount, cl_amount,
   referral_partner_name, referral_amount, valid_stopped_date,
   payment_name, bank_name, amount_received, payment_received_date,
   payment_received_month, reference_no, actual_balance_difference,
   notes, visual_status, is_trial
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 /**
  * Create a new client in the Sheet and the DB.
@@ -129,6 +129,7 @@ export async function createClient({
           p.start_date || '',
           p.client_ad_id_name || '',
           p.ad_id_number || '',
+          p.setup_id_number || '',
           p.ad_account_type || '',
           p.tier || '',
           p.ad_spend_limit || '',

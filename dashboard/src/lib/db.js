@@ -697,6 +697,64 @@ function initDatabase() {
   try { db.exec(`ALTER TABLE renewals ADD COLUMN parent_sr_no TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
   try { db.exec(`ALTER TABLE renewals ADD COLUMN upgrade_chain_json TEXT`); } catch (e) { if (!/duplicate column/.test(e.message)) throw e; }
 
+  // --- Client Products (new architecture for multi-product per client) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS client_products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL,
+      tier TEXT NOT NULL,
+      setup_type TEXT,
+      original_tier TEXT,
+      original_setup TEXT,
+      is_ponctual INTEGER DEFAULT 0,
+      start_date TEXT NOT NULL,
+      valid_until TEXT,
+      subscription_fee TEXT NOT NULL DEFAULT '0',
+      setup_fee TEXT NOT NULL DEFAULT '0',
+      discount TEXT NOT NULL DEFAULT '0',
+      ad_spend_limit TEXT,
+      is_active INTEGER DEFAULT 1,
+      parent_product_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (client_id) REFERENCES clients(id),
+      FOREIGN KEY (parent_product_id) REFERENCES client_products(id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_client_products_client ON client_products(client_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_client_products_active ON client_products(is_active)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_client_products_valid_until ON client_products(valid_until)`);
+
+  // --- Payment History (new architecture for full transaction tracking) ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      type TEXT NOT NULL CHECK (type IN (
+        'MONTHLY', 'UPGRADE_PONCTUAL', 'UPGRADE_PERMANENT',
+        'RETURN', 'TOPUP', 'PROMOTION', 'SUB_UPGRADE'
+      )),
+      from_tier TEXT,
+      to_tier TEXT,
+      from_setup TEXT,
+      to_setup TEXT,
+      prorata_amount TEXT,
+      amount TEXT NOT NULL DEFAULT '0',
+      date TEXT NOT NULL,
+      until_date TEXT,
+      notes TEXT,
+      is_manual_entry INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (client_id) REFERENCES clients(id),
+      FOREIGN KEY (product_id) REFERENCES client_products(id)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_history_client ON payment_history(client_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_history_product ON payment_history(product_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_history_date ON payment_history(date DESC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_history_type ON payment_history(type)`);
+
   // Payment transactions table - stores all billing events (monthly payments, upgrades, etc.)
   db.exec(`
     CREATE TABLE IF NOT EXISTS payment_transactions (

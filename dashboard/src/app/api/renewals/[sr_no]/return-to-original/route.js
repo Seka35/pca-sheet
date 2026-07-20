@@ -70,7 +70,6 @@ export async function POST(req, { params }) {
     );
 
     // Restore the EXISTING renewal to its original tier/setup
-    // 12 placeholders: tier, setup_type, subscription_fee, setup_fee, discount, valid_stopped_date, is_ponctual_upgrade, upgrade_chain_json, visual_status, amount_received, bank_name, payment_received_date, reference_no, WHERE sr_no
     run(
       `UPDATE renewals SET
         tier = ?,
@@ -82,6 +81,8 @@ export async function POST(req, { params }) {
         valid_stopped_date = ?,
         is_ponctual_upgrade = 0,
         upgrade_chain_json = NULL,
+        original_tier = '',
+        original_setup = '',
         visual_status = 'Active',
         amount_received = ?,
         bank_name = ?,
@@ -94,7 +95,7 @@ export async function POST(req, { params }) {
         TIER_PRICING[originalTier],
         SETUP_PRICING[originalSetup],
         calculateClientDiscount(referralPartnerName, TIER_PRICING[originalTier], SETUP_PRICING[originalSetup]),
-        TIER_SPEND_LIMITS[originalTier] || renewal.ad_spend_limit,
+        TIER_SPEND_LIMITS[originalTier] || current.ad_spend_limit,
         newExpiry,
         amount_received || null,
         bank_name || null,

@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Corrige le workspace root detecte incorrectement
+  outputFileTracingRoot: '/root/pca-sheet/dashboard',
   // better-sqlite3 et googleapis doivent rester externes (non bundlés).
-  // better-sqlite3 est un module natif; googleapis est trop gros pour le bundler.
   serverExternalPackages: ['better-sqlite3', 'googleapis', 'node-telegram-bot-api'],
   // Désactive Turbopack pour le dev et le build — webpack gère mieux les
   // modules natifs comme better-sqlite3

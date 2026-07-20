@@ -250,12 +250,47 @@ export async function PUT(req, { params }) {
       );
 
       // Remove the products the user deleted.
+      // First delete child records that reference these renewals to avoid FK constraint violations.
       if (removed_sr_nos && removed_sr_nos.length > 0) {
         const placeholders = removed_sr_nos.map(() => '?').join(',');
+        // Disable foreign keys temporarily
+        run(`PRAGMA foreign_keys = OFF`, []);
+        // Delete payment_transactions first (references renewals via renewal_sr_no)
+        run(`DELETE FROM payment_transactions WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete payments (references renewals via renewal_sr_no)
+        run(`DELETE FROM payments WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete whop_product_payments (references renewals via renewal_sr_no)
+        run(`DELETE FROM whop_product_payments WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete reminder_logs (references renewals via renewal_sr_no)
+        run(`DELETE FROM reminder_logs WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete pending_updates (references renewals via sr_no)
+        run(`DELETE FROM pending_updates WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete product_requests (references renewals via renewal_sr_no)
+        // Delete product_requests (references renewals via client_id only)
+        run(`DELETE FROM product_requests WHERE client_id = ?`, [clientId]);
+        // Delete upgrade_requests (references renewals via renewal_sr_no)
+        run(`DELETE FROM upgrade_requests WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete approval_queue entries (references renewals via sr_no)
+        run(`DELETE FROM approval_queue WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete payment_selections (references renewals via sr_no)
+        run(`DELETE FROM payment_selections WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete pending_payments (references renewals via sr_no)
+        run(`DELETE FROM pending_payments WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete message_approvals (references renewals via renewal_sr_no)
+        run(`DELETE FROM message_approvals WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete payment_proofs (references renewals via sr_no)
+        run(`DELETE FROM payment_proofs WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete renewal_events (references renewals via sr_no)
+        run(`DELETE FROM renewal_events WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Delete renewal_periods (references renewals via sr_no)
+        run(`DELETE FROM renewal_periods WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        // Finally delete the renewals themselves
         run(
           `DELETE FROM renewals WHERE client_id = ? AND sr_no IN (${placeholders})`,
           [clientId, ...removed_sr_nos]
         );
+        // Re-enable foreign keys
+        run(`PRAGMA foreign_keys = ON`, []);
       }
 
       // Upsert each product. Existing products (with sr_no) are updated in place.

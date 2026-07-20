@@ -262,6 +262,18 @@ function createNextMonthRenewal(existingRenewal, paymentReceivedDate) {
   // Amount due calculation for reference
   const amountDue = parseAmount(existingRenewal.subscription_fee) + parseAmount(existingRenewal.setup_fee) - parseAmount(existingRenewal.discount);
 
+  // Determine the effective tier for the new renewal
+  // If the existing renewal was a ponctual upgrade (is_ponctual_upgrade=1),
+  // use original_tier for the new month's renewal (not the temporarily upgraded tier)
+  // This ensures that when an upgrade expires, the client returns to their original product
+  const wasPonctualUpgrade = existingRenewal.is_ponctual_upgrade == 1;
+  const effectiveTier = (wasPonctualUpgrade && existingRenewal.original_tier)
+    ? existingRenewal.original_tier
+    : existingRenewal.tier;
+  const effectiveSetupType = (wasPonctualUpgrade && existingRenewal.original_setup)
+    ? existingRenewal.original_setup
+    : existingRenewal.setup_type;
+
   run(`
     INSERT INTO renewals (
       sr_no, client_id, client_name, client_status_history, month,
@@ -270,8 +282,9 @@ function createNextMonthRenewal(existingRenewal, paymentReceivedDate) {
       discount, cl_amount, referral_partner_name, referral_amount,
       valid_stopped_date, payment_name, bank_name,
       amount_received, payment_received_date, payment_received_month,
-      reference_no, actual_balance_difference, notes, visual_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      reference_no, actual_balance_difference, notes, visual_status,
+      original_tier, original_setup, is_ponctual_upgrade, upgrade_chain_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
     newSrNo,
     existingRenewal.client_id,
@@ -282,9 +295,9 @@ function createNextMonthRenewal(existingRenewal, paymentReceivedDate) {
     existingRenewal.client_ad_id_name || '',
     existingRenewal.ad_id_number || '',
     existingRenewal.ad_account_type || '',
-    existingRenewal.tier || '',
+    effectiveTier || '',
     existingRenewal.ad_spend_limit || '',
-    existingRenewal.setup_type || '',
+    effectiveSetupType || '',
     existingRenewal.subscription_fee || '',
     existingRenewal.setup_fee || '',
     existingRenewal.discount || '',
@@ -300,7 +313,11 @@ function createNextMonthRenewal(existingRenewal, paymentReceivedDate) {
     '',          // reference_no - empty for new renewal
     existingRenewal.actual_balance_difference || '',
     existingRenewal.notes || '',
-    'Active'     // visual_status
+    'Active',    // visual_status
+    wasPonctualUpgrade ? (existingRenewal.original_tier || '') : '',  // only set original_tier for ponctual upgrades
+    wasPonctualUpgrade ? (existingRenewal.original_setup || '') : '',  // only set original_setup for ponctual upgrades
+    0,           // is_ponctual_upgrade - new renewal starts fresh (not a ponctual upgrade)
+    '[]',        // upgrade_chain_json - reset for new renewal (upgrade history is in payment_transactions)
   ]);
 
   return newSrNo;
@@ -402,7 +419,7 @@ export async function POST(req) {
           }
         }
 
-        run(`UPDATE renewals SET amount_received = ?, payment_received_date = ?, payment_received_month = ?, reference_no = ?, bank_name = ?, valid_stopped_date = COALESCE(NULLIF(valid_stopped_date, ''), ?) WHERE sr_no = ?`, [
+        run(`UPDATE renewals SET amount_received = ?, payment_received_date = ?, payment_received_month = ?, reference_no = ?, bank_name = ?, valid_stopped_date = ? WHERE sr_no = ?`, [
           totalAmount.toString(),
           latestPayment?.payment_received_date || existingRenewal.payment_received_date,
           latestPayment?.payment_received_month || existingRenewal.payment_received_month,
@@ -428,6 +445,37 @@ export async function POST(req) {
     return NextResponse.json({ ok: true, id: result.lastInsertRowid });
   } catch (error) {
     console.error('[POST /api/payments] error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+// DELETE /api/payments/[id] - delete a payment entry
+export async function DELETE(req, { params }) {
+  const auth = requirePermission(req, 'update_clients');
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: 'Invalid payment id' }, { status: 400 });
+    }
+
+    // Get the payment to find its renewal_sr_no for the referral_amount recalculation
+    const payment = get('SELECT * FROM payments WHERE id = ?', [id]);
+    if (!payment) {
+      return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
+    }
+
+    // Delete the payment
+    run(`DELETE FROM payments WHERE id = ?`, [id]);
+
+    logActivity(auth.user?.id, auth.user?.username || 'system', 'DELETE', 'payments', id, `Payment for renewal ${payment.renewal_sr_no}`);
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('[DELETE /api/payments] error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
