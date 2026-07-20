@@ -425,8 +425,13 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
         .then(data => {
           console.log('[DEBUG] client-products data:', JSON.stringify(data));
           if (data.products) {
-            setRealClientProducts(data.products);
-            console.log('[DEBUG] realClientProducts set to:', data.products.length, 'products');
+            // Map valid_until to valid_stopped_date for UI compatibility
+            const mappedProducts = data.products.map(p => ({
+              ...p,
+              valid_stopped_date: p.valid_until || p.valid_stopped_date
+            }));
+            setRealClientProducts(mappedProducts);
+            console.log('[DEBUG] realClientProducts set to:', mappedProducts.length, 'products');
           }
         })
         .catch(err => console.error('Error fetching client products:', err));
