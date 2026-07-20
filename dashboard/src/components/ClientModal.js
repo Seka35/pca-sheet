@@ -400,9 +400,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
 
   // Individual payments for Payment History tab (from payments table)
   const [clientPayments, setClientPayments] = useState([]);
+  // Real products from client_products table (for PRODUCT tab display)
+  const [realClientProducts, setRealClientProducts] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Fetch individual payments when payments/products tab is active or client changes
+  // Fetch individual payments and client_products when payments/products tab is active
   useEffect(() => {
     if ((activeTab === 'payments' || activeTab === 'products') && client?.id) {
       setClientPayments([]); // clear first to avoid showing stale data
@@ -416,6 +418,18 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
           }
         })
         .catch(err => console.error('Error fetching payments:', err));
+
+      // Fetch real products from client_products table
+      fetch(`/api/client-products?client_id=${client.id}&_cb=${cacheBust}`)
+        .then(res => { console.log('[DEBUG] client-products status:', res.status); return res.json(); })
+        .then(data => {
+          console.log('[DEBUG] client-products data:', JSON.stringify(data));
+          if (data.products) {
+            setRealClientProducts(data.products);
+            console.log('[DEBUG] realClientProducts set to:', data.products.length, 'products');
+          }
+        })
+        .catch(err => console.error('Error fetching client products:', err));
     }
   }, [activeTab, client?.id, refreshKey]);
 
@@ -672,6 +686,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     const dateB = b.start_date ? new Date(b.start_date) : new Date(9999, 11, 31);
     return dateB - dateA;
   });
+  // For PRODUCTS tab: show real client_products (1 product) instead of renewals history (5 entries)
+  const productsForDisplay = realClientProducts.length > 0 ? realClientProducts : displayProducts;
 
 
   const totalDue = displayProducts.reduce((acc, p) => acc + calculateProductDue(p), 0);
@@ -2169,7 +2185,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
 
               {mode === 'view' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '16px' }}>
-                  {displayProducts.length > 0 ? displayProducts.map((product, idx) => {
+                  {productsForDisplay.length > 0 ? productsForDisplay.map((product, idx) => {
                     const productDue = calculateProductDue(product);
                     const billingStatus = getProductBillingStatus(product);
                     const isPaid = billingStatus.status === 'FULLY PAID';

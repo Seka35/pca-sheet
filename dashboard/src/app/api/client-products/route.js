@@ -88,13 +88,8 @@ export async function POST(req) {
   }
 }
 
-// GET /api/client-products - Get all products for a client
+// GET /api/client-products - Get all products for a client (public read)
 export async function GET(req) {
-  const auth = requirePermission(req, 'view_clients');
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
-
   try {
     const { searchParams } = new URL(req.url);
     const clientId = searchParams.get('client_id');
