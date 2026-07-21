@@ -189,7 +189,7 @@ function emptyProduct() {
 export default function ClientModal({ selectedClient, onClose, onSaved, tierProducts = [], setupProducts = [] }) {
   if (!selectedClient) return null;
 
-  const { client, history } = selectedClient;
+  const { client, history, periods = [], events = [] } = selectedClient;
 
   const formatCurrency = (val) => '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
@@ -327,7 +327,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
   // Reset deletedPaymentSrNos when selectedClient changes (e.g. after parent refetch)
   useEffect(() => {
     setDeletedPaymentSrNos([]);
-            setRefreshKey(prev => prev + 1);
   }, [selectedClient?.client?.id]);
 
   const uploadContract = async (file) => {
@@ -400,11 +399,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
 
   // Individual payments for Payment History tab (from payments table)
   const [clientPayments, setClientPayments] = useState([]);
-  // Real products from client_products table (for PRODUCT tab display)
-  const [realClientProducts, setRealClientProducts] = useState([]);
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Fetch individual payments and client_products when payments/products tab is active
+  // Fetch individual payments when payments/products tab is active or client changes
   useEffect(() => {
     if ((activeTab === 'payments' || activeTab === 'products') && client?.id) {
       setClientPayments([]); // clear first to avoid showing stale data
@@ -418,32 +414,15 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
           }
         })
         .catch(err => console.error('Error fetching payments:', err));
-
-      // Fetch real products from client_products table
-      fetch(`/api/client-products?client_id=${client.id}&_cb=${cacheBust}`)
-        .then(res => { console.log('[DEBUG] client-products status:', res.status); return res.json(); })
-        .then(data => {
-          console.log('[DEBUG] client-products data:', JSON.stringify(data));
-          if (data.products) {
-            // Map valid_until to valid_stopped_date for UI compatibility
-            const mappedProducts = data.products.map(p => ({
-              ...p,
-              valid_stopped_date: p.valid_until || p.valid_stopped_date
-            }));
-            setRealClientProducts(mappedProducts);
-            console.log('[DEBUG] realClientProducts set to:', mappedProducts.length, 'products');
-          }
-        })
-        .catch(err => console.error('Error fetching client products:', err));
     }
-  }, [activeTab, client?.id, refreshKey]);
+  }, [activeTab, client?.id]);
 
   // Build unified payment list: new payments table + old renewals payments + transactions
   // Both sources combined for complete payment history
   const allDisplayPayments = useMemo(() => {
     const rows = [];
 
-    // 1. New payments from payments/payment_history tables
+    // 1. New payments from payments table
     clientPayments.forEach(p => {
       rows.push({
         key: `new-${p.id}`,
@@ -461,31 +440,20 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
         reference_no: p.reference_no || '',
         payment_received_date: p.payment_received_date || '',
         is_topup: p.is_topup || 0,
-        source: p.source || 'new',
+        source: 'new',
       });
     });
 
     // 2. Old payments from renewals (no entry in payments table but has ref or amount)
-    // Skip new architecture entries - their payments come from payment_history via clientPayments
     const newPaymentSrNos = new Set(clientPayments.map(p => p.renewal_sr_no));
     (history || []).forEach(h => {
-      // Skip new architecture entries - they are handled via clientPayments/payment_history
-      if (h._is_new_architecture) return;
       const amt = h.amount_received ? parseFloat(h.amount_received.toString().replace(/[^0-9.-]+/g, '')) || 0 : 0;
       const hasOldPayment = (h.reference_no && h.reference_no.trim() !== '') || amt > 0;
       if (hasOldPayment && !newPaymentSrNos.has(h.sr_no)) {
-        // Determine type from is_ponctual_upgrade and notes
-        let type = 'MONTHLY';
-        if (h.is_ponctual_upgrade == 1) {
-          type = 'UPGRADE';
-        } else if (h.notes && h.notes.includes('RETURN')) {
-          type = 'RETURN';
-        }
         rows.push({
           key: `old-${h.sr_no}`,
           id: null,
           renewal_sr_no: h.sr_no,
-          type,
           month: h.month || '',
           tier: h.tier || '',
           setup_type: h.setup_type || '',
@@ -497,13 +465,39 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
           amount_received: h.amount_received || '',
           reference_no: h.reference_no || '',
           payment_received_date: h.payment_received_date || '',
-          from_tier: h.original_tier || null,
-          to_tier: (h.is_ponctual_upgrade == 1 || (h.notes && h.notes.includes('RETURN'))) ? h.tier : null,
-          prorata_amount: h.is_ponctual_upgrade == 1 ? (amt > 0 ? String(amt) : null) : null,
           is_topup: 0,
           source: 'old',
         });
       }
+    });
+
+    // 3. Periods with their events (new architecture: 1 product = multiple periods)
+    const eventsByPeriod = {};
+    (events || []).forEach(ev => {
+      if (!eventsByPeriod[ev.period_sr_no]) eventsByPeriod[ev.period_sr_no] = [];
+      eventsByPeriod[ev.period_sr_no].push(ev);
+    });
+    (periods || []).forEach(period => {
+      const periodEvents = eventsByPeriod[period.sr_no] || [];
+      const latestEvent = periodEvents.length > 0 ? periodEvents[periodEvents.length - 1] : null;
+      rows.push({
+        key: `period-${period.sr_no}`,
+        id: null,
+        renewal_sr_no: period.renewal_parent_sr_no,
+        month: period.month_label || '',
+        tier: latestEvent ? (latestEvent.to_tier || latestEvent.tier) : (period.tier || ''),
+        setup_type: latestEvent ? (latestEvent.to_setup || latestEvent.setup_type) : (period.setup_type || ''),
+        subscription_fee: latestEvent ? (latestEvent.subscription_fee || period.subscription_fee || '') : (period.subscription_fee || ''),
+        setup_fee: latestEvent ? (latestEvent.setup_fee || period.setup_fee || '') : (period.setup_fee || ''),
+        discount: '',
+        valid_stopped_date: period.valid_until || '',
+        bank_name: latestEvent ? (latestEvent.bank_name || '') : '',
+        amount_received: period.amount_received || '',
+        reference_no: latestEvent ? (latestEvent.reference_no || '') : '',
+        payment_received_date: period.payment_received_date || '',
+        is_topup: 0,
+        source: 'period',
+      });
     });
 
     // Sort by payment date descending
@@ -513,7 +507,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
       return db - da;
     });
 
-    console.log('[DEBUG] Final rows:', rows.length, rows.map(r => ({ key: r.key, amount: r.amount_received, type: r.type })));
     return rows;
   }, [clientPayments, history]);
 
@@ -706,8 +699,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     const dateB = b.start_date ? new Date(b.start_date) : new Date(9999, 11, 31);
     return dateB - dateA;
   });
-  // For PRODUCTS tab: show real client_products (1 product) instead of renewals history (5 entries)
-  const productsForDisplay = realClientProducts.length > 0 ? realClientProducts : displayProducts;
 
 
   const totalDue = displayProducts.reduce((acc, p) => acc + calculateProductDue(p), 0);
@@ -968,7 +959,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
       subscription_fee: product?.subscription_fee || '',
       setup_fee: product?.setup_fee || '',
       discount: product?.discount || '',
-      valid_stopped_date: payment.until_date || payment.valid_until_date || product?.valid_stopped_date || '',
+      valid_stopped_date: payment.valid_until_date || product?.valid_stopped_date || '',
       whop_product_payments_json: payment.whop_product_payments_json || product?.whop_product_payments_json || '[]',
     });
   };
@@ -1112,10 +1103,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
             return;
           }
         } else {
-          // Use PUT for editing payments with valid ID, POST for new payments or old payments without ID
-          const hasValidId = editingPayment.row?.id && !isNaN(parseInt(editingPayment.row.id));
-          const url = hasValidId ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
-          const method = hasValidId ? 'PUT' : 'POST';
+          // Use PUT for editing, POST for creating regular payments
+          const url = isEditing ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
+          const method = isEditing ? 'PUT' : 'POST';
           const res = await fetch(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
@@ -1130,7 +1120,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
               notes: 'MANUAL_ENTRY',
               is_topup: manualPaymentForm.transaction_type === 'TOPUP' ? 1 : 0,
               whop_product_payments_json: manualPaymentForm.whop_product_payments_json,
-              valid_until: manualPaymentForm.valid_until || '',
             }),
           });
 
@@ -1372,7 +1361,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
             }))
           );
           setDeletedPaymentSrNos([]);
-            setRefreshKey(prev => prev + 1);
           // Also refresh the individual payments list
           try {
             const paymentsRes = await fetch(`/api/payments?client_id=${client.id}`);
@@ -1535,7 +1523,6 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
             }))
           );
           setDeletedPaymentSrNos([]);
-            setRefreshKey(prev => prev + 1);
           // Also update computed data (for Overview totals)
           if (fresh.computed) {
             setComputedData(fresh.computed);
@@ -2205,7 +2192,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
 
               {mode === 'view' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '16px' }}>
-                  {productsForDisplay.length > 0 ? productsForDisplay.map((product, idx) => {
+                  {displayProducts.length > 0 ? displayProducts.map((product, idx) => {
                     const productDue = calculateProductDue(product);
                     const billingStatus = getProductBillingStatus(product);
                     const isPaid = billingStatus.status === 'FULLY PAID';
@@ -2758,6 +2745,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                       // For legacy, lookup by sr_no
                       const product = history?.find(h => {
                         if (h._is_new_architecture) {
+                          // payment.product_id is the actual product id from payment_history
+                          // payment.renewal_sr_no might be product_id for new architecture
                           return h._product_id === payment.product_id ||
                                  h._product_id === payment.renewal_sr_no ||
                                  String(h._product_id) === String(payment.renewal_sr_no);
@@ -2773,29 +2762,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                           // UPGRADE: show prorata as the paid amount, status = PAID
                           paymentBillingStatus = 'PAID';
                           isUpgradePonctual = true;
-                        } else if (payment.type === 'UPGRADE_PONCTUAL') {
-                          // UPGRADE_PONCTUAL: status = PAID, but NO ponctual badge (badge is in Type column)
-                          paymentBillingStatus = 'PAID';
                         } else if (payment.type === 'RETURN') {
-                          // RETURN: if amount received > 0, it's PAID
-                          const received = parseAmount(payment.amount_received);
-                          paymentBillingStatus = received > 0 ? 'PAID' : 'UNPAID';
+                          paymentBillingStatus = 'RETURN';
                         } else if (payment.type === 'PROMOTION') {
                           paymentBillingStatus = 'PROMOTED';
-                        } else if (payment.type === 'MONTHLY') {
-                          // MONTHLY from payment_history: calculate actual status
-                          const sub = parseAmount(product?.subscription_fee);
-                          const setup = parseAmount(product?.setup_fee);
-                          const disc = parseAmount(product?.discount);
-                          const received = parseAmount(payment.amount_received);
-                          const totalDue = (sub + setup) - disc;
-                          if (received >= totalDue && totalDue > 0) {
-                            paymentBillingStatus = 'PAID';
-                          } else if (received > 0) {
-                            paymentBillingStatus = 'PARTIAL';
-                          } else {
-                            paymentBillingStatus = 'UNPAID';
-                          }
                         } else {
                           paymentBillingStatus = payment.type || 'TRANSACTION';
                         }
@@ -2827,14 +2797,11 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                       // For UPGRADE: badgeTier = original, so no separate original_tier needed
                       // For RENEWAL_PONCTUAL: use to_tier as the "upgraded" tier for the PONCTUAL badge
                       const badgeOriginalTier = payment.type === 'RENEWAL_PONCTUAL' ? (payment.to_tier) : undefined;
-                      // Period: use payment_received_date formatted (e.g. "15 Jul 2026"), fallback to payment_received_month
-                      const formatDate = (dateStr) => {
-                        if (!dateStr) return '—';
-                        const d = new Date(dateStr);
-                        if (isNaN(d.getTime())) return dateStr;
-                        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-                      };
-                      const periodDisplay = payment.payment_received_date ? formatDate(payment.payment_received_date) : (payment.payment_received_month || payment.period || '—');
+                      // Period: for transactions show until_date, otherwise payment_received_month
+                      const periodDisplay = payment.source === 'period'
+                        ? (payment.valid_stopped_date || payment.month || '—')
+                        : payment.is_transaction ? (payment.until_date || '—')
+                        : (payment.payment_received_month || payment.period || '—');
                       return (
                         <tr key={`payment-${payment.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: paymentBillingStatus === 'UNPAID' ? 'rgba(239, 68, 68, 0.03)' : paymentBillingStatus === 'PARTIAL' ? 'rgba(245, 158, 11, 0.03)' : 'rgba(16, 185, 129, 0.03)' }}>
                           <td style={{ padding: '16px 8px' }}>

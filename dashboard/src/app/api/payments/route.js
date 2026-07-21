@@ -23,7 +23,7 @@ export async function GET(req) {
   const renewalSrNo = searchParams.get('renewal_sr_no');
 
   try {
-    // With client_id: return from payments table + payment_transactions (for UPGRADE, etc.)
+    // With client_id: return from payments table + payment_transactions (for UPGRADE, etc.) + payment_history (new architecture)
     if (clientId) {
       // 1. Regular payments from payments table
       const payments = all(`
@@ -43,15 +43,54 @@ export async function GET(req) {
         ORDER BY t.date DESC, t.id DESC
       `, [clientId]);
 
-      // Combine both, marking source and normalizing column names
+      // 3. New payment_history entries (new architecture: MONTHLY, UPGRADE_PONCTUAL, RETURN, etc.)
+      const paymentHistory = all(`
+        SELECT ph.*, cp.tier as current_tier, cp.setup_type as current_setup_type
+        FROM payment_history ph
+        LEFT JOIN client_products cp ON ph.product_id = cp.id
+        WHERE ph.client_id = ?
+        ORDER BY ph.date DESC, ph.id DESC
+      `, [clientId]);
+
+      // Combine all three sources, marking source and normalizing column names
       const combined = [
-        ...payments.map(p => ({ ...p, is_transaction: 0 })),
+        ...payments.map(p => ({ ...p, is_transaction: 0, source: 'payments_table' })),
         ...transactions.map(t => ({
           ...t,
           is_transaction: 1,
-          amount_received: t.amount, // normalize amount column
-          payment_received_date: t.date, // normalize date column
-          payment_id: t.id // normalize id column
+          amount_received: t.amount,
+          payment_received_date: t.date,
+          payment_id: t.id,
+          source: 'payment_transactions'
+        })),
+        ...paymentHistory.map(ph => ({
+          // Normalize payment_history fields to match the expected format
+          id: ph.id,
+          payment_id: ph.id,
+          client_id: ph.client_id,
+          renewal_sr_no: ph.product_id,
+          tier: ph.to_tier || ph.from_tier,
+          setup_type: ph.to_setup || ph.from_setup,
+          product_month: ph.date,
+          client_name: null,
+          amount_received: ph.amount,
+          payment_received_date: ph.date,
+          payment_received_month: ph.date ? new Date(ph.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).replace(' ', '-') : null,
+          reference_no: ph.notes || '',
+          bank_name: '',
+          notes: ph.notes,
+          is_topup: 0,
+          is_transaction: 1,
+          source: 'payment_history',
+          // Keep original payment_history fields for display
+          type: ph.type,
+          from_tier: ph.from_tier,
+          to_tier: ph.to_tier,
+          from_setup: ph.from_setup,
+          to_setup: ph.to_setup,
+          prorata_amount: ph.prorata_amount,
+          until_date: ph.until_date,
+          valid_until: ph.until_date,
         }))
       ];
 

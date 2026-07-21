@@ -102,56 +102,6 @@ export async function GET(req, { params }) {
 
     const history = await all('SELECT * FROM renewals WHERE client_id = ? ORDER BY sr_no DESC', [id]);
 
-    // Fetch client_products (new architecture) and payment_history
-    const clientProducts = await all('SELECT * FROM client_products WHERE client_id = ? AND is_active = 1 ORDER BY id DESC', [id]);
-    const paymentHistory = await all(`
-      SELECT ph.*, cp.tier as current_tier, cp.setup_type as current_setup_type
-      FROM payment_history ph
-      LEFT JOIN client_products cp ON ph.product_id = cp.id
-      WHERE ph.client_id = ?
-      ORDER BY ph.date DESC, ph.id DESC
-    `, [id]);
-
-    // Transform client_products + payment_history into history-like format for the modal
-    // Group payment_history by product_id to get the full picture per product
-    const newHistory = [];
-    for (const product of clientProducts) {
-      const productPayments = paymentHistory.filter(ph => ph.product_id === product.id);
-
-      // Get the latest until_date from payment_history for valid_stopped_date
-      const latestUntilDate = productPayments.length > 0 ? productPayments[0].until_date : null;
-
-      // Build history entry that looks like a renewal
-      newHistory.push({
-        sr_no: `CP_${product.id}`,
-        client_id: product.client_id,
-        client_name: client.name,
-        tier: product.tier,
-        setup_type: product.setup_type,
-        subscription_fee: product.subscription_fee,
-        setup_fee: product.setup_fee,
-        discount: product.discount,
-        cl_amount: '0',
-        ad_spend_limit: product.ad_spend_limit,
-        start_date: product.start_date,
-        valid_stopped_date: latestUntilDate || product.valid_until,
-        amount_received: productPayments.reduce((sum, ph) => sum + parseAmount(ph.amount), 0).toString(),
-        payment_received_date: productPayments.length > 0 ? productPayments[0].date : null,
-        reference_no: productPayments.length > 0 ? (productPayments[0].notes || '') : '',
-        visual_status: product.is_active === 1 ? 'Active' : '',
-        is_ponctual_upgrade: product.is_ponctual,
-        original_tier: product.original_tier,
-        original_setup: product.original_setup,
-        // Extra fields for display
-        _is_new_architecture: true,
-        _product_id: product.id,
-        _payment_history: productPayments,
-      });
-    }
-
-    // Combine old history (renewals) with new history (client_products)
-    const combinedHistory = [...newHistory, ...history];
-
     // Compute totalSpend (CL = sum of cl_amount)
     const totalSpend = history.reduce((sum, r) => sum + parseAmount(r.cl_amount), 0);
 
@@ -196,8 +146,7 @@ export async function GET(req, { params }) {
 
     return NextResponse.json({
       client,
-      history: combinedHistory,
-      paymentHistory,
+      history,
       computed: {
         totalSpend: parseFloat(totalSpend.toFixed(2)),
         totalCA: parseFloat(totalCA.toFixed(2)),
@@ -258,6 +207,9 @@ export async function PUT(req, { params }) {
       console.warn(`[PUT /api/clients/${clientId}] backup failed (continuing):`, e.message);
     }
 
+    // DEBUG: log products received
+    console.log(`[PUT /api/clients/${clientId}] DEBUG: products received:`, JSON.stringify(body.products?.slice(0,2)));
+
     // 4. Google Sheets integration disabled - DB-only mode
     // Mock sheetResult for code that depends on it
     sheetResult = { ok: true, added: [], updated: [], removed: [] };
@@ -284,13 +236,13 @@ export async function PUT(req, { params }) {
 
     const insertRenewal = `INSERT OR REPLACE INTO renewals (
       sr_no, client_id, client_name, client_status_history, month, start_date,
-      client_ad_id_name, ad_id_number, ad_account_type, tier, ad_spend_limit,
+      client_ad_id_name, ad_id_number, setup_id_number, ad_account_type, tier, ad_spend_limit,
       setup_type, subscription_fee, setup_fee, discount, cl_amount,
       referral_partner_name, referral_amount, valid_stopped_date,
       payment_name, bank_name, amount_received, payment_received_date,
       payment_received_month, reference_no, actual_balance_difference,
-      notes, visual_status, is_trial
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      notes, visual_status, is_trial, parent_sr_no
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
     run('BEGIN');
     try {
@@ -300,57 +252,33 @@ export async function PUT(req, { params }) {
         [name, body.first_name || '', body.last_name || '', body.email || '', body.address || '', telegram_group_id || '', computedStatus, tele_id || null, trustpilot_reviewed, churn_reason, contract_file_path, body.referral_partner_name || null, company_name, company_number, landing_pages, creative_url, creative_files, client_owner, notes, clientId]
       );
 
-      // Remove the products the user deleted.
-      // First delete child records that reference these renewals to avoid FK constraint violations.
+      // Remove the products the user deleted - hard delete with cascade to preserve data integrity
       if (removed_sr_nos && removed_sr_nos.length > 0) {
         const placeholders = removed_sr_nos.map(() => '?').join(',');
-        // Disable foreign keys temporarily
-        run(`PRAGMA foreign_keys = OFF`, []);
-        // Delete payment_transactions first (references renewals via renewal_sr_no)
-        run(`DELETE FROM payment_transactions WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete payments (references renewals via renewal_sr_no)
+        console.log(`[PUT /api/clients/${clientId}] deleting products:`, removed_sr_nos);
+        // Delete child tables first (FK constraints)
         run(`DELETE FROM payments WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete whop_product_payments (references renewals via renewal_sr_no)
+        console.log(`[PUT /api/clients/${clientId}] deleted payments`);
         run(`DELETE FROM whop_product_payments WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete reminder_logs (references renewals via renewal_sr_no)
-        run(`DELETE FROM reminder_logs WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete pending_updates (references renewals via sr_no)
-        run(`DELETE FROM pending_updates WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete product_requests (references renewals via renewal_sr_no)
-        // Delete product_requests (references renewals via client_id only)
-        run(`DELETE FROM product_requests WHERE client_id = ?`, [clientId]);
-        // Delete upgrade_requests (references renewals via renewal_sr_no)
+        console.log(`[PUT /api/clients/${clientId}] deleted whop_product_payments`);
+        run(`DELETE FROM payment_transactions WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
+        console.log(`[PUT /api/clients/${clientId}] deleted payment_transactions`);
         run(`DELETE FROM upgrade_requests WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete approval_queue entries (references renewals via sr_no)
-        run(`DELETE FROM approval_queue WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete payment_selections (references renewals via sr_no)
-        run(`DELETE FROM payment_selections WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete pending_payments (references renewals via sr_no)
-        run(`DELETE FROM pending_payments WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete message_approvals (references renewals via renewal_sr_no)
-        run(`DELETE FROM message_approvals WHERE renewal_sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete payment_proofs (references renewals via sr_no)
-        run(`DELETE FROM payment_proofs WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete renewal_events (references renewals via sr_no)
-        run(`DELETE FROM renewal_events WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Delete renewal_periods (references renewals via sr_no)
-        run(`DELETE FROM renewal_periods WHERE sr_no IN (${placeholders})`, [...removed_sr_nos]);
-        // Finally delete the renewals themselves
-        run(
-          `DELETE FROM renewals WHERE client_id = ? AND sr_no IN (${placeholders})`,
-          [clientId, ...removed_sr_nos]
-        );
-        // Re-enable foreign keys
-        run(`PRAGMA foreign_keys = ON`, []);
+        console.log(`[PUT /api/clients/${clientId}] deleted upgrade_requests`);
+        // Now delete the renewals
+        run(`DELETE FROM renewals WHERE client_id = ? AND sr_no IN (${placeholders})`, [clientId, ...removed_sr_nos]);
+        console.log(`[PUT /api/clients/${clientId}] deleted renewals`);
       }
 
       // Upsert each product. Existing products (with sr_no) are updated in place.
       // New products (no sr_no) get an auto-generated sr_no (DB-only mode).
+      // For multi-month products, we auto-create one renewal row per month.
       const addedSrNos = sheetResult.added || [];
       let addedIdx = 0;
       // Pre-compute next available sr_no suffix for new products
       const existingSrNos = products.map(p => p.sr_no).filter(Boolean);
       let nextSuffix = 1;
+
       for (const p of products) {
         let sr_no = p.sr_no;
         if (!sr_no) {
@@ -368,39 +296,190 @@ export async function PUT(req, { params }) {
             existingSrNos.push(sr_no);
             nextSuffix++;
           }
+
+          // For new products, auto-create SEPARATE renewal rows for each month
+          // This ensures each month's payment is independent and upgrades don't corrupt other months
+          const startDate = p.start_date ? new Date(p.start_date) : null;
+          const endDate = p.valid_stopped_date ? new Date(p.valid_stopped_date) : null;
+
+          if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+            // Calculate number of months between start and end (not including end month)
+            const monthDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+            const numMonths = Math.max(1, monthDiff);
+
+            // First month's sr_no becomes the parent for all subsequent months
+            let parentMonthSrNo = `${clientId}.${nextSuffix}`;
+            while (existingSrNos.includes(parentMonthSrNo)) {
+              nextSuffix++;
+              parentMonthSrNo = `${clientId}.${nextSuffix}`;
+            }
+            existingSrNos.push(parentMonthSrNo);
+            nextSuffix++;
+
+            // Create SEPARATE renewal rows for each month, each with ONE payment entry
+            for (let i = 0; i < numMonths; i++) {
+              const monthDate = new Date(startDate);
+              monthDate.setMonth(monthDate.getMonth() + i);
+              const validUntilDate = new Date(monthDate);
+              validUntilDate.setMonth(validUntilDate.getMonth() + 1);
+              const monthLabel = monthDate.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+
+              // First month = parent (parent_sr_no = null), subsequent months = children
+              const isParent = (i === 0);
+              const monthSrNo = isParent ? parentMonthSrNo : `${clientId}.${nextSuffix}`;
+              const parentSrNoToStore = isParent ? null : parentMonthSrNo;
+
+              if (!isParent) {
+                while (existingSrNos.includes(monthSrNo)) {
+                  nextSuffix++;
+                }
+                existingSrNos.push(monthSrNo);
+                nextSuffix++;
+              }
+
+              // Insert renewal row for this month
+              run(insertRenewal, [
+                monthSrNo,
+                clientId,
+                name,
+                p.client_status_history || '',
+                monthLabel,
+                monthDate.toISOString().split('T')[0],
+                p.client_ad_id_name || '',
+                p.ad_id_number || '',
+                p.setup_id_number || '',
+                p.ad_account_type || '',
+                p.tier || '',
+                p.ad_spend_limit || '',
+                p.setup_type || '',
+                p.subscription_fee || '',
+                p.setup_fee || '',
+                p.discount || '',
+                p.cl_amount || '',
+                p.referral_partner_name || '',
+                p.referral_amount || '',
+                validUntilDate.toISOString().split('T')[0],
+                p.payment_name || '',
+                p.bank_name || '',
+                p.amount_received || '',
+                p.payment_received_date || '',
+                p.payment_received_month || '',
+                p.reference_no || '',
+                p.actual_balance_difference || '',
+                p.notes || '',
+                p.active === false ? '' : 'Active',
+                p.is_trial ? 1 : 0,
+                parentSrNoToStore,
+              ]);
+
+              // Insert ONE payment entry for this month
+              run(`
+                INSERT INTO payments (
+                  client_id, renewal_sr_no, amount_received, payment_received_date,
+                  payment_received_month, reference_no, bank_name, notes, is_topup,
+                  subscription_fee, setup_fee, discount, valid_until, type
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `, [
+                clientId,
+                monthSrNo,
+                '0', // amount_received - to be filled by user
+                '', // payment_received_date
+                monthLabel,
+                '', // reference_no
+                '', // bank_name
+                'AUTO_CREATED',
+                0,
+                p.subscription_fee || '',
+                p.setup_fee || '',
+                p.discount || '',
+                validUntilDate.toISOString().split('T')[0],
+                'MONTHLY'
+              ]);
+            }
+          } else {
+            // Single month or no dates - insert as normal (no parent)
+            run(insertRenewal, [
+              sr_no,
+              clientId,
+              name,
+              p.client_status_history || '',
+              p.month || '',
+              p.start_date || '',
+              p.client_ad_id_name || '',
+              p.ad_id_number || '',
+              p.setup_id_number || '',
+              p.ad_account_type || '',
+              p.tier || '',
+              p.ad_spend_limit || '',
+              p.setup_type || '',
+              p.subscription_fee || '',
+              p.setup_fee || '',
+              p.discount || '',
+              p.cl_amount || '',
+              p.referral_partner_name || '',
+              p.referral_amount || '',
+              p.valid_stopped_date || '',
+              p.payment_name || '',
+              p.bank_name || '',
+              p.amount_received || '',
+              p.payment_received_date || '',
+              p.payment_received_month || '',
+              p.reference_no || '',
+              p.actual_balance_difference || '',
+              p.notes || '',
+              p.active === false ? '' : 'Active',
+              p.is_trial ? 1 : 0,
+              null, // parent_sr_no - single month has no parent
+            ]);
+          }
+        } else {
+          // Existing product - update as normal (preserve parent_sr_no)
+          run(insertRenewal, [
+            sr_no,
+            clientId,
+            name,
+            p.client_status_history || '',
+            p.month || '',
+            p.start_date || '',
+            p.client_ad_id_name || '',
+            p.ad_id_number || '',
+            p.setup_id_number || '',
+            p.ad_account_type || '',
+            p.tier || '',
+            p.ad_spend_limit || '',
+            p.setup_type || '',
+            p.subscription_fee || '',
+            p.setup_fee || '',
+            p.discount || '',
+            p.cl_amount || '',
+            p.referral_partner_name || '',
+            p.referral_amount || '',
+            p.valid_stopped_date || '',
+            p.payment_name || '',
+            p.bank_name || '',
+            p.amount_received || '',
+            p.payment_received_date || '',
+            p.payment_received_month || '',
+            p.reference_no || '',
+            p.actual_balance_difference || '',
+            p.notes || '',
+            p.active === false ? '' : 'Active',
+            p.is_trial ? 1 : 0,
+            p.parent_sr_no || null,
+          ]);
         }
-        run(insertRenewal, [
-          sr_no,
-          clientId,
-          name,
-          p.client_status_history || '',
-          p.month || '',
-          p.start_date || '',
-          p.client_ad_id_name || '',
-          p.ad_id_number || '',
-          p.ad_account_type || '',
-          p.tier || '',
-          p.ad_spend_limit || '',
-          p.setup_type || '',
-          p.subscription_fee || '',
-          p.setup_fee || '',
-          p.discount || '',
-          p.cl_amount || '',
-          p.referral_partner_name || '',
-          p.referral_amount || '',
-          p.valid_stopped_date || '',
-          p.payment_name || '',
-          p.bank_name || '',
-          p.amount_received || '',
-          p.payment_received_date || '',
-          p.payment_received_month || '',
-          p.reference_no || '',
-          p.actual_balance_difference || '',
-          p.notes || '',
-          p.active === false ? '' : 'Active',
-          p.is_trial ? 1 : 0,
-        ]);
       }
+
+      // 5a. Cascade client status → product visual_status (AFTER inserts to not be overwritten)
+      if (newStatus !== undefined && newStatus !== existing.status) {
+        const cascadeValue = newStatus === 'inactif' ? '' : 'Active';
+        run(
+          `UPDATE renewals SET visual_status = ? WHERE client_id = ?`,
+          [cascadeValue, clientId]
+        );
+        console.log(`[PUT /api/clients/${clientId}] cascaded visual_status='${cascadeValue}' to all products (status: ${existing.status} → ${newStatus})`);
+      }
+
       run('COMMIT');
     } catch (e) {
       run('ROLLBACK');
@@ -420,7 +499,8 @@ export async function PUT(req, { params }) {
       backup: backupFilename,
     });
   } catch (error) {
-    console.error('[PUT /api/clients/[id]] error:', error);
+    console.error('[PUT /api/clients/[id]] FULL ERROR:', error);
+    console.error('[PUT /api/clients/[id]] STACK:', error.stack);
     const code = sheetResult && sheetResult.ok ? 'SHEETS_OK_DB_FAIL' : 'INTERNAL';
     return NextResponse.json(
       {

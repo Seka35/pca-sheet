@@ -120,7 +120,7 @@ export async function POST(req) {
 
 // GET /api/payment-history - Get payment history entries
 export async function GET(req) {
-  const auth = requirePermission(req, 'view_clients');
+  const auth = requirePermission(req, 'read_clients');
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
