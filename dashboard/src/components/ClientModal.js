@@ -648,20 +648,27 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     return () => window.removeEventListener('keydown', onKey);
   }, [saving, onClose]);
 
+  // Calculate total received for a product from payment_history
+  const getTotalReceivedForProduct = (product) => {
+    if (!clientPayments || clientPayments.length === 0) return 0;
+    // For new architecture, match by product.id (which is stored as renewal_sr_no in payment_history)
+    const productId = product.id || product.sr_no?.replace('CP_', '');
+    const paymentsForProduct = clientPayments.filter(p =>
+      p.source === 'payment_history' &&
+      String(p.renewal_sr_no) === String(productId)
+    );
+    return paymentsForProduct.reduce((sum, p) => sum + parseAmount(p.amount_received || p.amount), 0);
+  };
+
   const calculateProductDue = (p) => {
     // Trial products have $0 due
     if (p.is_trial === true || p.is_trial === 1) return 0;
     const sub = parseAmount(p.subscription_fee);
     const setup = parseAmount(p.setup_fee);
     const disc = parseAmount(p.discount);
-    const received = parseAmount(p.amount_received);
+    // Get received from payment_history aggregation instead of product field
+    const received = getTotalReceivedForProduct(p);
     let totalDue = (sub + setup) - disc;
-    // For ponctual upgrades: expected payment is the prorata (difference from original tier), not full price
-    if (p.is_ponctual_upgrade == 1 && p.original_tier) {
-      const originalSub = parseAmount(TIER_PRICING[p.original_tier] || '0');
-      const prorata = Math.max(0, sub - originalSub);
-      totalDue = prorata; // Only the prorata is due, not the full subscription
-    }
     // If received >= total due, it's fully paid
     if (received >= totalDue) return 0;
     // Otherwise return what's still due
@@ -674,17 +681,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     const sub = parseAmount(p.subscription_fee);
     const setup = parseAmount(p.setup_fee);
     const disc = parseAmount(p.discount);
-    const received = parseAmount(p.amount_received);
+    // Get received from payment_history aggregation
+    const received = getTotalReceivedForProduct(p);
     const totalDue = (sub + setup) - disc;
-    // For ponctual upgrades: prorata is the expected amount for month 1, not the full subscription
-    if (p.is_ponctual_upgrade == 1) {
-      // If received equals the prorata (approximated as difference from original tier), consider it PAID
-      const originalSub = parseAmount(p.original_tier ? TIER_PRICING[p.original_tier] || 0 : 0);
-      const prorataExpected = Math.max(0, sub - originalSub);
-      if (received >= prorataExpected && prorataExpected > 0) return { status: 'FULLY PAID', color: '#10B981' };
-      if (received > 0) return { status: 'PARTIALLY PAID', color: '#F59E0B' };
-      return { status: 'UNPAID', color: '#EF4444' };
-    }
     if (received >= totalDue) return { status: 'FULLY PAID', color: '#10B981' };
     if (received > 0) return { status: 'PARTIALLY PAID', color: '#F59E0B' };
     return { status: 'UNPAID', color: '#EF4444' };
@@ -2464,7 +2463,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                               <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '2px 0' }}></div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Received</span>
-                                <span style={{ fontWeight: '600', color: 'var(--primary-accent)' }}>{formatCurrency(parseAmount(product.amount_received))}</span>
+                                <span style={{ fontWeight: '600', color: 'var(--primary-accent)' }}>{formatCurrency(getTotalReceivedForProduct(product))}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Due</span>
