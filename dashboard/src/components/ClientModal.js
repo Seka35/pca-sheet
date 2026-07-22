@@ -448,6 +448,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
       rows.push({
         key: `new-${p.id}`,
         id: p.id,
+        type: p.type || 'MONTHLY',
         renewal_sr_no: p.renewal_sr_no,
         month: p.payment_received_month || p.period || '',
         tier: p.tier || '',
@@ -952,9 +953,22 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
 
   const startEditPayment = (payment) => {
     // Find the linked product to get full product details
-    const product = history?.find(h => h.sr_no === payment.renewal_sr_no);
+    // For new architecture (payment_history), renewal_sr_no is product_id, sr_no is CP_{product_id}
+    let product = history?.find(h => h.sr_no === payment.renewal_sr_no);
+    // If not found, might be new arch - check by product_id
+    if (!product && realClientProducts?.length > 0) {
+      const productId = parseInt(payment.renewal_sr_no);
+      if (!isNaN(productId)) {
+        product = realClientProducts.find(p => p.id === productId);
+      }
+    }
+    // Determine selectedProductSrNo - for new arch it's CP_{id}, for old it's renewal_sr_no
+    let selectedSrNo = payment.renewal_sr_no || '';
+    if (product?._is_new_architecture || realClientProducts?.some(p => p.id === parseInt(payment.renewal_sr_no))) {
+      selectedSrNo = `CP_${payment.renewal_sr_no}`;
+    }
     setEditingPayment({ srNo: payment.renewal_sr_no, row: payment });
-    setSelectedProductSrNo(payment.renewal_sr_no || '');
+    setSelectedProductSrNo(selectedSrNo);
     setManualPaymentForm({
       transaction_type: payment.type || 'MONTHLY',
       month: payment.payment_received_month || payment.period || '',
@@ -1077,70 +1091,129 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
 
       const isEditing = editingPayment && editingPayment !== 'new' && (editingPayment.row?.id || editingPayment.row?.renewal_sr_no);
       const isTransaction = editingPayment?.row?.type && editingPayment.row.type !== 'MONTHLY' && editingPayment.row?.id;
+      // Check if this is a new architecture payment (from payment_history table)
+      // Use source field or check if renewal_sr_no matches a product_id in realClientProducts
+      const rowSource = editingPayment?.row?.source;
+      const rowRenewalSrNo = editingPayment?.row?.renewal_sr_no;
+      const rowId = editingPayment?.row?.id;
+      const productIdMatch = realClientProducts?.some(p => p.id === parseInt(rowRenewalSrNo));
+      const isNewArchPayment = rowSource === 'payment_history' || productIdMatch;
 
       // DEBUG
       console.log('DEBUG saveManualPayment:', {
-        isEditing,
-        isTransaction,
-        rowId: editingPayment?.row?.id,
-        rowType: editingPayment?.row?.type,
-        renewalSrNo
+        isNewArchPayment,
+        productIdMatch,
+        rowSource,
+        rowRenewalSrNo,
+        rowId,
+        realClientProductsIds: realClientProducts?.map(p => p.id)
       });
 
       // For UPGRADE (Ponctual), we don't create a payment entry - the upgrade-ponctual API creates the new renewal
       // For other types (MONTHLY, TOPUP, RETURN, etc.), we create a payment entry
-      if (manualPaymentForm.transaction_type !== 'UPGRADE' && manualPaymentForm.transaction_type !== 'UPGRADE_PERMANENT') {
+      // UPGRADE_PONCTUAL uses the new payment-history API
+      if (manualPaymentForm.transaction_type !== 'UPGRADE' && manualPaymentForm.transaction_type !== 'UPGRADE_PERMANENT' && manualPaymentForm.transaction_type !== 'UPGRADE_PONCTUAL') {
         if (isEditing && isTransaction) {
-          // Editing a transaction - use the transactions API
-          const res = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions/${editingPayment.row.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: manualPaymentForm.transaction_type,
-              from_tier: manualPaymentForm.tier || null,
-              from_setup: manualPaymentForm.setup_type || null,
-              to_tier: manualPaymentForm.to_tier || null,
-              to_setup: manualPaymentForm.to_setup || null,
-              prorata_amount: manualPaymentForm.prorata_amount || null,
-              amount: manualPaymentForm.amount_received || null,
-              date: manualPaymentForm.payment_received_date || '',
-              until_date: manualPaymentForm.valid_stopped_date || null,
-            }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setError(data.error || `Request failed (${res.status})`);
-            setSaving(false);
-            return;
+          // Route based on architecture: new arch uses payment-history API, old uses renewals API
+          if (isNewArchPayment) {
+            // New architecture: use payment-history API
+            const res = await fetch(`/api/payment-history/${editingPayment.row.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from_tier: manualPaymentForm.tier || null,
+                from_setup: manualPaymentForm.setup_type || null,
+                to_tier: manualPaymentForm.to_tier || null,
+                to_setup: manualPaymentForm.to_setup || null,
+                prorata_amount: manualPaymentForm.prorata_amount || null,
+                amount: manualPaymentForm.amount_received || null,
+                date: manualPaymentForm.payment_received_date || '',
+                until_date: manualPaymentForm.valid_stopped_date || null,
+                notes: manualPaymentForm.reference_no || null,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
+          } else {
+            // Old architecture: use renewals transactions API
+            const res = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions/${editingPayment.row.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: manualPaymentForm.transaction_type,
+                from_tier: manualPaymentForm.tier || null,
+                from_setup: manualPaymentForm.setup_type || null,
+                to_tier: manualPaymentForm.to_tier || null,
+                to_setup: manualPaymentForm.to_setup || null,
+                prorata_amount: manualPaymentForm.prorata_amount || null,
+                amount: manualPaymentForm.amount_received || null,
+                date: manualPaymentForm.payment_received_date || '',
+                until_date: manualPaymentForm.valid_stopped_date || null,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
           }
         } else {
           // Use PUT for editing payments with valid ID, POST for new payments or old payments without ID
           const hasValidId = editingPayment.row?.id && !isNaN(parseInt(editingPayment.row.id));
-          const url = hasValidId ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
-          const method = hasValidId ? 'PUT' : 'POST';
-          const res = await fetch(url, {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              client_id: client.id,
-              renewal_sr_no: renewalSrNo,
-              amount_received: manualPaymentForm.amount_received || '0',
-              payment_received_date: manualPaymentForm.payment_received_date || '',
-              payment_received_month: monthFromDate,
-              reference_no: manualPaymentForm.reference_no || '',
-              bank_name: manualPaymentForm.bank_name || '',
-              notes: 'MANUAL_ENTRY',
-              is_topup: manualPaymentForm.transaction_type === 'TOPUP' ? 1 : 0,
-              whop_product_payments_json: manualPaymentForm.whop_product_payments_json,
-              valid_until: manualPaymentForm.valid_until || '',
-            }),
-          });
+          // For new arch payments, use payment-history API
+          if (isNewArchPayment && hasValidId) {
+            const res = await fetch(`/api/payment-history/${editingPayment.row.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from_tier: manualPaymentForm.tier || null,
+                from_setup: manualPaymentForm.setup_type || null,
+                to_tier: manualPaymentForm.to_tier || null,
+                to_setup: manualPaymentForm.to_setup || null,
+                prorata_amount: manualPaymentForm.prorata_amount || null,
+                amount: manualPaymentForm.amount_received || null,
+                date: manualPaymentForm.payment_received_date || '',
+                until_date: manualPaymentForm.valid_stopped_date || null,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
+          } else {
+            const url = hasValidId ? `/api/payments/${editingPayment.row.id}` : '/api/payments';
+            const method = hasValidId ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+              method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                client_id: client.id,
+                renewal_sr_no: renewalSrNo,
+                amount_received: manualPaymentForm.amount_received || '0',
+                payment_received_date: manualPaymentForm.payment_received_date || '',
+                payment_received_month: monthFromDate,
+                reference_no: manualPaymentForm.reference_no || '',
+                bank_name: manualPaymentForm.bank_name || '',
+                notes: 'MANUAL_ENTRY',
+                is_topup: manualPaymentForm.transaction_type === 'TOPUP' ? 1 : 0,
+                whop_product_payments_json: manualPaymentForm.whop_product_payments_json,
+                valid_until: manualPaymentForm.valid_until || '',
+              }),
+            });
 
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setError(data.error || `Request failed (${res.status})`);
-            setSaving(false);
-            return;
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
           }
         }
       }
@@ -1149,29 +1222,54 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
       if (manualPaymentForm.transaction_type === 'UPGRADE') {
         console.log('DEBUG UPGRADE block: isEditing && isTransaction =', isEditing && isTransaction, { isEditing, isTransaction });
         if (isEditing && isTransaction) {
-          // Editing existing UPGRADE transaction - use transactions API
-          const res = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions/${editingPayment.row.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'UPGRADE',
-              from_tier: manualPaymentForm.tier || null,
-              from_setup: manualPaymentForm.setup_type || null,
-              to_tier: manualPaymentForm.to_tier || null,
-              to_setup: manualPaymentForm.to_setup || null,
-              prorata_amount: manualPaymentForm.prorata_amount || null,
-              amount: manualPaymentForm.amount_received || null,
-              date: manualPaymentForm.payment_received_date || '',
-              until_date: manualPaymentForm.valid_stopped_date || null,
-              reference_no: manualPaymentForm.reference_no || null,
-              bank_name: manualPaymentForm.bank_name || null,
-            }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setError(data.error || `Request failed (${res.status})`);
-            setSaving(false);
-            return;
+          // Route based on architecture
+          if (isNewArchPayment) {
+            // New architecture: use payment-history API
+            const res = await fetch(`/api/payment-history/${editingPayment.row.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from_tier: manualPaymentForm.tier || null,
+                from_setup: manualPaymentForm.setup_type || null,
+                to_tier: manualPaymentForm.to_tier || null,
+                to_setup: manualPaymentForm.to_setup || null,
+                prorata_amount: manualPaymentForm.prorata_amount || null,
+                amount: manualPaymentForm.amount_received || null,
+                date: manualPaymentForm.payment_received_date || '',
+                until_date: manualPaymentForm.valid_stopped_date || null,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
+          } else {
+            // Old architecture: use renewals transactions API
+            const res = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions/${editingPayment.row.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'UPGRADE',
+                from_tier: manualPaymentForm.tier || null,
+                from_setup: manualPaymentForm.setup_type || null,
+                to_tier: manualPaymentForm.to_tier || null,
+                to_setup: manualPaymentForm.to_setup || null,
+                prorata_amount: manualPaymentForm.prorata_amount || null,
+                amount: manualPaymentForm.amount_received || null,
+                date: manualPaymentForm.payment_received_date || '',
+                until_date: manualPaymentForm.valid_stopped_date || null,
+                reference_no: manualPaymentForm.reference_no || null,
+                bank_name: manualPaymentForm.bank_name || null,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
           }
         } else {
           // Creating NEW UPGRADE (Ponctual)
@@ -1195,12 +1293,13 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
         }
       } else if (manualPaymentForm.transaction_type === 'RETURN') {
         if (isEditing && isTransaction) {
-          // Editing existing RETURN - use transactions API
-          const res = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions/${editingPayment.row.id}`,
-            { method: 'PUT',
+          // Route based on architecture
+          if (isNewArchPayment) {
+            // New architecture: use payment-history API
+            const res = await fetch(`/api/payment-history/${editingPayment.row.id}`, {
+              method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                type: 'RETURN',
                 from_tier: manualPaymentForm.tier || null,
                 from_setup: manualPaymentForm.setup_type || null,
                 to_tier: null,
@@ -1211,11 +1310,35 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                 until_date: manualPaymentForm.valid_stopped_date || null,
               }),
             });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setError(data.error || `Request failed (${res.status})`);
-            setSaving(false);
-            return;
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
+          } else {
+            // Old architecture: use renewals transactions API
+            const res = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions/${editingPayment.row.id}`,
+              { method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'RETURN',
+                  from_tier: manualPaymentForm.tier || null,
+                  from_setup: manualPaymentForm.setup_type || null,
+                  to_tier: null,
+                  to_setup: null,
+                  prorata_amount: null,
+                  amount: manualPaymentForm.amount_received || null,
+                  date: manualPaymentForm.payment_received_date || '',
+                  until_date: manualPaymentForm.valid_stopped_date || null,
+                }),
+              });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
           }
         } else {
           // Creating NEW RETURN
@@ -1244,27 +1367,52 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
         }
       } else if (manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT') {
         if (isEditing && isTransaction) {
-          // Editing existing UPGRADE_PERMANENT transaction - use transactions API
-          const res = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions/${editingPayment.row.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'UPGRADE_PERMANENT',
-              from_tier: manualPaymentForm.tier || null,
-              from_setup: manualPaymentForm.setup_type || null,
-              to_tier: manualPaymentForm.to_tier || null,
-              to_setup: manualPaymentForm.to_setup || null,
-              prorata_amount: manualPaymentForm.prorata_amount || null,
-              amount: manualPaymentForm.amount_received || null,
-              date: manualPaymentForm.payment_received_date || '',
-              until_date: manualPaymentForm.valid_stopped_date || null,
-            }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setError(data.error || `Request failed (${res.status})`);
-            setSaving(false);
-            return;
+          // Route based on architecture
+          if (isNewArchPayment) {
+            // New architecture: use payment-history API
+            const res = await fetch(`/api/payment-history/${editingPayment.row.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from_tier: manualPaymentForm.tier || null,
+                from_setup: manualPaymentForm.setup_type || null,
+                to_tier: manualPaymentForm.to_tier || null,
+                to_setup: manualPaymentForm.to_setup || null,
+                prorata_amount: manualPaymentForm.prorata_amount || null,
+                amount: manualPaymentForm.amount_received || null,
+                date: manualPaymentForm.payment_received_date || '',
+                until_date: manualPaymentForm.valid_stopped_date || null,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
+          } else {
+            // Old architecture: use renewals transactions API
+            const res = await fetch(`/api/renewals/${encodeURIComponent(renewalSrNo)}/transactions/${editingPayment.row.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'UPGRADE_PERMANENT',
+                from_tier: manualPaymentForm.tier || null,
+                from_setup: manualPaymentForm.setup_type || null,
+                to_tier: manualPaymentForm.to_tier || null,
+                to_setup: manualPaymentForm.to_setup || null,
+                prorata_amount: manualPaymentForm.prorata_amount || null,
+                amount: manualPaymentForm.amount_received || null,
+                date: manualPaymentForm.payment_received_date || '',
+                until_date: manualPaymentForm.valid_stopped_date || null,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setError(data.error || `Request failed (${res.status})`);
+              setSaving(false);
+              return;
+            }
           }
         } else {
           // Creating NEW UPGRADE_PERMANENT
@@ -1309,6 +1457,51 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
             }),
           });
           alert(`Permanent upgrade applied: ${manualPaymentForm.tier} → ${manualPaymentForm.to_tier || manualPaymentForm.tier}`);
+        }
+      } else if (manualPaymentForm.transaction_type === 'UPGRADE_PONCTUAL') {
+        // UPGRADE_PONCTUAL - new architecture edit via payment-history API
+        if (isEditing && isTransaction) {
+          // Editing existing UPGRADE_PONCTUAL
+          const res = await fetch(`/api/payment-history/${editingPayment.row.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from_tier: manualPaymentForm.tier || null,
+              from_setup: manualPaymentForm.setup_type || null,
+              to_tier: manualPaymentForm.to_tier || null,
+              to_setup: manualPaymentForm.to_setup || null,
+              prorata_amount: manualPaymentForm.prorata_amount || null,
+              amount: manualPaymentForm.amount_received || null,
+              date: manualPaymentForm.payment_received_date || '',
+              until_date: manualPaymentForm.valid_stopped_date || null,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setError(data.error || `Request failed (${res.status})`);
+            setSaving(false);
+            return;
+          }
+        } else {
+          // Creating NEW UPGRADE_PONCTUAL via client-products API
+          const productId = editingPayment?.row?.product_id || renewalSrNo;
+          const upgradeRes = await fetch(`/api/client-products/${productId}/upgrade-ponctual`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to_tier: manualPaymentForm.to_tier || null,
+              to_setup: manualPaymentForm.to_setup || null,
+              payment_date: manualPaymentForm.payment_received_date || null,
+              prorata_amount: manualPaymentForm.prorata_amount || null,
+              amount_received: manualPaymentForm.amount_received || null,
+            }),
+          });
+          const upgradeData = await upgradeRes.json();
+          if (!upgradeRes.ok) {
+            setError(upgradeData.error || 'Failed to apply ponctual upgrade');
+            setSaving(false);
+            return;
+          }
         }
       } else if (manualPaymentForm.transaction_type !== 'MONTHLY') {
         // TOPUP, etc.: Just create a transaction record

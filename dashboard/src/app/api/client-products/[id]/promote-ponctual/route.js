@@ -41,12 +41,8 @@ export async function POST(req, { params }) {
       parseFloat(SETUP_PRICING[newSetup] || 0)
     ) * discountFactor;
 
-    // Set new expiry to 1 month from now
-    const newExpiry = (() => {
-      const d = new Date();
-      d.setMonth(d.getMonth() + 1);
-      return d.toISOString().split('T')[0];
-    })();
+    // Keep the existing valid_until (anchored to billing cycle) - do NOT shift it
+    const newExpiry = product.valid_until; // Preserve original billing cycle anchor
 
     // Update product: set is_ponctual=0, clear original_*, update fees
     run(`

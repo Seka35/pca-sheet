@@ -60,19 +60,15 @@ export async function POST(req, { params }) {
       }
     }
 
-    // Set expires_at to 1 month from payment_date if not provided
+    // Keep the existing valid_until (anchored to billing cycle) - do NOT shift it
     const paymentDate = payment_date || new Date().toISOString().split('T')[0];
-    const expiresDate = expires_at || (() => {
-      const d = new Date(paymentDate);
-      d.setMonth(d.getMonth() + 1);
-      return d.toISOString().split('T')[0];
-    })();
+    const expiresDate = product.valid_until; // Preserve original billing cycle anchor
 
     // First time ponctual: store current tier/setup as original
     const originalTierToStore = product.original_tier || product.tier;
     const originalSetupToStore = product.original_setup || product.setup_type;
 
-    // Update product: set is_ponctual=1, store original_*, update tier/setup/valid_until
+    // Update product: set is_ponctual=1, store original_*, update tier/setup (but keep valid_until)
     run(`
       UPDATE client_products SET
         tier = ?,

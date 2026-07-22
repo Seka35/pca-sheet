@@ -45,13 +45,9 @@ export async function POST(req, { params }) {
       (parseFloat(SETUP_PRICING[originalSetup] || 0))
     ) * discountFactor;
 
-    // Set payment date and new expiry
+    // Keep the existing valid_until (anchored to billing cycle) - do NOT shift it
     const paymentDate = payment_date || new Date().toISOString().split('T')[0];
-    const newExpiry = (() => {
-      const d = new Date(paymentDate);
-      d.setMonth(d.getMonth() + 1);
-      return d.toISOString().split('T')[0];
-    })();
+    const newExpiry = product.valid_until; // Preserve original billing cycle anchor
 
     // Update product: restore original tier/setup, set is_ponctual=0
     run(`
