@@ -16,12 +16,23 @@ export async function PUT(req, { params }) {
     const body = await req.json();
     const {
       from_tier, to_tier, from_setup, to_setup,
-      prorata_amount, amount, date, until_date, notes
+      prorata_amount, amount, date, until_date,
+      reference_no, bank_name, notes
     } = body;
 
     const entry = get('SELECT * FROM payment_history WHERE id = ?', [id]);
     if (!entry) {
       return NextResponse.json({ error: 'Payment history entry not found' }, { status: 404 });
+    }
+
+    // Build notes from reference_no and bank_name if provided
+    let finalNotes = notes;
+    if (reference_no !== undefined || bank_name !== undefined) {
+      const parts = [];
+      if (reference_no) parts.push(`Ref: ${reference_no}`);
+      if (bank_name) parts.push(`Bank: ${bank_name}`);
+      if (notes) parts.push(notes);
+      finalNotes = parts.join(' | ');
     }
 
     // Update the entry
@@ -39,7 +50,7 @@ export async function PUT(req, { params }) {
       WHERE id = ?
     `, [
       from_tier, to_tier, from_setup, to_setup,
-      prorata_amount, amount, date, until_date, notes,
+      prorata_amount, amount, date, until_date, finalNotes,
       id
     ]);
 

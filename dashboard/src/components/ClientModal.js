@@ -1129,7 +1129,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                 amount: manualPaymentForm.amount_received || null,
                 date: manualPaymentForm.payment_received_date || '',
                 until_date: manualPaymentForm.valid_stopped_date || null,
-                notes: manualPaymentForm.reference_no || null,
+                reference_no: manualPaymentForm.reference_no || null,
+                bank_name: manualPaymentForm.bank_name || null,
               }),
             });
             const data = await res.json().catch(() => ({}));
@@ -1474,6 +1475,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
               amount: manualPaymentForm.amount_received || null,
               date: manualPaymentForm.payment_received_date || '',
               until_date: manualPaymentForm.valid_stopped_date || null,
+              reference_no: manualPaymentForm.reference_no || null,
+              bank_name: manualPaymentForm.bank_name || null,
             }),
           });
           const data = await res.json().catch(() => ({}));
