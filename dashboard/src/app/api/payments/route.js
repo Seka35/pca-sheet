@@ -91,6 +91,7 @@ export async function GET(req) {
           prorata_amount: ph.prorata_amount,
           until_date: ph.until_date,
           valid_until: ph.until_date,
+          whop_product_payments_json: ph.whop_product_payments_json || '[]',
         }))
       ];
 

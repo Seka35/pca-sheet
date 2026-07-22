@@ -2809,8 +2809,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                       </select>
                     </div>
 
-                    {/* WHOP details - for MONTHLY, UPGRADE, UPGRADE_PERMANENT, and RETURN */}
-                    {manualPaymentForm.bank_name === 'WHOP' && (manualPaymentForm.transaction_type === 'MONTHLY' || manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT' || manualPaymentForm.transaction_type === 'RETURN') && (() => {
+                    {/* WHOP details - for MONTHLY, UPGRADE, UPGRADE_PERMANENT, UPGRADE_PONCTUAL, and RETURN */}
+                    {manualPaymentForm.bank_name === 'WHOP' && (manualPaymentForm.transaction_type === 'MONTHLY' || manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT' || manualPaymentForm.transaction_type === 'UPGRADE_PONCTUAL' || manualPaymentForm.transaction_type === 'RETURN') && (() => {
                       const whopPayments = JSON.parse(manualPaymentForm.whop_product_payments_json || '[]');
                       const hasTier = manualPaymentForm.tier;
                       const hasSetup = manualPaymentForm.setup_type;
