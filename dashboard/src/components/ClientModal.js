@@ -1180,6 +1180,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                 amount: manualPaymentForm.amount_received || null,
                 date: manualPaymentForm.payment_received_date || '',
                 until_date: manualPaymentForm.valid_stopped_date || null,
+                reference_no: manualPaymentForm.reference_no || null,
+                bank_name: manualPaymentForm.bank_name || null,
+                whop_product_payments_json: manualPaymentForm.whop_product_payments_json || null,
+                notes: manualPaymentForm.bank_name === 'WHOP' ? null : (manualPaymentForm.notes || null),
               }),
             });
             const data = await res.json().catch(() => ({}));

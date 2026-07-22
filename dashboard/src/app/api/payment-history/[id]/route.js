@@ -17,22 +17,13 @@ export async function PUT(req, { params }) {
     const {
       from_tier, to_tier, from_setup, to_setup,
       prorata_amount, amount, date, until_date,
-      reference_no, bank_name, notes
+      reference_no, bank_name, notes,
+      whop_product_payments_json
     } = body;
 
     const entry = get('SELECT * FROM payment_history WHERE id = ?', [id]);
     if (!entry) {
       return NextResponse.json({ error: 'Payment history entry not found' }, { status: 404 });
-    }
-
-    // Build notes from reference_no and bank_name if provided
-    let finalNotes = notes;
-    if (reference_no !== undefined || bank_name !== undefined) {
-      const parts = [];
-      if (reference_no) parts.push(`Ref: ${reference_no}`);
-      if (bank_name) parts.push(`Bank: ${bank_name}`);
-      if (notes) parts.push(notes);
-      finalNotes = parts.join(' | ');
     }
 
     // Update the entry
@@ -46,11 +37,14 @@ export async function PUT(req, { params }) {
         amount = COALESCE(?, amount),
         date = COALESCE(?, date),
         until_date = COALESCE(?, until_date),
-        notes = COALESCE(?, notes)
+        notes = COALESCE(?, notes),
+        reference_no = COALESCE(?, reference_no),
+        bank_name = COALESCE(?, bank_name),
+        whop_product_payments_json = COALESCE(?, whop_product_payments_json)
       WHERE id = ?
     `, [
       from_tier, to_tier, from_setup, to_setup,
-      prorata_amount, amount, date, until_date, finalNotes,
+      prorata_amount, amount, date, until_date, notes, reference_no, bank_name, whop_product_payments_json,
       id
     ]);
 
