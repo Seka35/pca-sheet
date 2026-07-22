@@ -3117,19 +3117,24 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                                   return (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                       {whopPayments.map((wp, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <span style={{
-                                            fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px',
-                                            backgroundColor: wp.product_type === 'tier' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                                            color: wp.product_type === 'tier' ? '#A78BFA' : '#22c55e',
-                                            textTransform: 'uppercase', letterSpacing: '0.5px'
-                                          }}>
-                                            {wp.product_type === 'tier' ? 'T' : 'S'}
-                                          </span>
-                                          {wp.whop_payment_reference ? (
-                                            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-primary)' }}>{wp.whop_payment_reference}</span>
-                                          ) : (
-                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No ref</span>
+                                        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span style={{
+                                              fontSize: '9px', fontWeight: '700', padding: '1px 5px', borderRadius: '3px',
+                                              backgroundColor: wp.product_type === 'tier' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                                              color: wp.product_type === 'tier' ? '#A78BFA' : '#22c55e',
+                                              textTransform: 'uppercase', letterSpacing: '0.5px'
+                                            }}>
+                                              {wp.product_type === 'tier' ? 'T' : 'S'}
+                                            </span>
+                                            {wp.whop_payment_reference ? (
+                                              <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-primary)' }}>{wp.whop_payment_reference}</span>
+                                            ) : (
+                                              <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No ref</span>
+                                            )}
+                                          </div>
+                                          {wp.whop_email && (
+                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', marginLeft: '24px' }}>{wp.whop_email}</span>
                                           )}
                                         </div>
                                       ))}
