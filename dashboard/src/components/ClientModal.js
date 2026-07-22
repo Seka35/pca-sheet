@@ -2913,8 +2913,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                       </div>
                     )}
 
-                    {/* Valid Until - for MONTHLY, UPGRADE, UPGRADE_PERMANENT and RETURN */}
-                    {(manualPaymentForm.transaction_type === 'MONTHLY' || manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT' || manualPaymentForm.transaction_type === 'RETURN') && (
+                    {/* Valid Until - for all transaction types */}
+                    {(manualPaymentForm.transaction_type === 'MONTHLY' || manualPaymentForm.transaction_type === 'UPGRADE' || manualPaymentForm.transaction_type === 'UPGRADE_PERMANENT' || manualPaymentForm.transaction_type === 'UPGRADE_PONCTUAL' || manualPaymentForm.transaction_type === 'RETURN') && (
                       <div>
                         <label style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Valid Until</label>
                         <input type="date" value={manualPaymentForm.valid_stopped_date} onChange={(e) => setManualPaymentForm(prev => ({ ...prev, valid_stopped_date: e.target.value }))} style={{ width: '100%', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', color: '#fff' }} />
