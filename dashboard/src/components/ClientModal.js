@@ -471,6 +471,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     (history || []).forEach(h => {
       // Skip new architecture entries - they are handled via clientPayments/payment_history
       if (h._is_new_architecture) return;
+      // Also skip entries with CP_ prefix - those are from client_products, not real renewals
+      if (h.sr_no && h.sr_no.startsWith('CP_')) return;
       const amt = h.amount_received ? parseFloat(h.amount_received.toString().replace(/[^0-9.-]+/g, '')) || 0 : 0;
       const hasOldPayment = (h.reference_no && h.reference_no.trim() !== '') || amt > 0;
       if (hasOldPayment && !newPaymentSrNos.has(h.sr_no)) {
@@ -2282,6 +2284,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                                 <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{product.ad_id_number || '—'}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Name</span>
+                                <span style={{ fontWeight: '600' }}>{product.client_ad_id_name || '—'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Type</span>
                                 <span style={{ fontWeight: '600' }}>{product.ad_account_type || '—'}</span>
                               </div>
@@ -2977,6 +2983,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                     })}
                     {/* Then: show old paid products (have reference_no or amount_received in renewals, but NOT in payments table) */}
                     {(history || []).filter(product => {
+                      // Skip new architecture entries (CP_ prefix) — they are handled via clientPayments/payment_history
+                      if (product.sr_no && product.sr_no.startsWith('CP_')) return false;
                       const hasPaymentsInTable = clientPayments.some(p => p.renewal_sr_no === product.sr_no);
                       const hasOldPayment = (product.reference_no && product.reference_no.trim() !== '') || parseAmount(product.amount_received) > 0;
                       return !hasPaymentsInTable && hasOldPayment && !removedSrNos.includes(product.sr_no) && !deletedPaymentSrNos.includes(product.sr_no);
@@ -3044,6 +3052,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                     })}
                     {/* Then: show unpaid products (products with no entries in payments table AND no/partial payment in renewals) */}
                     {(history || []).filter(product => {
+                      // Skip new architecture entries (CP_ prefix) — they are handled via clientPayments/payment_history
+                      if (product.sr_no && product.sr_no.startsWith('CP_')) return false;
                       // Check if this product has entries in the payments table
                       const hasPaymentsInTable = clientPayments.some(p => p.renewal_sr_no === product.sr_no);
                       // Also skip if it has reference + amount (paid via old method)

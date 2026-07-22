@@ -352,6 +352,9 @@ export default function ClientFormFields({
           <Field label="Ad ID number" compact={compact}>
             <TextInput value={product.ad_id_number} onChange={set('ad_id_number')} placeholder="—" disabled={disabled} compact={compact} />
           </Field>
+          <Field label="Ad Account Name" compact={compact}>
+            <TextInput value={product.client_ad_id_name || ''} onChange={set('client_ad_id_name')} placeholder="—" disabled={disabled} compact={compact} />
+          </Field>
           <Field label="Setup ID number" compact={compact}>
             <TextInput value={product.setup_id_number} onChange={set('setup_id_number')} placeholder="—" disabled={disabled} compact={compact} />
           </Field>

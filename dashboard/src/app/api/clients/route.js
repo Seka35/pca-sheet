@@ -18,6 +18,7 @@ export async function GET(req) {
   try {
     const clients = await all("SELECT * FROM clients ORDER BY CASE WHEN status = 'Actif' THEN 0 ELSE 1 END, id DESC");
     const history = await all('SELECT * FROM renewals ORDER BY sr_no ASC');
+    const clientProducts = await all('SELECT * FROM client_products WHERE is_active = 1 ORDER BY id DESC');
 
     const clientHistory = {};
     history.forEach(row => {
@@ -25,10 +26,18 @@ export async function GET(req) {
       clientHistory[row.client_id].push(row);
     });
 
+    // Build a lookup of client_products by client_id (new architecture)
+    const clientNewProducts = {};
+    clientProducts.forEach(cp => {
+      if (!clientNewProducts[cp.client_id]) clientNewProducts[cp.client_id] = [];
+      clientNewProducts[cp.client_id].push(cp);
+    });
+
     const now = new Date();
 
     const formattedClients = clients.map(client => {
-      const h = clientHistory[client.id] || [];
+      // Filter out renewals entries with CP_ prefix — those are from new architecture, not real renewals
+      const h = (clientHistory[client.id] || []).filter(r => !r.sr_no || !r.sr_no.startsWith('CP_'));
 
       let earliestDate = null;
       let latestMonth = null;
@@ -80,6 +89,37 @@ export async function GET(req) {
 
         if (!renewalDay && p.start_date) {
           const d = new Date(p.start_date);
+          if (!isNaN(d.getTime())) {
+            renewalDay = `J${d.getDate()}`;
+          }
+        }
+      });
+
+      // Also collect products from client_products (new architecture)
+      const newProds = clientNewProducts[client.id] || [];
+      newProds.forEach(cp => {
+        mrr += parseAmount(cp.subscription_fee) + parseAmount(cp.setup_fee);
+
+        let pName = cp.tier || '';
+        if (cp.setup_type && cp.setup_type.trim() !== '' && cp.setup_type !== cp.tier) {
+          pName = pName ? pName + ' - ' + cp.setup_type : cp.setup_type;
+        }
+        if (pName && !produits.includes(pName)) {
+          produits.push(pName);
+        }
+
+        if (cp.tier || cp.setup_type) {
+          productDetails.push({
+            tier: cp.tier,
+            setup_type: cp.setup_type,
+            is_trial: false,
+            current_spend: '0',
+            ad_spend_limit: cp.ad_spend_limit || '0',
+          });
+        }
+
+        if (!renewalDay && cp.start_date) {
+          const d = new Date(cp.start_date);
           if (!isNaN(d.getTime())) {
             renewalDay = `J${d.getDate()}`;
           }

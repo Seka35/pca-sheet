@@ -142,6 +142,10 @@ export async function GET(req, { params }) {
         is_ponctual_upgrade: product.is_ponctual,
         original_tier: product.original_tier,
         original_setup: product.original_setup,
+        // AD account fields
+        client_ad_id_name: product.client_ad_id_name || '',
+        ad_id_number: product.ad_id_number || '',
+        ad_account_type: product.ad_account_type || '',
         // Extra fields for display
         _is_new_architecture: true,
         _product_id: product.id,
@@ -150,7 +154,10 @@ export async function GET(req, { params }) {
     }
 
     // Combine old history (renewals) with new history (client_products)
-    const combinedHistory = [...newHistory, ...history];
+    // Filter out renewals entries that have CP_ prefix — those are from the new architecture
+    // and are already included via newHistory; duplicating them causes duplicate entries.
+    const filteredHistory = history.filter(r => !r.sr_no || !r.sr_no.startsWith('CP_'));
+    const combinedHistory = [...newHistory, ...filteredHistory];
 
     // Compute totalSpend (CL = sum of cl_amount)
     const totalSpend = history.reduce((sum, r) => sum + parseAmount(r.cl_amount), 0);
@@ -369,37 +376,73 @@ export async function PUT(req, { params }) {
             nextSuffix++;
           }
         }
-        run(insertRenewal, [
-          sr_no,
-          clientId,
-          name,
-          p.client_status_history || '',
-          p.month || '',
-          p.start_date || '',
-          p.client_ad_id_name || '',
-          p.ad_id_number || '',
-          p.ad_account_type || '',
-          p.tier || '',
-          p.ad_spend_limit || '',
-          p.setup_type || '',
-          p.subscription_fee || '',
-          p.setup_fee || '',
-          p.discount || '',
-          p.cl_amount || '',
-          p.referral_partner_name || '',
-          p.referral_amount || '',
-          p.valid_stopped_date || '',
-          p.payment_name || '',
-          p.bank_name || '',
-          p.amount_received || '',
-          p.payment_received_date || '',
-          p.payment_received_month || '',
-          p.reference_no || '',
-          p.actual_balance_difference || '',
-          p.notes || '',
-          p.active === false ? '' : 'Active',
-          p.is_trial ? 1 : 0,
-        ]);
+
+        // Handle client_products (new architecture) — sr_no starts with "CP_"
+        if (sr_no && sr_no.startsWith('CP_')) {
+          const productId = parseInt(sr_no.replace('CP_', ''), 10);
+          run(`UPDATE client_products SET
+            tier = ?, setup_type = ?, subscription_fee = ?, setup_fee = ?,
+            discount = ?, ad_spend_limit = ?, start_date = ?, valid_until = ?,
+            client_ad_id_name = ?, ad_id_number = ?, ad_account_type = ?,
+            is_active = ?, updated_at = datetime('now')
+            WHERE id = ? AND client_id = ?`,
+            [
+              p.tier || '', p.setup_type || '', p.subscription_fee || '', p.setup_fee || '',
+              p.discount || '', p.ad_spend_limit || '', p.start_date || '', p.valid_stopped_date || '',
+              p.client_ad_id_name || '', p.ad_id_number || '', p.ad_account_type || '',
+              p.active === false ? 0 : 1,
+              productId, clientId
+            ]
+          );
+          // Also update renewals entry for this product so they stay in sync
+          run(`UPDATE renewals SET
+            tier = ?, setup_type = ?, subscription_fee = ?, setup_fee = ?,
+            discount = ?, ad_spend_limit = ?, start_date = ?, valid_stopped_date = ?,
+            client_ad_id_name = ?, ad_id_number = ?, ad_account_type = ?,
+            visual_status = ?, client_name = ?
+            WHERE sr_no = ? AND client_id = ?`,
+            [
+              p.tier || '', p.setup_type || '', p.subscription_fee || '', p.setup_fee || '',
+              p.discount || '', p.ad_spend_limit || '', p.start_date || '', p.valid_stopped_date || '',
+              p.client_ad_id_name || '', p.ad_id_number || '', p.ad_account_type || '',
+              p.active === false ? '' : 'Active', name,
+              sr_no, clientId
+            ]
+          );
+        } else {
+          // Legacy renewals path
+          run(insertRenewal, [
+            sr_no,
+            clientId,
+            name,
+            p.client_status_history || '',
+            p.month || '',
+            p.start_date || '',
+            p.client_ad_id_name || '',
+            p.ad_id_number || '',
+            p.ad_account_type || '',
+            p.tier || '',
+            p.ad_spend_limit || '',
+            p.setup_type || '',
+            p.subscription_fee || '',
+            p.setup_fee || '',
+            p.discount || '',
+            p.cl_amount || '',
+            p.referral_partner_name || '',
+            p.referral_amount || '',
+            p.valid_stopped_date || '',
+            p.payment_name || '',
+            p.bank_name || '',
+            p.amount_received || '',
+            p.payment_received_date || '',
+            p.payment_received_month || '',
+            p.reference_no || '',
+            p.actual_balance_difference || '',
+            p.notes || '',
+            p.active === false ? '' : 'Active',
+            p.is_trial ? 1 : 0,
+          ]);
+        }
       }
       run('COMMIT');
     } catch (e) {

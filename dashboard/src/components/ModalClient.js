@@ -2269,6 +2269,10 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                                 <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{product.ad_id_number || '—'}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Name</span>
+                                <span style={{ fontWeight: '600' }}>{product.client_ad_id_name || '—'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Type</span>
                                 <span style={{ fontWeight: '600' }}>{product.ad_account_type || '—'}</span>
                               </div>

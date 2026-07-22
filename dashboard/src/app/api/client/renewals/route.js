@@ -68,6 +68,7 @@ export async function GET(req) {
       start_date: r.start_date,
       reference_no: r.reference_no,
       ad_id_number: r.ad_id_number,
+      ad_account_name: r.client_ad_id_name,
       ad_spend_limit: r.ad_spend_limit,
       current_spend: r.current_spend,
       cl_amount: r.cl_amount,

@@ -148,6 +148,9 @@ export default function ProductsPage() {
               product={r}
               onClick={() => setSelectedProduct(r)}
               onUpgrade={() => setUpgradeProduct(r)}
+              onAdAccountNameSave={() => {
+                fetch('/api/client/renewals').then(res => res.json()).then(data => setRenewals(data));
+              }}
             />
           ))}
         </div>
@@ -158,6 +161,13 @@ export default function ProductsPage() {
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
           onUpgrade={() => { setUpgradeProduct(selectedProduct); setSelectedProduct(null); }}
+          onSaveSuccess={({ ad_account_name }) => {
+            // Refresh renewals list with updated ad_account_name
+            fetch('/api/client/renewals').then(r => r.json()).then(data => {
+              setRenewals(data);
+              setSelectedProduct(null);
+            });
+          }}
         />
       )}
 
@@ -275,7 +285,7 @@ export default function ProductsPage() {
   );
 }
 
-function ProductCard({ product, onClick, onUpgrade }) {
+function ProductCard({ product, onClick, onUpgrade, onAdAccountNameSave }) {
   const clAmount = parseFloat(String(product.cl_amount || '0').replace(/[^0-9.]/g, '')) || 0;
   const adSpendLimit = parseFloat(String(product.ad_spend_limit || '0').replace(/[^0-9.]/g, '')) || 0;
 
@@ -294,7 +304,39 @@ function ProductCard({ product, onClick, onUpgrade }) {
         <div>
           <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} />
           {product.ad_id_number && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '6px' }}>AD Account: {product.ad_id_number}</p>
+            <div style={{ marginTop: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>AD Account:</span>
+                <input
+                  type="text"
+                  defaultValue={product.ad_account_name || ''}
+                  placeholder="Name"
+                  onBlur={(e) => {
+                    const newName = e.target.value;
+                    if (newName !== (product.ad_account_name || '')) {
+                      fetch(`/api/renewals/${product.sr_no}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ client_ad_id_name: newName }),
+                      }).then(() => {
+                        if (onAdAccountNameSave) onAdAccountNameSave();
+                      });
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-main)',
+                    color: 'var(--text-primary)',
+                    fontSize: '11px',
+                    minWidth: '80px',
+                  }}
+                />
+                <span style={{ color: 'var(--text-secondary)', fontSize: '10px', fontFamily: 'monospace' }}>({product.ad_id_number})</span>
+              </div>
+            </div>
           )}
           {adSpendLimit > 0 && (
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', marginTop: '2px' }}>Limit: {fmtUSD(adSpendLimit)}</p>
@@ -384,12 +426,34 @@ function Row({ label, value, bold, green, purple }) {
   );
 }
 
-function ProductModal({ product, onClose, onUpgrade }) {
+function ProductModal({ product, onClose, onUpgrade, onSaveSuccess }) {
+  const [adAccountName, setAdAccountName] = useState(product.ad_account_name || '');
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
+
+  const saveAdAccountName = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/renewals/${product.sr_no}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_ad_id_name: adAccountName }),
+      });
+      if (res.ok) {
+        if (onSaveSuccess) onSaveSuccess({ ...product, ad_account_name: adAccountName });
+        else onClose();
+      }
+    } catch (e) {
+      console.error('Failed to save:', e);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const sub = parseFloat(String(product.subscription_fee || '0').replace(/[^0-9.]/g, '')) || 0;
   const setup = parseFloat(String(product.setup_fee || '0').replace(/[^0-9.]/g, '')) || 0;
@@ -438,7 +502,44 @@ function ProductModal({ product, onClose, onUpgrade }) {
           </div>
 
           <Section title="Product Details">
-            <InfoRow label="AD Account" value={product.ad_id_number || '—'} />
+            <InfoRow label="AD Account ID" value={product.ad_id_number || '—'} />
+            <div style={{ padding: '6px 0', fontSize: '13px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>AD Account Name</span>
+                <button
+                  onClick={saveAdAccountName}
+                  disabled={saving || adAccountName === (product.ad_account_name || '')}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    backgroundColor: saving ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.15)',
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+              <input
+                type="text"
+                value={adAccountName}
+                onChange={(e) => setAdAccountName(e.target.value)}
+                placeholder="Enter AD Account Name"
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
             <InfoRow label="Account Type" value={product.ad_account_type || '—'} />
             <InfoRow label="Spend Limit" value={adSpendLimit > 0 ? fmtUSD(adSpendLimit) : '—'} />
             <InfoRow label="Spend" value={(() => {

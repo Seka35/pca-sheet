@@ -154,8 +154,8 @@ export function validateUpdateClientPayload(body, clientIdNum) {
     const p = normalizeProduct(body.products[i], { allowSrNo: true });
     if (!p) return { ok: false, error: `Product #${i + 1}: invalid` };
 
-    if (p.sr_no) {
-      // Existing product — verify the sr_no belongs to this client.
+    if (p.sr_no && !p.sr_no.startsWith('CP_')) {
+      // Existing product from renewals — verify the sr_no belongs to this client.
       const f = parseFloat(p.sr_no);
       if (!Number.isFinite(f) || Math.floor(f) !== clientIdNum) {
         return {
@@ -164,6 +164,7 @@ export function validateUpdateClientPayload(body, clientIdNum) {
         };
       }
     }
+    // Products with CP_ prefix are from client_products (new architecture) — skip sr_no validation.
     // For new products, tier or setup_type is required.
     if (!p.sr_no && !p.tier && !p.setup_type) {
       return { ok: false, error: `New product #${i + 1}: tier or setup_type is required` };
