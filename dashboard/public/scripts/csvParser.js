@@ -215,6 +215,7 @@ function buildSimulatedClients(headers, rows, mapping) {
         referral_partner_name: firstRow.referral_partner_name || '',
         discount: firstRow.discount || '',
         cl_amount: firstRow.cl_amount || '',
+        ad_account_type: firstRow.ad_account_type || '',
       };
     });
 
