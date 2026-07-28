@@ -30,13 +30,22 @@ export default function SimulationClientModal({
       clientData.history.forEach((product) => {
         if (product.history && Array.isArray(product.history)) {
           product.history.forEach((payment) => {
+            // Map client_status_history to payment type
+            // New/Renewed → MONTHLY, Upgraded → UPGRADE, Replacement/Trial → keep as status (not a payment type)
+            const statusMap = {
+              'new': 'MONTHLY',
+              'renewed': 'MONTHLY',
+              'upgraded': 'UPGRADE',
+            };
+            const paymentType = statusMap[(payment.client_status_history || '').toLowerCase()] || null;
+
             allPayments.push({
               id: payment.reference_no || `${product.sr_no}_${payment.month}`,
               sr_no: product.sr_no || '',
               renewal_sr_no: product.sr_no || '',
               client_id: simulatedId,
               client_name: clientData.nom || '',
-              client_status_history: product.client_status_history || '',
+              client_status_history: payment.client_status_history || '',
               month: payment.month || '',
               valid_stopped_date: product.valid_stopped_date || '',
               payment_name: payment.payment_name || '',
@@ -47,6 +56,7 @@ export default function SimulationClientModal({
               actual_balance_difference: payment.actual_balance_difference || 0,
               reference_no: payment.reference_no || '',
               source: 'payment_history',
+              type: paymentType,
               // Extra product info for display
               tier: product.tier || '',
               setup_type: product.setup_type || '',

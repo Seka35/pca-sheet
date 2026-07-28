@@ -158,6 +158,7 @@ function buildSimulatedClients(headers, rows, mapping) {
         bank_name: entry.bank_name || '',
         payment_name: entry.payment_name || '',
         actual_balance_difference: entry.actual_balance_difference || 0,
+        client_status_history: entry.client_status_history || '',
       });
 
       // Track latest values (use most recent non-empty)
