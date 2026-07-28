@@ -45,6 +45,7 @@ export default function SimulationClientModal({
               payment_received_date: payment.payment_date || '',
               payment_received_month: payment.month || '',
               actual_balance_difference: payment.actual_balance_difference || 0,
+              reference_no: payment.reference_no || '',
               source: 'payment_history',
               // Extra product info for display
               tier: product.tier || '',
