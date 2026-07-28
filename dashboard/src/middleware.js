@@ -75,6 +75,7 @@ export async function middleware(request) {
     path === '/login/client' ||
     path.startsWith('/api/auth/') ||
     path.startsWith('/api/invoice') ||
+    path.startsWith('/scripts/') ||
     path === '/PCA.png' ||
     path === '/PCA-white.png' ||
     path === '/favicon.ico' ||

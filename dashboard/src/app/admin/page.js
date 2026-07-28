@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminUserList from '@/components/admin/AdminUserList';
 import ActivityLogList from '@/components/admin/ActivityLogList';
+import ImportTab from '@/components/admin/ImportTab';
 
 // SVG Icons matching sidebar style
 const IconUsers = ({ size = 16, color = 'currentColor' }) => (
@@ -48,12 +49,21 @@ const IconClients = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 );
 
+const IconImport = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
+  </svg>
+);
+
 const TABS = [
   { id: 'users', label: 'Users', Icon: IconUsers },
   { id: 'clients', label: 'Clients', Icon: IconClients },
   { id: 'activity', label: 'Activity', Icon: IconActivity },
   { id: 'backup', label: 'Backup', Icon: IconBackup },
   { id: 'bot', label: 'Bot Telegram', Icon: IconBot },
+  { id: 'import', label: 'Import', Icon: IconImport },
 ];
 
 export default function AdminPage() {
@@ -399,6 +409,8 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {activeTab === 'import' && <ImportTab />}
     </div>
   );
 }
