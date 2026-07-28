@@ -315,7 +315,7 @@ export function autoDetectMapping(headers) {
       referral_partner_name: 'referral_partner_name', referral_partner: 'referral_partner_name', partner: 'referral_partner_name', referral: 'referral_partner_name',
       referral_amount: 'referral_amount',
       client_status_history: 'client_status_history', client_status: 'client_status_history',
-      visual_status: 'visual_status', status_active: 'visual_status', ' _status': 'visual_status',
+      visual_status: 'visual_status', status_active: 'visual_status', ' _status': 'visual_status', status: 'visual_status',
       notes: 'notes', comments: 'notes',
       company_name: 'company_name',
       company_number: 'company_number',
