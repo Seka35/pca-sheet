@@ -203,6 +203,7 @@ function buildSimulatedClients(headers, rows, mapping) {
 
       // Use visual_status directly from CSV if available (Active/Stopped), otherwise fall back to deriving from client_status_history
       const rawVisualStatus = (p.latestVisualStatus || '').toLowerCase();
+      console.log('[DEBUG] rawVisualStatus:', rawVisualStatus, 'latestStatus:', p.latestStatus);
       let visual_status = 'Inactive';
       if (rawVisualStatus === 'active') {
         visual_status = 'Active';
