@@ -138,6 +138,7 @@ function buildSimulatedClients(headers, rows, mapping) {
           latestStatus: '',
           latestAdId: '',
           latestAdIdName: '',
+          latestVisualStatus: '',
           is_trial: 0,
           firstRow: entry,
         };
@@ -171,6 +172,9 @@ function buildSimulatedClients(headers, rows, mapping) {
       if (entry.client_ad_id_name) {
         productMap[key].latestAdIdName = entry.client_ad_id_name;
       }
+      if (entry.visual_status) {
+        productMap[key].latestVisualStatus = entry.visual_status;
+      }
 
       // Trial flag
       if (entry.client_status_history && entry.client_status_history.toLowerCase() === 'trial') {
@@ -197,8 +201,18 @@ function buildSimulatedClients(headers, rows, mapping) {
       let setup_fee = p.setup_type && SETUP_PRICING[p.setup_type] ? parseFloat(SETUP_PRICING[p.setup_type]) : 0;
       if (firstRow.setup_fee > 0) setup_fee = firstRow.setup_fee;
 
-      const visual_status = ['new', 'renewed', 'upgraded', 'replacement', 'trial'].includes((p.latestStatus || '').toLowerCase())
-        ? 'Active' : 'Inactive';
+      // Use visual_status directly from CSV if available (Active/Stopped), otherwise fall back to deriving from client_status_history
+      const rawVisualStatus = (p.latestVisualStatus || '').toLowerCase();
+      let visual_status = 'Inactive';
+      if (rawVisualStatus === 'active') {
+        visual_status = 'Active';
+      } else if (rawVisualStatus === 'stopped') {
+        visual_status = 'Inactive';
+      } else {
+        // Fall back to deriving from client_status_history
+        visual_status = ['new', 'renewed', 'upgraded', 'replacement', 'trial'].includes((p.latestStatus || '').toLowerCase())
+          ? 'Active' : 'Inactive';
+      }
 
       return {
         sr_no: `SIM_${idx + 1}_${productIdx + 1}`,
