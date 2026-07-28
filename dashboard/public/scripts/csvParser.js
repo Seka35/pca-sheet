@@ -137,6 +137,7 @@ function buildSimulatedClients(headers, rows, mapping) {
           history: [],
           latestStatus: '',
           latestAdId: '',
+          latestAdIdName: '',
           is_trial: 0,
           firstRow: entry,
         };
@@ -165,6 +166,9 @@ function buildSimulatedClients(headers, rows, mapping) {
       }
       if (entry.ad_id_number) {
         productMap[key].latestAdId = entry.ad_id_number;
+      }
+      if (entry.client_ad_id_name) {
+        productMap[key].latestAdIdName = entry.client_ad_id_name;
       }
 
       // Trial flag
@@ -204,6 +208,7 @@ function buildSimulatedClients(headers, rows, mapping) {
         subscription_fee: subscription_fee.toString(),
         setup_fee: setup_fee.toString(),
         ad_id_number: p.latestAdId,
+        client_ad_id_name: p.latestAdIdName || '',
         amount_received: p.history.reduce((s, h) => s + h.amount_received, 0),
         is_trial: p.is_trial,
         history: p.history,
