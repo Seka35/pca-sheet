@@ -13,7 +13,15 @@ const SETUP_PRICING = {
 
 function parseAmount(val) {
   if (!val || val === '-' || val.toString().trim() === '-') return 0;
-  return parseFloat(val.toString().replace(/[^0-9.,\-]/g, '').replace(/\s/g, '').replace(',', '.').replace('$', '')) || 0;
+  // Remove all non-numeric chars except comma and dot
+  let cleaned = val.toString().replace(/[^0-9.,\-]/g, '').replace(/\s/g, '');
+  // If comma exists, it's either a decimal separator or thousands separator
+  // Replace first comma with dot, then remove remaining commas
+  // This handles: 2,500.00 → 2500, 2.500,00 → 2500, 2,5 → 2.5
+  if (cleaned.includes(',')) {
+    cleaned = cleaned.replace(',', '.').replace(/,/g, '');
+  }
+  return parseFloat(cleaned) || 0;
 }
 
 function normalizeClientName(name) {
@@ -100,9 +108,9 @@ function buildSimulatedClients(headers, rows, mapping) {
             val = val.toUpperCase().replace(/\s+/g, ' ').trim();
           }
 
-          // Parse amounts to numbers
+          // Parse amounts to numbers (ad_spend_limit is kept as string to preserve values like "2500")
           if (dbField === 'amount_received' || dbField === 'subscription_fee' ||
-              dbField === 'setup_fee' || dbField === 'ad_spend_limit' ||
+              dbField === 'setup_fee' ||
               dbField === 'referral_amount' || dbField === 'discount' ||
               dbField === 'cl_amount' || dbField === 'actual_balance_difference') {
             entry[dbField] = parseAmount(val);
