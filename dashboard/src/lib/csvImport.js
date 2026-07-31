@@ -73,7 +73,7 @@ export function parseCSV(file, headerRowIndex = 0) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: false,
-      skipEmptyLines: true,
+      skipEmptyLines: 'greedy',
       complete: (results) => {
         if (results.errors.length > 0) {
           reject(new Error(results.errors[0].message));
@@ -509,7 +509,7 @@ export function autoDetectMapping(headers) {
       company_name: 'company_name',
       company_number: 'company_number',
       cl_amount: 'cl_amount',
-      sr_no: 'sr_no',
+      sr_no: 'sr_no', srno: 'sr_no', sr_no_: 'sr_no', sr: 'sr_no', s_no: 'sr_no', sl_no: 'sr_no',
       address: 'address',
       client_owner: 'client_owner',
       actual_balance_difference: 'actual_balance_difference',
