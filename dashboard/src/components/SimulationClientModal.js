@@ -66,7 +66,9 @@ export default function SimulationClientModal({
               type: paymentType,
               is_topup: isTopUp ? 1 : 0,
               // Extra product info for display
-              tier: product.tier || '',
+              tier: payment.tier || product.tier || '',
+              from_tier: payment.from_tier,
+              to_tier: payment.to_tier,
               setup_type: payment.setup_type || product.setup_type || '',
               is_trial: product.is_trial || 0,
             });

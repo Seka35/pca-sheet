@@ -3028,10 +3028,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                       // badgeTier = what client originally had (from_tier for UPGRADE, product.tier otherwise)
                       // badgeOriginalTier = undefined for UPGRADE (since badgeTier already = original), use to_tier for RENEWAL_PONCTUAL
                       const isUpgradeTx = payment.type === 'UPGRADE' || payment.type === 'SUB_UPGRADE';
-                      const badgeTier = isUpgradeTx ? (payment.from_tier || payment.to_tier) : (payment.tier || product?.tier);
-                      const badgeSetup = isUpgradeTx ? (payment.from_setup || payment.to_setup) : (payment.setup_type || product?.setup_type);
+                      const badgeTier = isUpgradeTx ? (payment.to_tier || payment.tier || product?.tier) : (payment.tier || product?.tier);
+                      const badgeSetup = isUpgradeTx ? (payment.to_setup || payment.setup_type || product?.setup_type) : (payment.setup_type || product?.setup_type);
                       const showPonctualBadge = isUpgradePonctual || payment.type === 'RENEWAL_PONCTUAL';
-                      // For UPGRADE: badgeTier = original, so no separate original_tier needed
                       // For RENEWAL_PONCTUAL: use to_tier as the "upgraded" tier for the PONCTUAL badge
                       const badgeOriginalTier = payment.type === 'RENEWAL_PONCTUAL' ? (payment.to_tier) : undefined;
                       // Period: use payment_received_date formatted (e.g. "15 Jul 2026"), fallback to payment_received_month
@@ -3042,6 +3041,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                         return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                       };
                       const periodDisplay = payment.payment_received_date ? formatDate(payment.payment_received_date) : (payment.payment_received_month || payment.period || '—');
+                      const prorataVal = payment.prorata_amount || payment.amount_received || 0;
                       return (
                         <tr key={`payment-${payment.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', backgroundColor: paymentBillingStatus === 'UNPAID' ? 'rgba(239, 68, 68, 0.03)' : paymentBillingStatus === 'PARTIAL' ? 'rgba(245, 158, 11, 0.03)' : 'rgba(16, 185, 129, 0.03)' }}>
                           <td style={{ padding: '16px 8px' }}>
@@ -3078,7 +3078,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                             ) : '—'}
                           </td>
                           <td style={{ padding: '16px 8px' }}>
-                            <ProductBadge tier={badgeTier} setup_type={badgeSetup} is_trial={false} is_ponctual={showPonctualBadge} original_tier={badgeOriginalTier} showUpgradeBadge={isUpgradeTx && showPonctualBadge} upgradedTier={isUpgradeTx ? payment.to_tier : undefined} />
+                            <ProductBadge tier={badgeTier} setup_type={badgeSetup} is_trial={false} is_ponctual={showPonctualBadge} original_tier={badgeOriginalTier} showUpgradeBadge={false} />
                           </td>
                           <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             {payment.from_tier || payment.from_setup ? (
@@ -3090,8 +3090,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                               <span>{payment.to_tier || '—'}{payment.to_setup ? ` + ${payment.to_setup}` : ''}</span>
                             ) : '—'}
                           </td>
-                          <td style={{ padding: '16px 8px', fontSize: '11px', color: payment.prorata_amount ? '#C084FC' : 'var(--text-secondary)' }}>
-                            {payment.prorata_amount ? `+$${payment.prorata_amount}` : '—'}
+                          <td style={{ padding: '16px 8px', fontSize: '11px', color: isUpgradeTx ? '#C084FC' : 'var(--text-secondary)' }}>
+                            {isUpgradeTx ? `+$${prorataVal}` : (payment.prorata_amount ? `+$${payment.prorata_amount}` : '—')}
                           </td>
                           <td style={{ padding: '16px 8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
