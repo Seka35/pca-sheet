@@ -277,16 +277,32 @@ function buildSimulatedClients(headers, rows, mapping) {
           ? 'Active' : 'Inactive';
       }
 
-      // Calculate total topup sum from payment history
+      // Check if ad_account_type is CL (Credit Line)
+      const adAccountTypeClean = (firstRow.ad_account_type || '').toString().trim().toUpperCase();
+      const isCL = adAccountTypeClean.includes('CL') || adAccountTypeClean.includes('CREDIT');
+
+      // Calculate total topup sum and surplus payment over expected fee for CL accounts
+      let surplusSum = 0;
       const topupSum = p.history.reduce((sum, h) => {
         const st = (h.setup_type || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
         if (st === 'topup') {
           return sum + (h.amount_received || 0);
         }
+        // For non-topup payments on CL accounts, if amount_received > subscription_fee + setup_fee, add difference to CL
+        if (isCL) {
+          const rowTierPrice = TIER_PRICING[h.tier || p.tier] ? parseFloat(TIER_PRICING[h.tier || p.tier]) : subscription_fee;
+          const rowSetupPrice = h.setup_type && SETUP_PRICING[h.setup_type] ? parseFloat(SETUP_PRICING[h.setup_type]) : 0;
+          const expectedFee = rowTierPrice + rowSetupPrice;
+          const amt = h.amount_received || 0;
+          if (amt > expectedFee && expectedFee > 0) {
+            surplusSum += (amt - expectedFee);
+          }
+        }
         return sum;
       }, 0);
+
       const csvClAmount = parseFloat(firstRow.cl_amount || '0') || 0;
-      const finalClAmount = (csvClAmount + topupSum).toString();
+      const finalClAmount = (csvClAmount + topupSum + surplusSum).toString();
 
       return {
         sr_no: `SIM_${idx + 1}_${productIdx + 1}`,
