@@ -147,7 +147,7 @@ function buildSimulatedClients(headers, rows, mapping) {
     });
 
     // Group by product key: group rows into products
-    // If a row is Top-up, attach it to the existing tier/product for this client instead of creating a separate Top-up product
+    // Detect permanent upgrades (client_status_history = 'upgrade' or 'upgraded')
     const productMap = {};
     paymentHistory.forEach((entry) => {
       const tier = entry.tier || '';
@@ -155,19 +155,18 @@ function buildSimulatedClients(headers, rows, mapping) {
       const setupClean = rawSetup.toLowerCase().replace(/[^a-z0-9]/g, '');
       const isTopUpRow = setupClean === 'topup';
 
-      // Find existing product key for this tier/client if available
+      const statusClean = (entry.client_status_history || '').toString().trim().toLowerCase();
+      const isUpgradeRow = statusClean === 'upgrade' || statusClean === 'upgraded';
+
+      // Find existing product key
       let key;
-      if (isTopUpRow) {
-        // Try to match an existing product key with the same tier
-        const existingKey = Object.keys(productMap).find(k => productMap[k].tier === tier || (tier && k.startsWith(tier + '|')));
+      if (isTopUpRow || isUpgradeRow) {
+        // For Top-up or Upgrade, attach to an existing product for this client
+        const existingKey = Object.keys(productMap)[0];
         if (existingKey) {
           key = existingKey;
-        } else if (Object.keys(productMap).length > 0) {
-          // If tier is empty or not matched yet, attach to the first/primary product of this client
-          key = Object.keys(productMap)[0];
         } else {
-          // No product created yet for this client: fallback key
-          key = tier ? (tier + '|') : 'MainProduct';
+          key = tier ? (tier + '|' + (isTopUpRow ? '' : rawSetup)) : 'MainProduct';
         }
       } else {
         key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
@@ -175,7 +174,7 @@ function buildSimulatedClients(headers, rows, mapping) {
 
       if (!productMap[key]) {
         productMap[key] = {
-          tier: tier || (isTopUpRow ? 'TIER 1' : ''),
+          tier: tier || '',
           setup_type: isTopUpRow ? '' : rawSetup,
           history: [],
           latestStatus: '',
@@ -187,9 +186,15 @@ function buildSimulatedClients(headers, rows, mapping) {
         };
       } else {
         // Keep the earliest row (for start_date, valid_until) if not topup
-        if (!isTopUpRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
+        if (!isTopUpRow && !isUpgradeRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
           productMap[key].firstRow = entry;
         }
+      }
+
+      const previousTier = productMap[key].tier;
+      // If this row is an upgrade and tier changed (e.g. TIER 1 -> TIER 5), update current tier of the product
+      if (isUpgradeRow && tier && tier !== previousTier) {
+        productMap[key].tier = tier;
       }
 
       // Add payment to history (always, even if amount is 0 — needed for trials)
@@ -204,6 +209,10 @@ function buildSimulatedClients(headers, rows, mapping) {
         actual_balance_difference: entry.actual_balance_difference || 0,
         client_status_history: entry.client_status_history || '',
         setup_type: entry.setup_type || '',
+        tier: tier || previousTier,
+        from_tier: isUpgradeRow ? (previousTier || tier) : undefined,
+        to_tier: isUpgradeRow ? tier : undefined,
+        is_upgrade: isUpgradeRow,
       });
 
       // Track latest values (use most recent non-empty)

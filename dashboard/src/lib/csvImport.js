@@ -200,15 +200,16 @@ export function buildSimulatedClients(headers, rows, mapping) {
       const setupClean = rawSetup.toLowerCase().replace(/[^a-z0-9]/g, '');
       const isTopUpRow = setupClean === 'topup';
 
+      const statusClean = (entry.client_status_history || '').toString().trim().toLowerCase();
+      const isUpgradeRow = statusClean === 'upgrade' || statusClean === 'upgraded';
+
       let key;
-      if (isTopUpRow) {
-        const existingKey = Object.keys(productMap).find(k => productMap[k].tier === tier || (tier && k.startsWith(tier + '|')));
+      if (isTopUpRow || isUpgradeRow) {
+        const existingKey = Object.keys(productMap)[0];
         if (existingKey) {
           key = existingKey;
-        } else if (Object.keys(productMap).length > 0) {
-          key = Object.keys(productMap)[0];
         } else {
-          key = tier ? (tier + '|') : 'MainProduct';
+          key = tier ? (tier + '|' + (isTopUpRow ? '' : rawSetup)) : 'MainProduct';
         }
       } else {
         key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
@@ -216,7 +217,7 @@ export function buildSimulatedClients(headers, rows, mapping) {
 
       if (!productMap[key]) {
         productMap[key] = {
-          tier: tier || (isTopUpRow ? 'TIER 1' : ''),
+          tier: tier || '',
           setup_type: isTopUpRow ? '' : rawSetup,
           history: [],
           latestStatus: '',
@@ -227,9 +228,14 @@ export function buildSimulatedClients(headers, rows, mapping) {
           firstRow: entry,
         };
       } else {
-        if (!isTopUpRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
+        if (!isTopUpRow && !isUpgradeRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
           productMap[key].firstRow = entry;
         }
+      }
+
+      const previousTier = productMap[key].tier;
+      if (isUpgradeRow && tier && tier !== previousTier) {
+        productMap[key].tier = tier;
       }
 
       const amount = entry.amount_received || 0;
@@ -243,6 +249,10 @@ export function buildSimulatedClients(headers, rows, mapping) {
         actual_balance_difference: entry.actual_balance_difference || 0,
         client_status_history: entry.client_status_history || '',
         setup_type: entry.setup_type || '',
+        tier: tier || previousTier,
+        from_tier: isUpgradeRow ? (previousTier || tier) : undefined,
+        to_tier: isUpgradeRow ? tier : undefined,
+        is_upgrade: isUpgradeRow,
       });
 
       if (entry.client_status_history) productMap[key].latestStatus = entry.client_status_history;
