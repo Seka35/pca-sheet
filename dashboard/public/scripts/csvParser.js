@@ -206,8 +206,20 @@ function buildSimulatedClients(headers, rows, mapping) {
         productMap[key].tier = tier;
       }
 
-      // Add payment to history (always, even if amount is 0 — needed for trials)
-      const amount = entry.amount_received || 0;
+      // Calculate expected fee for this row (tier pricing + setup pricing)
+      const currentTier = tier || previousTier;
+      const expectedTierPrice = currentTier && TIER_PRICING[currentTier] ? parseFloat(TIER_PRICING[currentTier]) : 0;
+      const expectedSetupPrice = entry.setup_type && SETUP_PRICING[entry.setup_type] ? parseFloat(SETUP_PRICING[entry.setup_type]) : 0;
+      const totalExpectedFee = expectedTierPrice + expectedSetupPrice;
+
+      let amount = entry.amount_received || 0;
+      // Fee tolerance adjustment: if amount is slightly below expected fee (>=90% or <=$25 gap), normalize amount to full expected fee
+      if (totalExpectedFee > 0 && amount < totalExpectedFee && !isTopUpRow) {
+        if (amount >= totalExpectedFee * 0.90 || (totalExpectedFee - amount) <= 25) {
+          amount = totalExpectedFee;
+        }
+      }
+
       productMap[key].history.push({
         month: entry.month || '',
         payment_date: entry.payment_received_date || '',
@@ -218,7 +230,7 @@ function buildSimulatedClients(headers, rows, mapping) {
         actual_balance_difference: entry.actual_balance_difference || 0,
         client_status_history: entry.client_status_history || '',
         setup_type: entry.setup_type || '',
-        tier: tier || previousTier,
+        tier: currentTier,
         from_tier: isUpgradeRow ? (previousTier || tier) : undefined,
         to_tier: isUpgradeRow ? tier : undefined,
         is_upgrade: isUpgradeRow,

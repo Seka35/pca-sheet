@@ -669,8 +669,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     // Get received from payment_history aggregation instead of product field
     const received = getTotalReceivedForProduct(p);
     let totalDue = (sub + setup) - disc;
-    // If received >= total due, it's fully paid
-    if (received >= totalDue) return 0;
+    // Transaction fee tolerance threshold: if received >= 90% of totalDue OR gap <= $25, treat as fully paid
+    if (received >= totalDue || (totalDue > 0 && (received >= totalDue * 0.90 || (totalDue - received) <= 25))) return 0;
     // Otherwise return what's still due
     return Math.max(0, totalDue - received);
   };
@@ -684,7 +684,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     // Get received from payment_history aggregation
     const received = getTotalReceivedForProduct(p);
     const totalDue = (sub + setup) - disc;
-    if (received >= totalDue) return { status: 'FULLY PAID', color: '#10B981' };
+    if (received >= totalDue || (totalDue > 0 && (received >= totalDue * 0.90 || (totalDue - received) <= 25))) return { status: 'FULLY PAID', color: '#10B981' };
     if (received > 0) return { status: 'PARTIALLY PAID', color: '#F59E0B' };
     return { status: 'UNPAID', color: '#EF4444' };
   };
@@ -2990,13 +2990,14 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                         } else if (payment.type === 'TOPUP') {
                           paymentBillingStatus = 'TOPUP';
                         } else if (payment.type === 'MONTHLY') {
-                          // MONTHLY from payment_history: calculate actual status
+                          // MONTHLY from payment_history: calculate actual status with fee tolerance
                           const sub = parseAmount(product?.subscription_fee);
                           const setup = parseAmount(product?.setup_fee);
                           const disc = parseAmount(product?.discount);
                           const received = parseAmount(payment.amount_received);
                           const totalDue = (sub + setup) - disc;
-                          if (received >= totalDue && totalDue > 0) {
+                          const isFullyPaid = received >= totalDue || (totalDue > 0 && (received >= totalDue * 0.90 || (totalDue - received) <= 25));
+                          if (isFullyPaid && totalDue > 0) {
                             paymentBillingStatus = 'PAID';
                           } else if (received > 0) {
                             paymentBillingStatus = 'PARTIAL';
@@ -3014,11 +3015,12 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                         const received = parseAmount(payment.amount_received);
                         const totalDue = (sub + setup) - disc;
                         const isZeroOrEmpty = !payment.amount_received || payment.amount_received === '0' || payment.amount_received === '';
+                        const isFullyPaid = received >= totalDue || (totalDue > 0 && (received >= totalDue * 0.90 || (totalDue - received) <= 25));
                         if (payment.is_topup === 1) {
                           paymentBillingStatus = 'TOPUP';
                         } else if (isZeroOrEmpty) {
                           paymentBillingStatus = 'UNPAID';
-                        } else if (received >= totalDue && totalDue > 0) {
+                        } else if (isFullyPaid && totalDue > 0) {
                           paymentBillingStatus = 'PAID';
                         } else if (received > 0) {
                           paymentBillingStatus = 'PARTIAL';
