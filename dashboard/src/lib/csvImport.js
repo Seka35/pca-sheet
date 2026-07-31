@@ -150,8 +150,7 @@ export function buildSimulatedClients(headers, rows, mapping) {
 
     if (tierIdx !== null && tierIdx !== undefined) {
       const tierVal = (row[tierIdx] || '').toString().trim();
-      const tierUpper = tierVal.toUpperCase();
-      if (tierUpper === 'TIER' || (tierUpper && headerSet.has(tierUpper) && tierUpper.length > 5)) return;
+      if (tierVal.toUpperCase() === 'TIER') return;
     }
 
     const srNoIdx = mapping.sr_no;
@@ -172,12 +171,14 @@ export function buildSimulatedClients(headers, rows, mapping) {
       }
     }
 
-    if (!groupKey) return;
+    if (!groupKey) {
+      groupKey = `UNPARSED_ROW_${Math.random().toString(36).slice(2)}`;
+    }
 
     if (!clientGroups[groupKey]) {
-      clientGroups[groupKey] = { rawName: rawName || `Client ${rawSrNo}`, rows: [] };
+      clientGroups[groupKey] = { rawName: rawName || (rawSrNo ? `Client ${rawSrNo}` : 'Ligne CSV non identifiée'), rows: [], isUnparseable: !normSrNo && !rawName };
     }
-    if (rawName && (!clientGroups[groupKey].rawName || clientGroups[groupKey].rawName.startsWith('Client '))) {
+    if (rawName && (!clientGroups[groupKey].rawName || clientGroups[groupKey].rawName.startsWith('Client ') || clientGroups[groupKey].rawName.startsWith('Ligne '))) {
       clientGroups[groupKey].rawName = rawName;
     }
     clientGroups[groupKey].rows.push(row);
@@ -389,6 +390,9 @@ export function buildSimulatedClients(headers, rows, mapping) {
     const produits = products.map((h) => h.tier || h.setup_type).filter(Boolean).join(', ') || '—';
 
     const parsingIssues = [];
+    if (group.isUnparseable) {
+      parsingIssues.push({ type: 'CRITICAL', field: 'Ligne CSV', message: 'Ligne ignorée : référence SrNo et Nom de client introuvables' });
+    }
     if (!rawName || rawName === 'unnamed' || rawName === '—') {
       parsingIssues.push({ type: 'CRITICAL', field: 'Client Name', message: 'Nom de client manquant ou invalide' });
     }

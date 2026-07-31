@@ -108,11 +108,10 @@ function buildSimulatedClients(headers, rows, mapping) {
     }
     if (row.length > 0 && headerMatchCount > row.length * 0.5) return;
 
-    // Skip rows where tier column matches a header row name or "TIER"
+    // Skip rows where tier column matches "TIER" header
     if (tierIdx !== null && tierIdx !== undefined) {
       const tierVal = (row[tierIdx] || '').toString().trim();
-      const tierUpper = tierVal.toUpperCase();
-      if (tierUpper === 'TIER' || (tierUpper && headerSet.has(tierUpper) && tierUpper.length > 5)) return;
+      if (tierVal.toUpperCase() === 'TIER') return;
     }
 
     const rawName = clientNameIdx !== null && clientNameIdx !== undefined
@@ -133,12 +132,15 @@ function buildSimulatedClients(headers, rows, mapping) {
       }
     }
 
-    if (!groupKey) return;
+    if (!groupKey) {
+      // Row has content but no name and no SrNo: create unparsed client object for human review in red banner
+      groupKey = `UNPARSED_ROW_${Math.random().toString(36).slice(2)}`;
+    }
 
     if (!clientGroups[groupKey]) {
-      clientGroups[groupKey] = { rawName: rawName || `Client ${rawSrNo}`, rows: [] };
+      clientGroups[groupKey] = { rawName: rawName || (rawSrNo ? `Client ${rawSrNo}` : 'Ligne CSV non identifiée'), rows: [], isUnparseable: !normSrNo && !rawName };
     }
-    if (rawName && (!clientGroups[groupKey].rawName || clientGroups[groupKey].rawName.startsWith('Client '))) {
+    if (rawName && (!clientGroups[groupKey].rawName || clientGroups[groupKey].rawName.startsWith('Client ') || clientGroups[groupKey].rawName.startsWith('Ligne '))) {
       clientGroups[groupKey].rawName = rawName;
     }
     clientGroups[groupKey].rows.push(row);
@@ -406,6 +408,10 @@ function buildSimulatedClients(headers, rows, mapping) {
 
     // Detect parsing issues & anomalies for human validation
     const parsingIssues = [];
+
+    if (group.isUnparseable) {
+      parsingIssues.push({ type: 'CRITICAL', field: 'Ligne CSV', message: 'Ligne ignorée : référence SrNo et Nom de client introuvables' });
+    }
 
     if (!rawName || rawName === 'unnamed' || rawName === '—') {
       parsingIssues.push({ type: 'CRITICAL', field: 'Client Name', message: 'Nom de client manquant ou invalide' });
