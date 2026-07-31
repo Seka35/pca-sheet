@@ -324,7 +324,14 @@ function SimulatedClientRow({ client, onClick }) {
       onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)')}
       onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
     >
-      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>{client.nom}</td>
+      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {client.hasIssues && (
+            <span style={{ fontSize: '12px', color: '#EF4444' }} title={`${client.parsingIssues?.length || 0} anomalie(s) détectée(s)`}>⚠️</span>
+          )}
+          <span>{client.nom}</span>
+        </div>
+      </td>
       <td style={{ padding: '12px 16px', fontSize: '13px' }}>
         {client.productDetails?.map((p, i) => (
           <span
@@ -358,8 +365,73 @@ function SimulatedClientRow({ client, onClick }) {
 // Simulation results table
 // ---------------------------------------------------------------------------
 function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
+  const clientsWithIssues = clients.filter(c => c.hasIssues || (c.parsingIssues && c.parsingIssues.length > 0));
+
   return (
     <div style={{ marginTop: '24px' }}>
+      {/* Red Alert Banner for Clients Requiring Human Review */}
+      {clientsWithIssues.length > 0 && (
+        <div
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '20px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <h4 style={{ color: '#F87171', fontSize: '15px', fontWeight: '700', margin: 0 }}>
+              {clientsWithIssues.length} Client{clientsWithIssues.length > 1 ? 's nécessitent' : ' nécessite'} une révision humaine (incohérences / erreurs CSV)
+            </h4>
+          </div>
+          <p style={{ color: '#FCA5A5', fontSize: '12px', margin: '0 0 12px 0', lineHeight: '1.5' }}>
+            Ces clients contiennent des données incomplètes ou ambiguës (ex: nom manquant, date invalide, montant non spécifié). Veuillez vérifier les lignes dans votre CSV ou cliquer dessus pour les inspecter :
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+            {clientsWithIssues.map(client => (
+              <div
+                key={client.id}
+                onClick={() => onClientClick(client)}
+                style={{
+                  display: 'flex',
+                  justify: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontWeight: '700', color: '#FEE2E2', fontSize: '13px' }}>{client.nom}</span>
+                  <span style={{ color: '#F87171', fontSize: '11px' }}>({client.produits})</span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {client.parsingIssues.map((issue, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        backgroundColor: issue.type === 'CRITICAL' ? '#EF4444' : '#DC2626',
+                        color: '#FFFFFF',
+                        fontSize: '10px',
+                        fontWeight: '700',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      {issue.field}: {issue.message}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
         <div>
           <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '2px' }}>

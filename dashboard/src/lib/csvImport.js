@@ -358,6 +358,30 @@ export function buildSimulatedClients(headers, rows, mapping) {
 
     const produits = products.map((h) => h.tier || h.setup_type).filter(Boolean).join(', ') || '—';
 
+    const parsingIssues = [];
+    if (!rawName || rawName === 'unnamed' || rawName === '—') {
+      parsingIssues.push({ type: 'CRITICAL', field: 'Client Name', message: 'Nom de client manquant ou invalide' });
+    }
+    if (products.length === 0) {
+      parsingIssues.push({ type: 'CRITICAL', field: 'Products', message: 'Aucun produit ni TIER associé à ce client' });
+    }
+    products.forEach((p, pIdx) => {
+      const pName = p.tier || p.setup_type || `Produit ${pIdx + 1}`;
+      if (!p.tier && !p.setup_type) {
+        parsingIssues.push({ type: 'WARNING', field: 'Product', message: `Produit ${pIdx + 1}: TIER ou Setup Type non spécifié` });
+      }
+      (p.history || []).forEach((h, hIdx) => {
+        if (!h.payment_date && !h.month) {
+          parsingIssues.push({ type: 'WARNING', field: 'Date', message: `${pName}: Date ou mois manquant pour la ligne de paiement ${hIdx + 1}` });
+        } else if (h.payment_date && isNaN(new Date(h.payment_date).getTime())) {
+          parsingIssues.push({ type: 'WARNING', field: 'Date', message: `${pName}: Format de date invalide ("${h.payment_date}")` });
+        }
+        if (h.amount_received === undefined || h.amount_received === null) {
+          parsingIssues.push({ type: 'WARNING', field: 'Amount', message: `${pName}: Montant reçu manquant à la ligne ${hIdx + 1}` });
+        }
+      });
+    });
+
     return {
       id: -(idx + 1),
       pd_id: -(idx + 1) + 1000,
@@ -368,6 +392,8 @@ export function buildSimulatedClients(headers, rows, mapping) {
       parsed_tele_id: null,
       tele_id_conflict: false,
       produits,
+      parsingIssues,
+      hasIssues: parsingIssues.length > 0,
       productDetails: products.map((h) => ({
         tier: h.tier || '',
         setup_type: h.setup_type || '',
