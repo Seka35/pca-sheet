@@ -90,13 +90,11 @@ function buildSimulatedClients(headers, rows, mapping) {
     }
     if (row.length > 0 && headerMatchCount > row.length * 0.5) return;
 
-    // Skip rows where tier column is empty, N/A, or matches any CSV column header (it's a header row)
+    // Skip rows where tier column matches a header row name or "TIER"
     if (tierIdx !== null && tierIdx !== undefined) {
       const tierVal = (row[tierIdx] || '').toString().trim();
       const tierUpper = tierVal.toUpperCase();
-      if (!tierVal || tierVal === 'N/A' || tierUpper === 'TIER') return;
-      // If tier value exactly matches any CSV column header name, skip this row
-      if (headerSet.has(tierUpper)) return;
+      if (tierUpper === 'TIER' || (tierUpper && headerSet.has(tierUpper) && tierUpper.length > 5)) return;
     }
 
     const rawName = clientNameIdx !== null && clientNameIdx !== undefined
@@ -206,11 +204,11 @@ function buildSimulatedClients(headers, rows, mapping) {
         productMap[key].tier = tier;
       }
 
-      // Calculate expected fee for this row (tier pricing + setup pricing)
+      // Calculate expected fee for this row (subscription + setup from CSV row or pricing tables)
       const currentTier = tier || previousTier;
-      const expectedTierPrice = currentTier && TIER_PRICING[currentTier] ? parseFloat(TIER_PRICING[currentTier]) : 0;
-      const expectedSetupPrice = entry.setup_type && SETUP_PRICING[entry.setup_type] ? parseFloat(SETUP_PRICING[entry.setup_type]) : 0;
-      const totalExpectedFee = expectedTierPrice + expectedSetupPrice;
+      const csvSubFee = entry.subscription_fee > 0 ? entry.subscription_fee : (currentTier && TIER_PRICING[currentTier] ? parseFloat(TIER_PRICING[currentTier]) : 0);
+      const csvSetupFee = entry.setup_fee > 0 ? entry.setup_fee : (entry.setup_type && SETUP_PRICING[entry.setup_type] ? parseFloat(SETUP_PRICING[entry.setup_type]) : 0);
+      const totalExpectedFee = csvSubFee + csvSetupFee;
 
       let amount = entry.amount_received || 0;
       // Fee tolerance adjustment: if amount is slightly below expected fee (>=90% or <=$25 gap), normalize amount to full expected fee

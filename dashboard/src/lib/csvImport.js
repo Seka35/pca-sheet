@@ -135,8 +135,7 @@ export function buildSimulatedClients(headers, rows, mapping) {
     if (tierIdx !== null && tierIdx !== undefined) {
       const tierVal = (row[tierIdx] || '').toString().trim();
       const tierUpper = tierVal.toUpperCase();
-      if (!tierVal || tierVal === 'N/A' || tierUpper === 'TIER') return;
-      if (headerSet.has(tierUpper)) return;
+      if (tierUpper === 'TIER' || (tierUpper && headerSet.has(tierUpper) && tierUpper.length > 5)) return;
     }
 
     const rawName = clientNameIdx !== null && clientNameIdx !== undefined
@@ -240,9 +239,9 @@ export function buildSimulatedClients(headers, rows, mapping) {
       }
 
       const currentTier = tier || previousTier;
-      const expectedTierPrice = currentTier && TIER_PRICING[currentTier] ? parseFloat(TIER_PRICING[currentTier]) : 0;
-      const expectedSetupPrice = entry.setup_type && SETUP_PRICING[entry.setup_type] ? parseFloat(SETUP_PRICING[entry.setup_type]) : 0;
-      const totalExpectedFee = expectedTierPrice + expectedSetupPrice;
+      const csvSubFee = entry.subscription_fee > 0 ? entry.subscription_fee : (currentTier && TIER_PRICING[currentTier] ? parseFloat(TIER_PRICING[currentTier]) : 0);
+      const csvSetupFee = entry.setup_fee > 0 ? entry.setup_fee : (entry.setup_type && SETUP_PRICING[entry.setup_type] ? parseFloat(SETUP_PRICING[entry.setup_type]) : 0);
+      const totalExpectedFee = csvSubFee + csvSetupFee;
 
       let amount = entry.amount_received || 0;
       if (totalExpectedFee > 0 && amount < totalExpectedFee && !isTopUpRow) {
