@@ -138,18 +138,32 @@ export function buildSimulatedClients(headers, rows, mapping) {
       if (tierUpper === 'TIER' || (tierUpper && headerSet.has(tierUpper) && tierUpper.length > 5)) return;
     }
 
+    const srNoIdx = mapping.sr_no;
+    const rawSrNo = srNoIdx !== null && srNoIdx !== undefined ? (row[srNoIdx] || '').toString().trim() : '';
+
     const rawName = clientNameIdx !== null && clientNameIdx !== undefined
       ? (row[clientNameIdx] || '').toString().trim()
       : '';
-    if (!rawName) return;
 
-    const normalizedName = normalizeClientName(rawName);
-    if (!normalizedName) return;
-
-    if (!clientGroups[normalizedName]) {
-      clientGroups[normalizedName] = { rawName, rows: [] };
+    let groupKey = '';
+    if (rawSrNo) {
+      const match = rawSrNo.match(/^(\d+)/);
+      if (match) groupKey = `SR_${match[1]}`;
     }
-    clientGroups[normalizedName].rows.push(row);
+    if (!groupKey) {
+      if (!rawName) return;
+      const normalizedName = normalizeClientName(rawName);
+      if (!normalizedName) return;
+      groupKey = `NAME_${normalizedName}`;
+    }
+
+    if (!clientGroups[groupKey]) {
+      clientGroups[groupKey] = { rawName: rawName || `Client ${groupKey}`, rows: [] };
+    }
+    if (rawName && (!clientGroups[groupKey].rawName || clientGroups[groupKey].rawName.startsWith('Client SR_'))) {
+      clientGroups[groupKey].rawName = rawName;
+    }
+    clientGroups[groupKey].rows.push(row);
   });
 
   const TIER_PRICING = {

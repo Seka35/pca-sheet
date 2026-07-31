@@ -97,18 +97,34 @@ function buildSimulatedClients(headers, rows, mapping) {
       if (tierUpper === 'TIER' || (tierUpper && headerSet.has(tierUpper) && tierUpper.length > 5)) return;
     }
 
+    const srNoIdx = mapping.sr_no;
+    const rawSrNo = srNoIdx !== null && srNoIdx !== undefined ? (row[srNoIdx] || '').toString().trim() : '';
+
     const rawName = clientNameIdx !== null && clientNameIdx !== undefined
       ? (row[clientNameIdx] || '').toString().trim()
       : '';
-    if (!rawName) return;
 
-    const normalizedName = normalizeClientName(rawName);
-    if (!normalizedName) return;
-
-    if (!clientGroups[normalizedName]) {
-      clientGroups[normalizedName] = { rawName, rows: [] };
+    // Determine grouping key: prefer base SrNo integer (e.g., "262" from "262.00", "262.01"), fallback to normalizedName
+    let groupKey = '';
+    if (rawSrNo) {
+      const match = rawSrNo.match(/^(\d+)/);
+      if (match) groupKey = `SR_${match[1]}`;
     }
-    clientGroups[normalizedName].rows.push(row);
+    if (!groupKey) {
+      if (!rawName) return;
+      const normalizedName = normalizeClientName(rawName);
+      if (!normalizedName) return;
+      groupKey = `NAME_${normalizedName}`;
+    }
+
+    if (!clientGroups[groupKey]) {
+      clientGroups[groupKey] = { rawName: rawName || `Client ${groupKey}`, rows: [] };
+    }
+    // Update rawName if current row has a cleaner name
+    if (rawName && (!clientGroups[groupKey].rawName || clientGroups[groupKey].rawName.startsWith('Client SR_'))) {
+      clientGroups[groupKey].rawName = rawName;
+    }
+    clientGroups[groupKey].rows.push(row);
   });
 
   return Object.entries(clientGroups).map(([normalizedName, group], idx) => {
