@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { COLUMNS, RENEWAL_COLUMNS } from './sheetSchema';
+import { TIER_SPEND_LIMITS } from './whopLinks';
 
 export const MAPPABLE_FIELDS = [
   {
@@ -303,7 +304,7 @@ export function buildSimulatedClients(headers, rows, mapping) {
         month: p.history[0]?.month || '',
         start_date: firstRow.start_date || '',
         valid_stopped_date: firstRow.valid_stopped_date || '',
-        ad_spend_limit: firstRow.ad_spend_limit || '',
+        ad_spend_limit: TIER_SPEND_LIMITS[p.tier] || firstRow.ad_spend_limit || '',
         referral_partner_name: firstRow.referral_partner_name || '',
         discount: firstRow.discount || '',
         cl_amount: finalClAmount,

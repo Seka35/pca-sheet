@@ -5,6 +5,15 @@ const TIER_PRICING = {
   'TIER 4': '799', 'TIER 5': '1399', 'TIER 6': '1999',
 };
 
+const TIER_SPEND_LIMITS = {
+  'TIER 1': '2500',
+  'TIER 2': '5000',
+  'TIER 3': '10000',
+  'TIER 4': '20000',
+  'TIER 5': '40000',
+  'TIER 6': 'Unlimited',
+};
+
 const SETUP_PRICING = {
   'Invincible set up (old)': '299', 'Invincible set up': '299',
   'Starter': '399', 'Premium': '499', 'VIP': '699',
@@ -296,7 +305,8 @@ function buildSimulatedClients(headers, rows, mapping) {
         month: p.history[0]?.month || '',
         start_date: firstRow.start_date || '',
         valid_stopped_date: firstRow.valid_stopped_date || '',
-        ad_spend_limit: firstRow.ad_spend_limit || '',
+        // Ad spend limit: prioritize DB limit for the tier (e.g. TIER 6 -> Unlimited), fallback to CSV value
+        ad_spend_limit: TIER_SPEND_LIMITS[p.tier] || firstRow.ad_spend_limit || '',
         referral_partner_name: firstRow.referral_partner_name || '',
         discount: firstRow.discount || '',
         cl_amount: finalClAmount,
