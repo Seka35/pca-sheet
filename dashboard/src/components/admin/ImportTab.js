@@ -744,8 +744,20 @@ export default function ImportTab() {
           }
           return parseFloat(cleaned) || 0;
         }
+        function normalizeSrNo(srNo) {
+          if (!srNo) return '';
+          let cleaned = srNo.toString().trim().replace(/,/g, '');
+          const dotIdx = cleaned.indexOf('.');
+          if (dotIdx !== -1) {
+            const mainPart = cleaned.substring(0, dotIdx);
+            const suffix = cleaned.substring(dotIdx + 1);
+            const suffixMatch = suffix.match(/(-[A-Z0-9]+)$/i);
+            return mainPart + (suffixMatch ? suffixMatch[1] : '');
+          }
+          return cleaned;
+        }
         function normalizeClientName(name) {
-          return (name || '').replace(/^[🟢🔴🟡⚠️📌]+\s*/g, '').replace(/^\[DC\]\s*/gi, '').replace(/\s*:\s*Tele\s+\d+\s*$/g, '').replace(/\s*X\s+Prime\s+circle\s*$/gi, '').trim();
+          return (name || '').replace(/^[🟢🔴🟡⚠️📌👑🥇]+\s*/g, '').replace(/^\[(DC|ENT-\d+)\]\s*/gi, '').replace(/\s*:\s*Tele\s*[-:\s]*\d+[A-Z]?\s*$/gi, '').replace(/\s*\(Tele\s*[-:\s]*\d+[A-Z]?\)\s*$/gi, '').replace(/\s*X\s+Prime\s+circle\s*$/gi, '').toLowerCase().trim();
         }
       `;
 
