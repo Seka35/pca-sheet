@@ -371,10 +371,12 @@ export function buildSimulatedClients(headers, rows, mapping) {
         parsingIssues.push({ type: 'WARNING', field: 'Product', message: `Produit ${pIdx + 1}: TIER ou Setup Type non spécifié` });
       }
       (p.history || []).forEach((h, hIdx) => {
-        if (!h.payment_date && !h.month) {
+        const rawDate = (h.payment_date || '').toString().trim();
+        const hasPlaceholder = !rawDate || rawDate === '-' || rawDate === '—' || rawDate === 'N/A';
+        if (hasPlaceholder && !h.month) {
           parsingIssues.push({ type: 'WARNING', field: 'Date', message: `${pName}: Date ou mois manquant pour la ligne de paiement ${hIdx + 1}` });
-        } else if (h.payment_date && isNaN(new Date(h.payment_date).getTime())) {
-          parsingIssues.push({ type: 'WARNING', field: 'Date', message: `${pName}: Format de date invalide ("${h.payment_date}")` });
+        } else if (!hasPlaceholder && isNaN(new Date(rawDate).getTime())) {
+          parsingIssues.push({ type: 'WARNING', field: 'Date', message: `${pName}: Format de date invalide ("${rawDate}")` });
         }
         if (h.amount_received === undefined || h.amount_received === null) {
           parsingIssues.push({ type: 'WARNING', field: 'Amount', message: `${pName}: Montant reçu manquant à la ligne ${hIdx + 1}` });
