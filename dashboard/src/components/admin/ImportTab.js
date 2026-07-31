@@ -639,7 +639,23 @@ export default function ImportTab() {
       const helpers = `
         function parseAmount(val) {
           if (!val || val === '-' || val.toString().trim() === '-') return 0;
-          return parseFloat(val.toString().replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
+          let str = val.toString().trim();
+          let cleaned = str.replace(/[^0-9.,\-]/g, '');
+          if (!cleaned) return 0;
+          if (cleaned.includes(',') && cleaned.includes('.')) {
+            if (cleaned.lastIndexOf('.') > cleaned.lastIndexOf(',')) {
+              cleaned = cleaned.replace(/,/g, '');
+            } else {
+              cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            }
+          } else if (cleaned.includes(',')) {
+            if (/,\d{1,2}$/.test(cleaned)) {
+              cleaned = cleaned.replace(',', '.');
+            } else {
+              cleaned = cleaned.replace(/,/g, '');
+            }
+          }
+          return parseFloat(cleaned) || 0;
         }
         function normalizeClientName(name) {
           return (name || '').replace(/^[🟢🔴🟡⚠️📌]+\s*/g, '').replace(/^\[DC\]\s*/gi, '').replace(/\s*:\s*Tele\s+\d+\s*$/g, '').replace(/\s*X\s+Prime\s+circle\s*$/gi, '').trim();

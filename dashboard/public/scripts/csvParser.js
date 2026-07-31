@@ -13,14 +13,31 @@ const SETUP_PRICING = {
 
 function parseAmount(val) {
   if (!val || val === '-' || val.toString().trim() === '-') return 0;
-  // Remove all non-numeric chars except comma and dot
-  let cleaned = val.toString().replace(/[^0-9.,\-]/g, '').replace(/\s/g, '');
-  // If comma exists, it's either a decimal separator or thousands separator
-  // Replace first comma with dot, then remove remaining commas
-  // This handles: 2,500.00 → 2500, 2.500,00 → 2500, 2,5 → 2.5
-  if (cleaned.includes(',')) {
-    cleaned = cleaned.replace(',', '.').replace(/,/g, '');
+  let str = val.toString().trim();
+  // Remove currency symbols, spaces, etc. Keep only digits, commas, dots, minus
+  let cleaned = str.replace(/[^0-9.,\-]/g, '');
+  if (!cleaned) return 0;
+
+  // Handle standard US format: 5,000.00 -> 5000.00 or European format: 5.000,00 -> 5000.00
+  // If there are both comma and dot:
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    if (cleaned.lastIndexOf('.') > cleaned.lastIndexOf(',')) {
+      // US format: 5,000.00 -> remove commas
+      cleaned = cleaned.replace(/,/g, '');
+    } else {
+      // European format: 5.000,00 -> remove dots, replace comma with dot
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    }
+  } else if (cleaned.includes(',')) {
+    // Only comma present: if followed by 1 or 2 digits at end, assume decimal separator (e.g., 483,16 -> 483.16)
+    // otherwise if followed by 3 digits, assume thousands separator (e.g. 5,000 -> 5000)
+    if (/,\d{1,2}$/.test(cleaned)) {
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
   }
+
   return parseFloat(cleaned) || 0;
 }
 
@@ -119,21 +136,47 @@ function buildSimulatedClients(headers, rows, mapping) {
           }
         }
       });
+
+      // EXCEPTION: If setup_type is Top-up, override client_status_history to Top-up
+      const setupClean = (entry.setup_type || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (setupClean === 'topup') {
+        entry.client_status_history = 'Top-up';
+      }
+
       return entry;
     });
 
-    // Group by product key: tier + setup_type
-    // Each unique (tier, setup_type) combo = 1 product with aggregated history
+    // Group by product key: group rows into products
+    // If a row is Top-up, attach it to the existing tier/product for this client instead of creating a separate Top-up product
     const productMap = {};
     paymentHistory.forEach((entry) => {
       const tier = entry.tier || '';
-      const setup = entry.setup_type || '';
-      const key = tier + '|' + setup;
+      const rawSetup = (entry.setup_type || '').toString().trim();
+      const setupClean = rawSetup.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const isTopUpRow = setupClean === 'topup';
+
+      // Find existing product key for this tier/client if available
+      let key;
+      if (isTopUpRow) {
+        // Try to match an existing product key with the same tier
+        const existingKey = Object.keys(productMap).find(k => productMap[k].tier === tier || (tier && k.startsWith(tier + '|')));
+        if (existingKey) {
+          key = existingKey;
+        } else if (Object.keys(productMap).length > 0) {
+          // If tier is empty or not matched yet, attach to the first/primary product of this client
+          key = Object.keys(productMap)[0];
+        } else {
+          // No product created yet for this client: fallback key
+          key = tier ? (tier + '|') : 'MainProduct';
+        }
+      } else {
+        key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
+      }
 
       if (!productMap[key]) {
         productMap[key] = {
-          tier,
-          setup_type: setup,
+          tier: tier || (isTopUpRow ? 'TIER 1' : ''),
+          setup_type: isTopUpRow ? '' : rawSetup,
           history: [],
           latestStatus: '',
           latestAdId: '',
@@ -143,8 +186,8 @@ function buildSimulatedClients(headers, rows, mapping) {
           firstRow: entry,
         };
       } else {
-        // Keep the earliest row (for start_date, valid_until)
-        if (entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
+        // Keep the earliest row (for start_date, valid_until) if not topup
+        if (!isTopUpRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
           productMap[key].firstRow = entry;
         }
       }
@@ -160,6 +203,7 @@ function buildSimulatedClients(headers, rows, mapping) {
         payment_name: entry.payment_name || '',
         actual_balance_difference: entry.actual_balance_difference || 0,
         client_status_history: entry.client_status_history || '',
+        setup_type: entry.setup_type || '',
       });
 
       // Track latest values (use most recent non-empty)
@@ -215,6 +259,17 @@ function buildSimulatedClients(headers, rows, mapping) {
           ? 'Active' : 'Inactive';
       }
 
+      // Calculate total topup sum from payment history
+      const topupSum = p.history.reduce((sum, h) => {
+        const st = (h.setup_type || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (st === 'topup') {
+          return sum + (h.amount_received || 0);
+        }
+        return sum;
+      }, 0);
+      const csvClAmount = parseFloat(firstRow.cl_amount || '0') || 0;
+      const finalClAmount = (csvClAmount + topupSum).toString();
+
       return {
         sr_no: `SIM_${idx + 1}_${productIdx + 1}`,
         tier: p.tier,
@@ -235,7 +290,7 @@ function buildSimulatedClients(headers, rows, mapping) {
         ad_spend_limit: firstRow.ad_spend_limit || '',
         referral_partner_name: firstRow.referral_partner_name || '',
         discount: firstRow.discount || '',
-        cl_amount: firstRow.cl_amount || '',
+        cl_amount: finalClAmount,
         ad_account_type: firstRow.ad_account_type || '',
       };
     });

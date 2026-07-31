@@ -118,13 +118,29 @@ export function normalizeClientName(name) {
 
 export function buildSimulatedClients(headers, rows, mapping) {
   const clientNameIdx = mapping.client_name;
+  const tierIdx = mapping.tier;
+
+  const headerSet = new Set(headers.map(h => (h || '').toString().trim().toUpperCase()));
 
   const clientGroups = {};
   rows.forEach((row) => {
-    const rawName =
-      clientNameIdx !== null && clientNameIdx !== undefined
-        ? (row[clientNameIdx] || '').toString().trim()
-        : '';
+    let headerMatchCount = 0;
+    for (let i = 0; i < row.length; i++) {
+      const cell = (row[i] || '').toString().trim().toUpperCase();
+      if (cell && headerSet.has(cell)) headerMatchCount++;
+    }
+    if (row.length > 0 && headerMatchCount > row.length * 0.5) return;
+
+    if (tierIdx !== null && tierIdx !== undefined) {
+      const tierVal = (row[tierIdx] || '').toString().trim();
+      const tierUpper = tierVal.toUpperCase();
+      if (!tierVal || tierVal === 'N/A' || tierUpper === 'TIER') return;
+      if (headerSet.has(tierUpper)) return;
+    }
+
+    const rawName = clientNameIdx !== null && clientNameIdx !== undefined
+      ? (row[clientNameIdx] || '').toString().trim()
+      : '';
     if (!rawName) return;
 
     const normalizedName = normalizeClientName(rawName);
@@ -137,76 +153,162 @@ export function buildSimulatedClients(headers, rows, mapping) {
   });
 
   const TIER_PRICING = {
-    'TIER 1': '199',
-    'TIER 2': '299',
-    'TIER 3': '499',
-    'TIER 4': '799',
-    'TIER 5': '1399',
-    'TIER 6': '1999',
+    'TIER 1': '199', 'TIER 2': '299', 'TIER 3': '499',
+    'TIER 4': '799', 'TIER 5': '1399', 'TIER 6': '1999',
   };
 
   const SETUP_PRICING = {
-    'Invincible set up (old)': '299',
-    'Invincible set up': '299',
-    'Starter': '399',
-    'Premium': '499',
-    'VIP': '699',
-    'Ad Account': '0',
-    'Only Pages': '99',
+    'Invincible set up (old)': '299', 'Invincible set up': '299',
+    'Starter': '399', 'Premium': '499', 'VIP': '699',
+    'Ad Account': '0', 'Only Pages': '99',
   };
 
   return Object.entries(clientGroups).map(([normalizedName, group], idx) => {
     const { rawName, rows: clientRows } = group;
-    const firstRow = clientRows[0];
 
-    const history = clientRows.map((row, productIdx) => {
-      const product = {};
+    const paymentHistory = clientRows.map((row, rowIdx) => {
+      const entry = { _rowIdx: rowIdx };
       Object.entries(mapping).forEach(([dbField, csvIdx]) => {
         if (csvIdx !== null && csvIdx !== undefined && dbField !== 'client_name') {
-          product[dbField] = (row[csvIdx] || '').toString().trim();
+          let val = (row[csvIdx] || '').toString().trim();
+          if (dbField === 'tier') {
+            val = val.toUpperCase().replace(/\s+/g, ' ').trim();
+          }
+          if (dbField === 'amount_received' || dbField === 'subscription_fee' ||
+              dbField === 'setup_fee' || dbField === 'referral_amount' ||
+              dbField === 'discount' || dbField === 'cl_amount' || dbField === 'actual_balance_difference') {
+            entry[dbField] = parseAmount(val);
+          } else {
+            entry[dbField] = val;
+          }
         }
       });
 
-      if (!product.sr_no) {
-        product.sr_no = `SIM_${idx + 1}_${productIdx + 1}`;
+      // EXCEPTION: If setup_type is Top-up, override client_status_history to Top-up
+      const setupClean = (entry.setup_type || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (setupClean === 'topup') {
+        entry.client_status_history = 'Top-up';
       }
 
-      if (!product.visual_status && product.client_status_history) {
-        const status = product.client_status_history.toLowerCase();
-        if (['new', 'renewed', 'upgraded', 'replacement', 'trial'].includes(status)) {
-          product.visual_status = 'Active';
+      return entry;
+    });
+
+    const productMap = {};
+    paymentHistory.forEach((entry) => {
+      const tier = entry.tier || '';
+      const rawSetup = (entry.setup_type || '').toString().trim();
+      const setupClean = rawSetup.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const isTopUpRow = setupClean === 'topup';
+
+      let key;
+      if (isTopUpRow) {
+        const existingKey = Object.keys(productMap).find(k => productMap[k].tier === tier || (tier && k.startsWith(tier + '|')));
+        if (existingKey) {
+          key = existingKey;
+        } else if (Object.keys(productMap).length > 0) {
+          key = Object.keys(productMap)[0];
+        } else {
+          key = tier ? (tier + '|') : 'MainProduct';
+        }
+      } else {
+        key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
+      }
+
+      if (!productMap[key]) {
+        productMap[key] = {
+          tier: tier || (isTopUpRow ? 'TIER 1' : ''),
+          setup_type: isTopUpRow ? '' : rawSetup,
+          history: [],
+          latestStatus: '',
+          latestAdId: '',
+          latestAdIdName: '',
+          latestVisualStatus: '',
+          is_trial: 0,
+          firstRow: entry,
+        };
+      } else {
+        if (!isTopUpRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
+          productMap[key].firstRow = entry;
         }
       }
 
-      if (!product.subscription_fee && product.tier && TIER_PRICING[product.tier]) {
-        product.subscription_fee = TIER_PRICING[product.tier];
-      }
+      const amount = entry.amount_received || 0;
+      productMap[key].history.push({
+        month: entry.month || '',
+        payment_date: entry.payment_received_date || '',
+        amount_received: amount,
+        reference_no: entry.reference_no || '',
+        bank_name: entry.bank_name || '',
+        payment_name: entry.payment_name || '',
+        actual_balance_difference: entry.actual_balance_difference || 0,
+        client_status_history: entry.client_status_history || '',
+        setup_type: entry.setup_type || '',
+      });
 
-      if (!product.setup_fee && product.setup_type && SETUP_PRICING[product.setup_type]) {
-        product.setup_fee = SETUP_PRICING[product.setup_type];
-      }
-
-      if (product.client_status_history && product.client_status_history.toLowerCase() === 'trial') {
-        product.is_trial = 1;
-      } else {
-        product.is_trial = 0;
-      }
-
-      return product;
+      if (entry.client_status_history) productMap[key].latestStatus = entry.client_status_history;
+      if (entry.ad_id_number) productMap[key].latestAdId = entry.ad_id_number;
+      if (entry.client_ad_id_name) productMap[key].latestAdIdName = entry.client_ad_id_name;
+      if (entry.visual_status) productMap[key].latestVisualStatus = entry.visual_status;
+      if (entry.client_status_history && entry.client_status_history.toLowerCase() === 'trial') productMap[key].is_trial = 1;
     });
 
-    const totalCA = history.reduce((sum, p) => sum + parseAmount(p.amount_received), 0);
-    const mrr = history.reduce(
-      (sum, p) => sum + parseAmount(p.subscription_fee) + parseAmount(p.setup_fee),
-      0
-    );
-    const latestProduct = history[history.length - 1] || {};
+    const products = Object.values(productMap).map((p, productIdx) => {
+      const firstRow = p.firstRow;
+      const isTrial = p.is_trial === 1;
 
+      let subscription_fee = 0;
+      if (!isTrial && p.tier && TIER_PRICING[p.tier]) subscription_fee = parseFloat(TIER_PRICING[p.tier]);
+      if (!isTrial && firstRow.subscription_fee > 0) subscription_fee = firstRow.subscription_fee;
+
+      let setup_fee = p.setup_type && SETUP_PRICING[p.setup_type] ? parseFloat(SETUP_PRICING[p.setup_type]) : 0;
+      if (firstRow.setup_fee > 0) setup_fee = firstRow.setup_fee;
+
+      const rawVisualStatus = (p.latestVisualStatus || '').toLowerCase();
+      let visual_status = 'Inactive';
+      if (rawVisualStatus === 'active') visual_status = 'Active';
+      else if (rawVisualStatus === 'stopped') visual_status = 'Inactive';
+      else visual_status = ['new', 'renewed', 'upgraded', 'replacement', 'trial'].includes((p.latestStatus || '').toLowerCase()) ? 'Active' : 'Inactive';
+
+      const topupSum = p.history.reduce((sum, h) => {
+        const st = (h.setup_type || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (st === 'topup') return sum + (h.amount_received || 0);
+        return sum;
+      }, 0);
+      const csvClAmount = parseFloat(firstRow.cl_amount || '0') || 0;
+      const finalClAmount = (csvClAmount + topupSum).toString();
+
+      return {
+        sr_no: `SIM_${idx + 1}_${productIdx + 1}`,
+        tier: p.tier,
+        setup_type: p.setup_type,
+        visual_status,
+        client_status_history: p.latestStatus,
+        subscription_fee: subscription_fee.toString(),
+        setup_fee: setup_fee.toString(),
+        ad_id_number: p.latestAdId,
+        client_ad_id_name: p.latestAdIdName || '',
+        amount_received: p.history.reduce((s, h) => s + h.amount_received, 0),
+        is_trial: p.is_trial,
+        history: p.history,
+        month: p.history[0]?.month || '',
+        start_date: firstRow.start_date || '',
+        valid_stopped_date: firstRow.valid_stopped_date || '',
+        ad_spend_limit: firstRow.ad_spend_limit || '',
+        referral_partner_name: firstRow.referral_partner_name || '',
+        discount: firstRow.discount || '',
+        cl_amount: finalClAmount,
+        ad_account_type: firstRow.ad_account_type || '',
+      };
+    });
+
+    const totalCA = products.reduce((sum, p) => sum + p.amount_received, 0);
+    const mrr = products.reduce((sum, p) => sum + parseFloat(p.subscription_fee || 0) + parseFloat(p.setup_fee || 0), 0);
+    const latestProduct = products[products.length - 1] || {};
+
+    const firstRow = clientRows[0];
     const getField = (field) => {
       const idx = mapping[field];
-      return idx !== null && idx !== undefined
-        ? (firstRow[idx] || '').toString().trim()
-        : '';
+      return idx !== null && idx !== undefined ? (firstRow[idx] || '').toString().trim() : '';
     };
 
     const email = getField('email');
@@ -214,26 +316,10 @@ export function buildSimulatedClients(headers, rows, mapping) {
     const company_name = getField('company_name');
     const notes = getField('notes');
 
-    const hasActiveProduct = history.some((h) => h.visual_status === 'Active');
+    const hasActiveProduct = products.some((h) => h.visual_status === 'Active');
     const statut = hasActiveProduct ? 'Active' : 'Inactive';
 
-    // DEBUG: log product count to detect fallback usage
-    console.warn(`[csvImport.js fallback] Client "${rawName}" has ${history.length} history rows (products)`);
-
-    const produits = history
-      .map((h) => h.tier || h.setup_type)
-      .filter(Boolean)
-      .join(', ') || '—';
-
-    const productDetails = history.map((h) => ({
-      tier: h.tier || '',
-      setup_type: h.setup_type || '',
-      is_trial: h.is_trial || 0,
-      current_spend: h.current_spend || '0',
-      ad_spend_limit: h.ad_spend_limit || '0',
-      subscription_fee: h.subscription_fee || '0',
-      setup_fee: h.setup_fee || '0',
-    }));
+    const produits = products.map((h) => h.tier || h.setup_type).filter(Boolean).join(', ') || '—';
 
     return {
       id: -(idx + 1),
@@ -245,7 +331,15 @@ export function buildSimulatedClients(headers, rows, mapping) {
       parsed_tele_id: null,
       tele_id_conflict: false,
       produits,
-      productDetails,
+      productDetails: products.map((h) => ({
+        tier: h.tier || '',
+        setup_type: h.setup_type || '',
+        is_trial: h.is_trial || 0,
+        current_spend: '0',
+        ad_spend_limit: h.ad_spend_limit || '0',
+        subscription_fee: h.subscription_fee || '0',
+        setup_fee: h.setup_fee || '0',
+      })),
       mensuel: mrr,
       statut,
       canal: latestProduct.bank_name || '—',
@@ -264,12 +358,12 @@ export function buildSimulatedClients(headers, rows, mapping) {
         notes,
         referral_partner_name: latestProduct.referral_partner_name || '',
       },
-      history,
+      history: products,
       computed: {
         totalSpend: 0,
         totalCA,
-        renewalCount: history.length,
-        earliestStartDate: history[0]?.start_date || null,
+        renewalCount: products.length,
+        earliestStartDate: products[0]?.start_date || null,
         nextRenewalDate: latestProduct.valid_stopped_date || null,
         latestTier: latestProduct.tier || null,
         latestSetupType: latestProduct.setup_type || null,

@@ -32,12 +32,18 @@ export default function SimulationClientModal({
           product.history.forEach((payment) => {
             // Map client_status_history to payment type
             // New/Renewed → MONTHLY, Upgraded → UPGRADE, Replacement/Trial → keep as status (not a payment type)
+            // Exception: If setup_type or status is "Top-up" / "Topup" / "Top up", type is "TOPUP" and is_topup is 1
+            const setupTypeClean = (payment.setup_type || product.setup_type || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            const statusClean = (payment.client_status_history || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            const isTopUp = setupTypeClean === 'topup' || statusClean === 'topup';
             const statusMap = {
               'new': 'MONTHLY',
               'renewed': 'MONTHLY',
               'upgraded': 'UPGRADE',
+              'top-up': 'TOPUP',
+              'topup': 'TOPUP',
             };
-            const paymentType = statusMap[(payment.client_status_history || '').toLowerCase()] || null;
+            const paymentType = isTopUp ? 'TOPUP' : (statusMap[(payment.client_status_history || '').toLowerCase()] || null);
 
             allPayments.push({
               id: payment.reference_no || `${product.sr_no}_${payment.month}`,
@@ -56,10 +62,12 @@ export default function SimulationClientModal({
               actual_balance_difference: payment.actual_balance_difference || 0,
               reference_no: payment.reference_no || '',
               source: 'payment_history',
+              is_transaction: true,
               type: paymentType,
+              is_topup: isTopUp ? 1 : 0,
               // Extra product info for display
               tier: product.tier || '',
-              setup_type: product.setup_type || '',
+              setup_type: payment.setup_type || product.setup_type || '',
               is_trial: product.is_trial || 0,
             });
           });

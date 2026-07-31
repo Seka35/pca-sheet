@@ -2987,6 +2987,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                           paymentBillingStatus = received > 0 ? 'PAID' : 'UNPAID';
                         } else if (payment.type === 'PROMOTION') {
                           paymentBillingStatus = 'PROMOTED';
+                        } else if (payment.type === 'TOPUP') {
+                          paymentBillingStatus = 'TOPUP';
                         } else if (payment.type === 'MONTHLY') {
                           // MONTHLY from payment_history: calculate actual status
                           const sub = parseAmount(product?.subscription_fee);
@@ -3055,13 +3057,15 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                           <td style={{ padding: '16px 8px' }}>
                             {payment.type ? (
                               <span style={{
-                                backgroundColor: payment.type === 'MONTHLY' ? 'rgba(59, 130, 246, 0.15)' :
+                                backgroundColor: payment.type === 'TOPUP' ? 'rgba(139, 92, 246, 0.15)' :
+                                  payment.type === 'MONTHLY' ? 'rgba(59, 130, 246, 0.15)' :
                                   payment.type === 'UPGRADE' || payment.type === 'SUB_UPGRADE' ? 'rgba(168, 85, 247, 0.15)' :
                                   payment.type === 'RENEWAL_PONCTUAL' ? 'rgba(20, 184, 166, 0.15)' :
                                   payment.type === 'RETURN' ? 'rgba(249, 115, 22, 0.15)' :
                                   payment.type === 'PROMOTION' ? 'rgba(236, 72, 153, 0.15)' :
                                   'rgba(255,255,255,0.05)',
-                                color: payment.type === 'MONTHLY' ? '#60A5FA' :
+                                color: payment.type === 'TOPUP' ? '#A78BFA' :
+                                  payment.type === 'MONTHLY' ? '#60A5FA' :
                                   payment.type === 'UPGRADE' || payment.type === 'SUB_UPGRADE' ? '#C084FC' :
                                   payment.type === 'RENEWAL_PONCTUAL' ? '#2DD4BF' :
                                   payment.type === 'RETURN' ? '#FB923C' :
@@ -3069,7 +3073,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                                   'var(--text-primary)',
                                 padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '700'
                               }}>
-                                {payment.type.replace('_', ' ')}
+                                {payment.type === 'TOPUP' ? 'TOP-UP' : payment.type.replace('_', ' ')}
                               </span>
                             ) : '—'}
                           </td>
