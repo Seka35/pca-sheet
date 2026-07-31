@@ -334,20 +334,35 @@ function SimulatedClientRow({ client, onClick }) {
       </td>
       <td style={{ padding: '12px 16px', fontSize: '13px' }}>
         {client.productDetails?.map((p, i) => (
-          <span
-            key={i}
-            style={{
-              marginRight: '4px',
-              padding: '2px 8px',
-              backgroundColor: 'rgba(52, 211, 153, 0.1)',
-              color: '#34D399',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: '600',
-            }}
-          >
-            {p.tier || p.setup_type}
-          </span>
+          <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginRight: '6px' }}>
+            <span
+              style={{
+                padding: '2px 8px',
+                backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                color: '#34D399',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+              }}
+            >
+              {p.tier || p.setup_type}
+            </span>
+            {(p.is_trial === 1 || p.is_trial === true) && (
+              <span
+                style={{
+                  padding: '2px 6px',
+                  backgroundColor: 'rgba(251, 191, 36, 0.15)',
+                  color: '#FBBF24',
+                  border: '1px solid rgba(251, 191, 36, 0.3)',
+                  borderRadius: '4px',
+                  fontSize: '10px',
+                  fontWeight: '700',
+                }}
+              >
+                TRIAL
+              </span>
+            )}
+          </div>
         ))}
       </td>
       <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: 'var(--primary-accent)' }}>
