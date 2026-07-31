@@ -104,15 +104,31 @@ export function formatCurrency(val) {
   return '$' + (val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+export function normalizeSrNo(srNo) {
+  if (!srNo) return '';
+  let cleaned = srNo.toString().trim();
+  cleaned = cleaned.replace(/,/g, '');
+  const dotIdx = cleaned.indexOf('.');
+  if (dotIdx !== -1) {
+    const mainPart = cleaned.substring(0, dotIdx);
+    const suffix = cleaned.substring(dotIdx + 1);
+    const suffixMatch = suffix.match(/(-[A-Z0-9]+)$/i);
+    return mainPart + (suffixMatch ? suffixMatch[1] : '');
+  }
+  return cleaned;
+}
+
 export function normalizeClientName(name) {
   return (
     (name || '')
-      .replace(/^[🟢🔴🟡⚠️📌]+\s*/g, '')
-      .replace(/^\[DC\]\s*/gi, '')
-      .replace(/\s*:\s*Tele\s+\d+\s*$/g, '')
+      .replace(/^[🟢🔴🟡⚠️📌👑🥇]+\s*/g, '')
+      .replace(/^\[(DC|ENT-\d+)\]\s*/gi, '')
+      .replace(/\s*:\s*Tele\s*[-:\s]*\d+[A-Z]?\s*$/gi, '')
+      .replace(/\s*\(Tele\s*[-:\s]*\d+[A-Z]?\)\s*$/gi, '')
       .replace(/\s*X\s+Prime\s+circle\s*$/gi, '')
       .replace(/\s*×\s+Prime\s+circle\s*$/gi, '')
       .replace(/x\s+Prime\s+circle\s*:\s*/gi, '')
+      .toLowerCase()
       .trim()
   );
 }
@@ -146,21 +162,22 @@ export function buildSimulatedClients(headers, rows, mapping) {
       : '';
 
     let groupKey = '';
-    if (rawSrNo) {
-      const match = rawSrNo.match(/^(\d+)/);
-      if (match) groupKey = `SR_${match[1]}`;
-    }
-    if (!groupKey) {
-      if (!rawName) return;
+    const normSrNo = normalizeSrNo(rawSrNo);
+    if (normSrNo) {
+      groupKey = `SR_${normSrNo}`;
+    } else if (rawName) {
       const normalizedName = normalizeClientName(rawName);
-      if (!normalizedName) return;
-      groupKey = `NAME_${normalizedName}`;
+      if (normalizedName) {
+        groupKey = `NAME_${normalizedName}`;
+      }
     }
 
+    if (!groupKey) return;
+
     if (!clientGroups[groupKey]) {
-      clientGroups[groupKey] = { rawName: rawName || `Client ${groupKey}`, rows: [] };
+      clientGroups[groupKey] = { rawName: rawName || `Client ${rawSrNo}`, rows: [] };
     }
-    if (rawName && (!clientGroups[groupKey].rawName || clientGroups[groupKey].rawName.startsWith('Client SR_'))) {
+    if (rawName && (!clientGroups[groupKey].rawName || clientGroups[groupKey].rawName.startsWith('Client '))) {
       clientGroups[groupKey].rawName = rawName;
     }
     clientGroups[groupKey].rows.push(row);
