@@ -202,29 +202,6 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
-        {['all', 'tier', 'setup'].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              backgroundColor: filter === f ? 'var(--primary-accent)' : 'rgba(255,255,255,0.05)',
-              color: filter === f ? '#000' : 'var(--text-secondary)',
-              transition: 'all 0.2s'
-            }}
-          >
-            {f === 'all' ? 'All Products' : f === 'tier' ? 'Tiers' : 'Setup Fees'}
-          </button>
-        ))}
-      </div>
-
       {/* Products Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
         {loading ? (
@@ -232,7 +209,7 @@ export default function ProductsPage() {
             <div className="spinner" style={{ width: '32px', height: '32px', border: '3px solid var(--status-active-bg)', borderTopColor: 'var(--status-active)', borderRadius: '50%', margin: '0 auto 16px' }}></div>
             <div style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>Loading products...</div>
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : products.length === 0 ? (
           <div style={{ padding: '64px', textAlign: 'center' }}>
             <div style={{ fontSize: '24px', marginBottom: '8px' }}>📦</div>
             <div style={{ color: 'var(--text-primary)', fontWeight: '600', marginBottom: '4px' }}>No products found</div>
@@ -244,7 +221,6 @@ export default function ProductsPage() {
               <thead>
                 <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)' }}>
                   <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Name</th>
-                  <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Category</th>
                   <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Billing</th>
                   <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Price</th>
                   <th style={{ padding: '16px 24px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '11px' }}>Ad Spend Limit</th>
@@ -252,13 +228,10 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((product) => (
+                {products.map((product) => (
                   <tr key={product.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td style={{ padding: '16px 24px' }}>
                       <div style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '14px' }}>{product.name}</div>
-                    </td>
-                    <td style={{ padding: '16px 24px' }}>
-                      {getCategoryBadge(product.category)}
                     </td>
                     <td style={{ padding: '16px 24px' }}>
                       {getBillingCycleBadge(product.billing_cycle)}
