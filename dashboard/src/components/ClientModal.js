@@ -2419,7 +2419,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                         {/* Top Row: Product Identity & Main Status */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                           <div>
-                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px', fontWeight: '700' }}>Product Bundle</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px', fontWeight: '700' }}>Product</div>
                             <ProductBadge tier={product.tier} setup_type={product.setup_type} is_trial={product.is_trial} is_ponctual={product.is_ponctual_upgrade == 1} original_tier={product.original_tier} original_setup={product.original_setup} />
                           </div>
                           <div style={{ textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.02)', padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
@@ -2440,12 +2440,8 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Subscription</span>
-                                <span style={{ fontWeight: '600' }}>{formatCurrency(parseAmount(product.subscription_fee))}</span>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Setup Fee</span>
-                                <span style={{ fontWeight: '600' }}>{formatCurrency(parseAmount(product.setup_fee))}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>Price</span>
+                                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{formatCurrency(parseAmount(product.subscription_fee || product.setup_fee))}</span>
                               </div>
                               {(product.discount || product.cl_amount) && (
                                 <>
