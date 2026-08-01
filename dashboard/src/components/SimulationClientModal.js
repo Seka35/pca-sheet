@@ -43,7 +43,8 @@ export default function SimulationClientModal({
               'top-up': 'TOPUP',
               'topup': 'TOPUP',
             };
-            const paymentType = isTopUp ? 'TOPUP' : (statusMap[(payment.client_status_history || '').toLowerCase()] || null);
+            const rawStatus = (payment.client_status_history || '').toLowerCase();
+            const paymentType = isTopUp ? 'TOPUP' : (statusMap[rawStatus] || 'MONTHLY');
 
             allPayments.push({
               id: payment.reference_no || `${product.sr_no}_${payment.month}`,

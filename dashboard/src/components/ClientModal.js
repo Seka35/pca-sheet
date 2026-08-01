@@ -3145,10 +3145,46 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                                       ))}
                                     </div>
                                   );
-                                } catch { return <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>—</span>; }
+                                } catch { 
+                                  return (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</span>
+                                      {payment.reference_no && clientPayments.filter(p => p.reference_no && p.reference_no === payment.reference_no).length > 1 && (
+                                        <span style={{
+                                          backgroundColor: 'rgba(236, 72, 153, 0.15)',
+                                          color: '#F472B6',
+                                          border: '1px solid rgba(236, 72, 153, 0.3)',
+                                          padding: '1px 6px',
+                                          borderRadius: '4px',
+                                          fontSize: '9px',
+                                          fontWeight: '800',
+                                          letterSpacing: '0.5px'
+                                        }}>
+                                          BUNDLE
+                                        </span>
+                                      )}
+                                    </div>
+                                  ); 
+                                }
                               })()
                             ) : (
-                              <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</span>
+                                {payment.reference_no && clientPayments.filter(p => p.reference_no && p.reference_no === payment.reference_no).length > 1 && (
+                                  <span style={{
+                                    backgroundColor: 'rgba(236, 72, 153, 0.15)',
+                                    color: '#F472B6',
+                                    border: '1px solid rgba(236, 72, 153, 0.3)',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: '9px',
+                                    fontWeight: '800',
+                                    letterSpacing: '0.5px'
+                                  }}>
+                                    BUNDLE
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>
