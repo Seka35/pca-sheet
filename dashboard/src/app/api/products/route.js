@@ -27,7 +27,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Name and price are required' }, { status: 400 });
     }
 
-    const prodCategory = category && ['tier', 'setup'].includes(category) ? category : 'product';
+    // Set internal category for backward database compatibility (CHECK constraint category IN ('tier', 'setup'))
+    const prodCategory = category && ['tier', 'setup'].includes(category) 
+      ? category 
+      : (ad_spend_limit ? 'tier' : 'setup');
 
     if (!['monthly', 'oneshot', 'annually'].includes(billing_cycle || 'monthly')) {
       return NextResponse.json({ error: 'Billing cycle must be "monthly", "oneshot", or "annually"' }, { status: 400 });
