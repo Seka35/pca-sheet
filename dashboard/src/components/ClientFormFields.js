@@ -304,22 +304,23 @@ export default function ClientFormFields({
 
       {/* Product Identity */}
       <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(auto-fit, minmax(140px, 1fr))' : 'repeat(auto-fit, minmax(160px, 1fr))', gap: gridGap }}>
-        <Field label="Tier" compact={compact}>
+        <Field label="Product" compact={compact}>
           <Select
-            value={product.tier}
-            onChange={handleTierChange}
-            options={TIER_OPTIONS}
-            placeholder="—"
-            disabled={disabled}
-            compact={compact}
-          />
-        </Field>
-        <Field label="Setup type" compact={compact}>
-          <Select
-            value={product.setup_type}
-            onChange={handleSetupTypeChange}
-            options={SETUP_OPTIONS}
-            placeholder="—"
+            value={product.tier || product.setup_type || ''}
+            onChange={(val) => {
+              const selectedProd = [...tierProducts, ...setupProducts].find(p => p.name === val);
+              const isSetup = selectedProd?.category === 'setup' || SETUP_PRICING[val];
+              const updates = {
+                tier: isSetup ? '' : val,
+                setup_type: isSetup ? val : '',
+                subscription_fee: isSetup ? '0' : (selectedProd?.price || product.subscription_fee || '0'),
+                setup_fee: isSetup ? (selectedProd?.price || product.setup_fee || '0') : '0',
+                ad_spend_limit: selectedProd?.ad_spend_limit || product.ad_spend_limit || '',
+              };
+              onChange({ ...product, ...updates });
+            }}
+            options={Array.from(new Set([...TIER_OPTIONS, ...SETUP_OPTIONS]))}
+            placeholder="— Select Product —"
             disabled={disabled}
             compact={compact}
           />
@@ -330,13 +331,22 @@ export default function ClientFormFields({
       <div style={{ ...sectionCardStyle, padding: sectionPad, borderRadius: sectionRadius }}>
         <div style={sectionHeaderStyle}><IconDollar size={14} /> Financials</div>
         <div style={{ display: 'grid', gridTemplateColumns: compact ? 'repeat(auto-fit, minmax(120px, 1fr))' : 'repeat(auto-fit, minmax(140px, 1fr))', gap: gridGap }}>
-          <Field label="Subscription fee" compact={compact}>
-            <TextInput value={product.subscription_fee} onChange={set('subscription_fee')} placeholder="0" disabled={disabled} compact={compact} />
+          <Field label="Price ($)" compact={compact}>
+            <TextInput 
+              value={(parseFloat(product.subscription_fee || 0) || parseFloat(product.setup_fee || 0) || product.price || 0).toString()} 
+              onChange={(val) => {
+                if (product.setup_type) {
+                  onChange({ ...product, setup_fee: val, subscription_fee: '0' });
+                } else {
+                  onChange({ ...product, subscription_fee: val, setup_fee: '0' });
+                }
+              }} 
+              placeholder="0" 
+              disabled={disabled} 
+              compact={compact} 
+            />
           </Field>
-          <Field label="Setup fee" compact={compact}>
-            <TextInput value={product.setup_fee} onChange={set('setup_fee')} placeholder="0" disabled={disabled} compact={compact} />
-          </Field>
-          <Field label="Discount" compact={compact}>
+          <Field label="Discount ($)" compact={compact}>
             <TextInput value={product.discount} onChange={set('discount')} placeholder="0" disabled={disabled} compact={compact} />
           </Field>
           <Field label="CL amount" compact={compact}>

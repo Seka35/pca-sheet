@@ -94,7 +94,7 @@ export default function ProductsPage() {
 
   const openAddModal = () => {
     setEditingProduct(null);
-    setFormData({ name: '', category: 'tier', price: '', ad_spend_limit: '' });
+    setFormData({ name: '', category: 'product', billing_cycle: 'monthly', price: '', ad_spend_limit: '' });
     setModalOpen(true);
   };
 
@@ -102,7 +102,7 @@ export default function ProductsPage() {
     setEditingProduct(product);
     setFormData({
       name: product.name,
-      category: product.category,
+      category: product.category || 'product',
       billing_cycle: product.billing_cycle || 'monthly',
       price: product.price,
       ad_spend_limit: product.ad_spend_limit || '',
@@ -362,29 +362,17 @@ export default function ProductsPage() {
 
             {/* Modal Body */}
             <form onSubmit={handleSubmit}>
-              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={fieldWrapStyle}>
                   <label style={labelStyle}>Product Name</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., TIER 7, Enterprise Setup"
+                    placeholder="e.g., TIER 1 or Starter Setup"
                     style={inputStyle}
                     required
                   />
-                </div>
-
-                <div style={fieldWrapStyle}>
-                  <label style={labelStyle}>Category</label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
-                    <option value="tier">Tier</option>
-                    <option value="setup">Setup Fee</option>
-                  </select>
                 </div>
 
                 <div style={fieldWrapStyle}>
@@ -401,9 +389,7 @@ export default function ProductsPage() {
                 </div>
 
                 <div style={fieldWrapStyle}>
-                  <label style={labelStyle}>
-                    {formData.category === 'tier' ? 'Subscription Fee ($)' : 'Setup Fee ($)'}
-                  </label>
+                  <label style={labelStyle}>Price ($)</label>
                   <input
                     type="text"
                     value={formData.price}
@@ -414,18 +400,16 @@ export default function ProductsPage() {
                   />
                 </div>
 
-                {formData.category === 'tier' && (
-                  <div style={fieldWrapStyle}>
-                    <label style={labelStyle}>Ad Spend Limit</label>
-                    <input
-                      type="text"
-                      value={formData.ad_spend_limit}
-                      onChange={(e) => setFormData({ ...formData, ad_spend_limit: e.target.value })}
-                      placeholder="e.g., 5000 or Unlimited"
-                      style={inputStyle}
-                    />
-                  </div>
-                )}
+                <div style={fieldWrapStyle}>
+                  <label style={labelStyle}>Ad Spend Limit (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.ad_spend_limit}
+                    onChange={(e) => setFormData({ ...formData, ad_spend_limit: e.target.value })}
+                    placeholder="e.g., 5000 or Unlimited"
+                    style={inputStyle}
+                  />
+                </div>
               </div>
 
               {/* Modal Footer */}

@@ -44,21 +44,24 @@ export function useProducts() {
   }, []);
 
   // Memoize the filtered products to prevent unnecessary re-renders
-  const { tierProducts, setupProducts } = useMemo(() => {
+  const { tierProducts, setupProducts, allProducts } = useMemo(() => {
     const tiers = products.filter(p => p.category === 'tier');
     const setups = products.filter(p => p.category === 'setup');
+    const list = products.length > 0 ? products : [...DEFAULT_TIER_PRODUCTS, ...DEFAULT_SETUP_PRODUCTS];
     return {
       tierProducts: tiers.length > 0 ? tiers : DEFAULT_TIER_PRODUCTS,
       setupProducts: setups.length > 0 ? setups : DEFAULT_SETUP_PRODUCTS,
+      allProducts: list,
     };
   }, [products]);
 
-  const getProductByName = (name) => products.find(p => p.name === name);
+  const getProductByName = (name) => allProducts.find(p => p.name === name);
 
   return {
-    products,
+    products: allProducts,
     tierProducts,
     setupProducts,
+    allProducts,
     loading,
     refetch: fetchProducts,
     getProductByName,

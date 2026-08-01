@@ -23,26 +23,24 @@ export async function POST(request) {
     const body = await request.json();
     const { name, category, billing_cycle, price, ad_spend_limit } = body;
 
-    if (!name || !category || !price) {
-      return NextResponse.json({ error: 'Name, category, and price are required' }, { status: 400 });
+    if (!name || !price) {
+      return NextResponse.json({ error: 'Name and price are required' }, { status: 400 });
     }
 
-    if (!['tier', 'setup'].includes(category)) {
-      return NextResponse.json({ error: 'Category must be "tier" or "setup"' }, { status: 400 });
-    }
+    const prodCategory = category && ['tier', 'setup'].includes(category) ? category : 'product';
 
     if (!['monthly', 'oneshot', 'annually'].includes(billing_cycle || 'monthly')) {
       return NextResponse.json({ error: 'Billing cycle must be "monthly", "oneshot", or "annually"' }, { status: 400 });
     }
 
-    // Get max sort_order for this category
-    const maxOrder = db.prepare('SELECT MAX(sort_order) as max_order FROM products WHERE category = ?').get(category);
+    // Get max sort_order
+    const maxOrder = db.prepare('SELECT MAX(sort_order) as max_order FROM products').get();
     const newSortOrder = (maxOrder?.max_order || 0) + 1;
 
     const result = db.prepare(`
       INSERT INTO products (name, category, billing_cycle, price, ad_spend_limit, sort_order)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, category, billing_cycle || 'monthly', price, ad_spend_limit || '', newSortOrder);
+    `).run(name, prodCategory, billing_cycle || 'monthly', price, ad_spend_limit || '', newSortOrder);
 
     const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid);
 
