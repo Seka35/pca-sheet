@@ -62,7 +62,7 @@ export default function SimulationClientModal({
               actual_balance_difference: payment.actual_balance_difference || 0,
               reference_no: payment.reference_no || '',
               source: 'payment_history',
-              is_transaction: true,
+              is_transaction: false,
               type: paymentType,
               is_topup: isTopUp ? 1 : 0,
               // Extra product info for display

@@ -140,7 +140,21 @@ export function buildSimulatedClients(headers, rows, mapping) {
   const headerSet = new Set(headers.map(h => (h || '').toString().trim().toUpperCase()));
 
   const clientGroups = {};
+  const mappedIndices = Object.values(mapping).filter(v => v !== null && v !== undefined);
+  const totalMapped = mappedIndices.length || headers.length;
+
   rows.forEach((row) => {
+    // 1. Skip rows where less than 30% of mapped columns are filled (false positive rows / empty noise)
+    let filledCount = 0;
+    mappedIndices.forEach(idx => {
+      if (row[idx] !== undefined && row[idx] !== null && String(row[idx]).trim() !== '') {
+        filledCount++;
+      }
+    });
+    if (totalMapped > 0 && (filledCount / totalMapped) < 0.30) {
+      return;
+    }
+
     let headerMatchCount = 0;
     for (let i = 0; i < row.length; i++) {
       const cell = (row[i] || '').toString().trim().toUpperCase();
