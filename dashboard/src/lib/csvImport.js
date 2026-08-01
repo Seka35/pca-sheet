@@ -221,14 +221,27 @@ export function buildSimulatedClients(headers, rows, mapping) {
             val = val.toUpperCase().replace(/\s+/g, ' ').trim();
           }
           if (dbField === 'amount_received' || dbField === 'subscription_fee' ||
-              dbField === 'setup_fee' || dbField === 'referral_amount' ||
-              dbField === 'discount' || dbField === 'cl_amount' || dbField === 'actual_balance_difference') {
+              dbField === 'setup_fee' ||
+              dbField === 'referral_amount' || dbField === 'discount' ||
+              dbField === 'cl_amount' || dbField === 'actual_balance_difference') {
             entry[dbField] = parseAmount(val);
           } else {
             entry[dbField] = val;
           }
         }
       });
+
+      // Infer setup_type from setup_fee if setup_type is empty or generic
+      let resolvedSetup = (entry.setup_type || '').toString().trim();
+      const feeNum = Math.round(entry.setup_fee || 0);
+      if (!resolvedSetup || resolvedSetup.toLowerCase().includes('account') || resolvedSetup.toLowerCase().includes('ad account')) {
+        if (feeNum === 299) resolvedSetup = 'Invincible set up (old)';
+        else if (feeNum === 399) resolvedSetup = 'Starter';
+        else if (feeNum === 499) resolvedSetup = 'Premium';
+        else if (feeNum === 699) resolvedSetup = 'VIP';
+        else if (feeNum === 99) resolvedSetup = 'Only Pages';
+      }
+      entry.setup_type = resolvedSetup;
 
       // EXCEPTION: If setup_type is Top-up, override client_status_history to Top-up
       const setupClean = (entry.setup_type || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
