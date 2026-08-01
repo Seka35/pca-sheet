@@ -176,7 +176,8 @@ export default function ProductsPage() {
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
-            onClick={openAddModal}
+            type="button"
+            onClick={() => openAddModal()}
             style={{
               backgroundColor: 'var(--primary-accent)',
               color: '#000',
@@ -326,11 +327,12 @@ export default function ProductsPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000,
+          zIndex: 99999,
         }}>
           <div style={{
             backgroundColor: 'var(--bg-card)',
