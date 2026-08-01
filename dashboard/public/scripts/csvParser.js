@@ -365,6 +365,32 @@ function buildSimulatedClients(headers, rows, mapping) {
 
       // If row has BOTH a tier AND a setup_type, split into 2 separate products
       if (p.tier && p.setup_type) {
+        const totalReceived = p.history.reduce((s, h) => s + h.amount_received, 0);
+        // Separate total received: setup fee gets its setup_fee amount, tier gets the remaining
+        const setupReceived = Math.min(totalReceived, setup_fee);
+        const tierReceived = Math.max(0, totalReceived - setupReceived);
+
+        // Separate payment history for Tier
+        const tierHistory = p.history.map(h => ({
+          ...h,
+          amount_received: Math.max(0, h.amount_received - setup_fee),
+          setup_type: '',
+        }));
+
+        // Setup payment history
+        const setupHistory = setup_fee > 0 ? [{
+          month: p.history[0]?.month || '',
+          payment_date: p.history[0]?.payment_date || '',
+          amount_received: setupReceived,
+          reference_no: p.history[0]?.reference_no || '',
+          bank_name: p.history[0]?.bank_name || '',
+          payment_name: p.history[0]?.payment_name || '',
+          actual_balance_difference: 0,
+          client_status_history: 'New',
+          setup_type: p.setup_type,
+          tier: '',
+        }] : [];
+
         // 1. Tier Product
         products.push({
           sr_no: `SIM_${idx + 1}_${productIdx + 1}_TIER`,
@@ -376,9 +402,9 @@ function buildSimulatedClients(headers, rows, mapping) {
           setup_fee: '0',
           ad_id_number: p.latestAdId,
           client_ad_id_name: p.latestAdIdName || '',
-          amount_received: p.history.reduce((s, h) => s + h.amount_received, 0),
+          amount_received: tierReceived,
           is_trial: p.is_trial,
-          history: p.history,
+          history: tierHistory,
           month: p.history[0]?.month || '',
           start_date: firstRow.start_date || '',
           valid_stopped_date: firstRow.valid_stopped_date || '',
@@ -400,9 +426,9 @@ function buildSimulatedClients(headers, rows, mapping) {
           setup_fee: setup_fee.toString(),
           ad_id_number: '',
           client_ad_id_name: '',
-          amount_received: setup_fee,
+          amount_received: setupReceived,
           is_trial: 0,
-          history: [],
+          history: setupHistory,
           month: p.history[0]?.month || '',
           start_date: firstRow.start_date || '',
           valid_stopped_date: '',
