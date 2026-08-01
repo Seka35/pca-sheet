@@ -99,7 +99,21 @@ function buildSimulatedClients(headers, rows, mapping) {
 
   // Group rows by client
   const clientGroups = {};
+  const mappedIndices = Object.values(mapping).filter(v => v !== null && v !== undefined);
+  const totalMapped = mappedIndices.length || headers.length;
+
   rows.forEach((row) => {
+    // Skip rows where less than 30% of mapped columns are filled
+    let filledCount = 0;
+    mappedIndices.forEach(idx => {
+      if (row[idx] !== undefined && row[idx] !== null && String(row[idx]).trim() !== '') {
+        filledCount++;
+      }
+    });
+    if (totalMapped > 0 && (filledCount / totalMapped) < 0.30) {
+      return;
+    }
+
     // Skip separator/header rows: if most cells match column headers, it's a separator
     let headerMatchCount = 0;
     for (let i = 0; i < row.length; i++) {
@@ -349,30 +363,80 @@ function buildSimulatedClients(headers, rows, mapping) {
       const csvClAmount = parseFloat(firstRow.cl_amount || '0') || 0;
       const finalClAmount = (csvClAmount + topupSum + surplusSum).toString();
 
-      return {
-        sr_no: `SIM_${idx + 1}_${productIdx + 1}`,
-        tier: p.tier,
-        setup_type: p.setup_type,
-        visual_status,
-        client_status_history: p.latestStatus,
-        subscription_fee: subscription_fee.toString(),
-        setup_fee: setup_fee.toString(),
-        ad_id_number: p.latestAdId,
-        client_ad_id_name: p.latestAdIdName || '',
-        amount_received: p.history.reduce((s, h) => s + h.amount_received, 0),
-        is_trial: p.is_trial,
-        history: p.history,
-        // Extra fields from first row
-        month: p.history[0]?.month || '',
-        start_date: firstRow.start_date || '',
-        valid_stopped_date: firstRow.valid_stopped_date || '',
-        // Ad spend limit: prioritize DB limit for the tier (e.g. TIER 6 -> Unlimited), fallback to CSV value
-        ad_spend_limit: TIER_SPEND_LIMITS[p.tier] || firstRow.ad_spend_limit || '',
-        referral_partner_name: firstRow.referral_partner_name || '',
-        discount: firstRow.discount || '',
-        cl_amount: finalClAmount,
-        ad_account_type: firstRow.ad_account_type || '',
-      };
+      // If row has BOTH a tier AND a setup_type, split into 2 separate products
+      if (p.tier && p.setup_type) {
+        // 1. Tier Product
+        products.push({
+          sr_no: `SIM_${idx + 1}_${productIdx + 1}_TIER`,
+          tier: p.tier,
+          setup_type: '',
+          visual_status,
+          client_status_history: p.latestStatus,
+          subscription_fee: subscription_fee.toString(),
+          setup_fee: '0',
+          ad_id_number: p.latestAdId,
+          client_ad_id_name: p.latestAdIdName || '',
+          amount_received: p.history.reduce((s, h) => s + h.amount_received, 0),
+          is_trial: p.is_trial,
+          history: p.history,
+          month: p.history[0]?.month || '',
+          start_date: firstRow.start_date || '',
+          valid_stopped_date: firstRow.valid_stopped_date || '',
+          ad_spend_limit: TIER_SPEND_LIMITS[p.tier] || firstRow.ad_spend_limit || '',
+          referral_partner_name: firstRow.referral_partner_name || '',
+          discount: firstRow.discount || '',
+          cl_amount: finalClAmount,
+          ad_account_type: firstRow.ad_account_type || '',
+        });
+
+        // 2. Setup Product
+        products.push({
+          sr_no: `SIM_${idx + 1}_${productIdx + 1}_SETUP`,
+          tier: '',
+          setup_type: p.setup_type,
+          visual_status: 'Active',
+          client_status_history: 'New',
+          subscription_fee: '0',
+          setup_fee: setup_fee.toString(),
+          ad_id_number: '',
+          client_ad_id_name: '',
+          amount_received: setup_fee,
+          is_trial: 0,
+          history: [],
+          month: p.history[0]?.month || '',
+          start_date: firstRow.start_date || '',
+          valid_stopped_date: '',
+          ad_spend_limit: '',
+          referral_partner_name: firstRow.referral_partner_name || '',
+          discount: '',
+          cl_amount: '0',
+          ad_account_type: '',
+        });
+      } else {
+        // Single product (either Tier only or Setup only)
+        products.push({
+          sr_no: `SIM_${idx + 1}_${productIdx + 1}`,
+          tier: p.tier,
+          setup_type: p.setup_type,
+          visual_status,
+          client_status_history: p.latestStatus,
+          subscription_fee: subscription_fee.toString(),
+          setup_fee: setup_fee.toString(),
+          ad_id_number: p.latestAdId,
+          client_ad_id_name: p.latestAdIdName || '',
+          amount_received: p.history.reduce((s, h) => s + h.amount_received, 0),
+          is_trial: p.is_trial,
+          history: p.history,
+          month: p.history[0]?.month || '',
+          start_date: firstRow.start_date || '',
+          valid_stopped_date: firstRow.valid_stopped_date || '',
+          ad_spend_limit: TIER_SPEND_LIMITS[p.tier] || firstRow.ad_spend_limit || '',
+          referral_partner_name: firstRow.referral_partner_name || '',
+          discount: firstRow.discount || '',
+          cl_amount: finalClAmount,
+          ad_account_type: firstRow.ad_account_type || '',
+        });
+      }
     });
 
     // Sort products: tier products first, then setup
