@@ -11,6 +11,7 @@ services:
       - pcb_pcb-network
     volumes:
       - ./dashboard/src/lib:/app/dashboard/src/lib
+      - ./dashboard/public/uploads:/app/dashboard/public/uploads
     env_file:
       - .env
     environment:
