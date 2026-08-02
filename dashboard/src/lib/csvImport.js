@@ -231,19 +231,27 @@ export function buildSimulatedClients(headers, rows, mapping) {
         }
       });
 
-      // Infer setup_type from setup_fee if setup_type is empty or generic
+      // Infer setup_type from setup_fee if setup_type is empty, generic ('setup', 'ad account', 'invincible'), or has a standard fee
       let resolvedSetup = (entry.setup_type || '').toString().trim();
       const feeNum = Math.round(entry.setup_fee || 0);
-      if (feeNum === 199 && (!resolvedSetup || resolvedSetup.toLowerCase().includes('account') || resolvedSetup.toLowerCase().includes('invincible'))) {
+      const setupLower = resolvedSetup.toLowerCase();
+
+      const isGenericOrOld = !resolvedSetup || 
+                             setupLower === 'setup' || 
+                             setupLower === 'set up' || 
+                             setupLower.includes('account') || 
+                             setupLower.includes('invincible');
+
+      if (feeNum === 199 && isGenericOrOld) {
         resolvedSetup = 'old setup';
-      } else if (!resolvedSetup || resolvedSetup.toLowerCase().includes('account') || resolvedSetup.toLowerCase().includes('ad account')) {
-        if (feeNum === 199) resolvedSetup = 'old setup';
-        else if (feeNum === 299) resolvedSetup = 'Invincible set up (old)';
-        else if (feeNum === 399) resolvedSetup = 'Starter';
+      } else if (feeNum === 299 && isGenericOrOld) {
+        resolvedSetup = 'Invincible set up (old)';
+      } else if (isGenericOrOld) {
+        if (feeNum === 399) resolvedSetup = 'Starter';
         else if (feeNum === 499) resolvedSetup = 'Premium';
         else if (feeNum === 699) resolvedSetup = 'VIP';
         else if (feeNum === 99) resolvedSetup = 'Only Pages';
-        else if (feeNum === 0) resolvedSetup = ''; // If setup fee is 0, do not keep generic 'Ad Account + Setup'
+        else if (feeNum === 0) resolvedSetup = ''; // If setup fee is 0, do not keep generic 'Setup' or 'Ad Account'
       }
       entry.setup_type = resolvedSetup;
 
