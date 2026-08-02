@@ -492,15 +492,14 @@ export function buildSimulatedClients(headers, rows, mapping) {
     });
 
     // FILTER OUT DUPLICATE ZERO-FEE SETUP PRODUCTS:
-    // If a client has multiple products with the same setup_type where one has a valid setup_fee > 0 (or subscription_fee > 0)
-    // and another has setup_fee = 0 and subscription_fee = 0, remove the zero-fee product.
+    // If a client has a setup product with setup_fee = 0 (and subscription_fee = 0), and has another valid paid setup product (e.g. 299$)
+    // or a valid tier product, discard the 0$ setup product as a false positive.
     const filteredProducts = products.filter((p, i, arr) => {
-      const isZeroProduct = parseFloat(p.setup_fee || '0') === 0 && parseFloat(p.subscription_fee || '0') === 0;
-      if (isZeroProduct && p.setup_type) {
-        const hasValidSibling = arr.some(other => 
-          other.setup_type === p.setup_type && parseFloat(other.setup_fee || '0') > 0
-        );
-        if (hasValidSibling) return false;
+      const isZeroSetup = Boolean(p.setup_type) && !p.tier && parseFloat(p.setup_fee || '0') === 0 && parseFloat(p.subscription_fee || '0') === 0;
+      if (isZeroSetup) {
+        const hasPaidSetup = arr.some(other => other.setup_type && parseFloat(other.setup_fee || '0') > 0);
+        const hasTierProduct = arr.some(other => Boolean(other.tier));
+        if (hasPaidSetup || hasTierProduct) return false;
       }
       return true;
     });
