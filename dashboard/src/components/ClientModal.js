@@ -694,14 +694,26 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
   const productSource = formProducts.length > 0 ? formProducts : (history || []);
   const uniqueProductsMap = {};
   productSource.forEach(p => {
-    const key = `${p.tier || ''}|${p.setup_type || ''}|${p.sr_no || ''}`;
-    if (key !== '||' && !uniqueProductsMap[key]) {
+    // Only combine if tier or setup_type is present
+    const pTier = p.tier || '';
+    const pSetup = p.setup_type || '';
+    if (!pTier && !pSetup) return;
+
+    // Deduplicate by identity: if p has a tier (tier product), key on tier; if p has a setup_type (setup product), key on setup_type
+    const key = pTier ? `TIER|${pTier}` : `SETUP|${pSetup}`;
+    if (!uniqueProductsMap[key]) {
       uniqueProductsMap[key] = p;
+    } else {
+      // Pick the row that has a non-zero fee or higher amount_received
+      const existing = uniqueProductsMap[key];
+      const existingFee = parseAmount(existing.subscription_fee || existing.setup_fee);
+      const currentFee = parseAmount(p.subscription_fee || p.setup_fee);
+      if (currentFee > existingFee) {
+        uniqueProductsMap[key] = p;
+      }
     }
   });
   const displayProducts = Object.values(uniqueProductsMap).sort((a, b) => {
-    // Sort by start_date descending (most recent first)
-    // Products with no start_date (new/unsaved) go to the top
     if (!a.start_date && b.start_date) return -1;
     if (a.start_date && !b.start_date) return 1;
     const dateA = a.start_date ? new Date(a.start_date) : new Date(9999, 11, 31);
