@@ -689,28 +689,23 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     return { status: 'UNPAID', color: '#EF4444' };
   };
 
-  // Deduplicate products by tier + setup_type combination (one card per unique product)
-  // Always prefer formProducts (has latest saved data), fall back to history only if empty
+  // Deduplicate products: show separate cards for Tier and Setup products, but eliminate zero-fee duplicate setups
   const productSource = formProducts.length > 0 ? formProducts : (history || []);
   const uniqueProductsMap = {};
   productSource.forEach(p => {
-    // Only combine if tier or setup_type is present
     const pTier = p.tier || '';
     const pSetup = p.setup_type || '';
     if (!pTier && !pSetup) return;
 
-    // Deduplicate by identity: if p has a tier (tier product), key on tier; if p has a setup_type (setup product), key on setup_type
-    const key = pTier ? `TIER|${pTier}` : `SETUP|${pSetup}`;
+    // Use sr_no if available (e.g. SIM_43_1_TIER vs SIM_43_1_SETUP), otherwise tier|setup_type
+    const key = p.sr_no ? p.sr_no : `${pTier}|${pSetup}`;
+    
+    // Ignore duplicate setup entries with $0 setup_fee if another entry has a non-zero setup_fee or tier
+    const isZeroSetupOnly = !pTier && pSetup && parseAmount(p.setup_fee) === 0 && parseAmount(p.subscription_fee) === 0;
+    if (isZeroSetupOnly) return;
+
     if (!uniqueProductsMap[key]) {
       uniqueProductsMap[key] = p;
-    } else {
-      // Pick the row that has a non-zero fee or higher amount_received
-      const existing = uniqueProductsMap[key];
-      const existingFee = parseAmount(existing.subscription_fee || existing.setup_fee);
-      const currentFee = parseAmount(p.subscription_fee || p.setup_fee);
-      if (currentFee > existingFee) {
-        uniqueProductsMap[key] = p;
-      }
     }
   });
   const displayProducts = Object.values(uniqueProductsMap).sort((a, b) => {

@@ -116,6 +116,14 @@ export default function SimulationClientModal({
         });
       }
 
+      // Intercept GET /api/client-products?client_id=X
+      if (paymentsUrl.pathname === '/api/client-products' && parseInt(paymentsUrl.searchParams.get('client_id'), 10) === simulatedId) {
+        return new Response(JSON.stringify({ products: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       return originalFetch(url, options);
     };
 
