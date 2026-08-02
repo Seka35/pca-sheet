@@ -243,6 +243,7 @@ export function buildSimulatedClients(headers, rows, mapping) {
         else if (feeNum === 499) resolvedSetup = 'Premium';
         else if (feeNum === 699) resolvedSetup = 'VIP';
         else if (feeNum === 99) resolvedSetup = 'Only Pages';
+        else if (feeNum === 0) resolvedSetup = ''; // If setup fee is 0, do not keep generic 'Ad Account + Setup'
       }
       entry.setup_type = resolvedSetup;
 
