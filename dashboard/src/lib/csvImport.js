@@ -305,6 +305,9 @@ export function buildSimulatedClients(headers, rows, mapping) {
           firstRow: entry,
         };
       } else {
+        if (!productMap[key].setup_type && rawSetup && !isTopUpRow) {
+          productMap[key].setup_type = rawSetup;
+        }
         if (!isTopUpRow && !isUpgradeRow && (entry.setup_fee > 0 && (!productMap[key].firstRow.setup_fee || productMap[key].firstRow.setup_fee === 0))) {
           productMap[key].firstRow = entry;
         } else if (!isTopUpRow && !isUpgradeRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {

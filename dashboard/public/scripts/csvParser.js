@@ -270,6 +270,9 @@ function buildSimulatedClients(headers, rows, mapping) {
           firstRow: entry,
         };
       } else {
+        if (!productMap[key].setup_type && rawSetup && !isTopUpRow) {
+          productMap[key].setup_type = rawSetup;
+        }
         // Keep the earliest row (for start_date, valid_until) if not topup
         if (!isTopUpRow && !isUpgradeRow && (entry.setup_fee > 0 && (!productMap[key].firstRow.setup_fee || productMap[key].firstRow.setup_fee === 0))) {
           productMap[key].firstRow = entry;
