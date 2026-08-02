@@ -193,15 +193,27 @@ function buildSimulatedClients(headers, rows, mapping) {
         }
       });
 
-      // Infer setup_type from setup_fee if setup_type is empty or generic
+      // Infer setup_type from setup_fee if setup_type is empty, generic ('setup', 'ad account', 'invincible'), or has a standard fee
       let resolvedSetup = (entry.setup_type || '').toString().trim();
       const feeNum = Math.round(entry.setup_fee || 0);
-      if (!resolvedSetup || resolvedSetup.toLowerCase().includes('account') || resolvedSetup.toLowerCase().includes('ad account')) {
-        if (feeNum === 299) resolvedSetup = 'Invincible set up (old)';
-        else if (feeNum === 399) resolvedSetup = 'Starter';
+      const setupLower = resolvedSetup.toLowerCase();
+
+      const isGenericOrOld = !resolvedSetup || 
+                             setupLower === 'setup' || 
+                             setupLower === 'set up' || 
+                             setupLower.includes('account') || 
+                             setupLower.includes('invincible');
+
+      if (feeNum === 199 && isGenericOrOld) {
+        resolvedSetup = 'old setup';
+      } else if (feeNum === 299 && isGenericOrOld) {
+        resolvedSetup = 'Invincible set up (old)';
+      } else if (isGenericOrOld) {
+        if (feeNum === 399) resolvedSetup = 'Starter';
         else if (feeNum === 499) resolvedSetup = 'Premium';
         else if (feeNum === 699) resolvedSetup = 'VIP';
         else if (feeNum === 99) resolvedSetup = 'Only Pages';
+        else if (feeNum === 0) resolvedSetup = ''; // If setup fee is 0, do not keep generic 'Setup' or 'Ad Account'
       }
       entry.setup_type = resolvedSetup;
 
@@ -237,7 +249,12 @@ function buildSimulatedClients(headers, rows, mapping) {
           key = tier ? (tier + '|' + (isTopUpRow ? '' : rawSetup)) : 'MainProduct';
         }
       } else {
-        key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
+        const matchTierKey = tier ? Object.keys(productMap).find(k => k.startsWith(tier + '|')) : null;
+        if (matchTierKey) {
+          key = matchTierKey;
+        } else {
+          key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
+        }
       }
 
       if (!productMap[key]) {
@@ -254,7 +271,9 @@ function buildSimulatedClients(headers, rows, mapping) {
         };
       } else {
         // Keep the earliest row (for start_date, valid_until) if not topup
-        if (!isTopUpRow && !isUpgradeRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
+        if (!isTopUpRow && !isUpgradeRow && (entry.setup_fee > 0 && (!productMap[key].firstRow.setup_fee || productMap[key].firstRow.setup_fee === 0))) {
+          productMap[key].firstRow = entry;
+        } else if (!isTopUpRow && !isUpgradeRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
           productMap[key].firstRow = entry;
         }
       }
@@ -296,27 +315,18 @@ function buildSimulatedClients(headers, rows, mapping) {
       });
 
       // Track latest values (use most recent non-empty)
-      if (entry.client_status_history) {
-        productMap[key].latestStatus = entry.client_status_history;
-      }
-      if (entry.ad_id_number) {
-        productMap[key].latestAdId = entry.ad_id_number;
-      }
-      if (entry.client_ad_id_name) {
-        productMap[key].latestAdIdName = entry.client_ad_id_name;
-      }
-      if (entry.visual_status) {
-        productMap[key].latestVisualStatus = entry.visual_status;
-      }
-
-      // Trial flag
+      if (entry.client_status_history) productMap[key].latestStatus = entry.client_status_history;
+      if (entry.ad_id_number) productMap[key].latestAdId = entry.ad_id_number;
+      if (entry.client_ad_id_name) productMap[key].latestAdIdName = entry.client_ad_id_name;
+      if (entry.visual_status) productMap[key].latestVisualStatus = entry.visual_status;
       if (entry.client_status_history && entry.client_status_history.toLowerCase() === 'trial') {
         productMap[key].is_trial = 1;
       }
     });
 
     // Build products array
-    const products = Object.values(productMap).map((p, productIdx) => {
+    const products = [];
+    Object.values(productMap).forEach((p, productIdx) => {
       const firstRow = p.firstRow;
       const isTrial = p.is_trial === 1;
 
@@ -332,11 +342,12 @@ function buildSimulatedClients(headers, rows, mapping) {
 
       // setup_fee from pricing or CSV
       let setup_fee = p.setup_type && SETUP_PRICING[p.setup_type] ? parseFloat(SETUP_PRICING[p.setup_type]) : 0;
+      const historySetupFee = p.history.find(h => h.setup_fee > 0)?.setup_fee || 0;
       if (firstRow.setup_fee > 0) setup_fee = firstRow.setup_fee;
+      else if (historySetupFee > 0) setup_fee = historySetupFee;
 
       // Use visual_status directly from CSV if available (Active/Stopped), otherwise fall back to deriving from client_status_history
       const rawVisualStatus = (p.latestVisualStatus || '').toLowerCase();
-      console.log('[DEBUG] rawVisualStatus:', rawVisualStatus, 'latestStatus:', p.latestStatus);
       let visual_status = 'Inactive';
       if (rawVisualStatus === 'active') {
         visual_status = 'Active';
@@ -377,31 +388,25 @@ function buildSimulatedClients(headers, rows, mapping) {
 
       // If row has BOTH a tier AND a setup_type, split into 2 separate products
       if (p.tier && p.setup_type) {
-        const totalReceived = p.history.reduce((s, h) => s + h.amount_received, 0);
-        // Separate total received: setup fee gets its setup_fee amount, tier gets the remaining
-        const setupReceived = Math.min(totalReceived, setup_fee);
-        const tierReceived = Math.max(0, totalReceived - setupReceived);
-
-        // Separate payment history for Tier
+        // Calculate history for Tier product (only subscription portion of amount)
         const tierHistory = p.history.map(h => ({
           ...h,
-          amount_received: Math.max(0, h.amount_received - setup_fee),
+          tier: p.tier,
           setup_type: '',
+          amount_received: h.amount_received >= (subscription_fee + setup_fee) 
+            ? subscription_fee 
+            : Math.min(h.amount_received, subscription_fee),
         }));
 
-        // Setup payment history
-        const setupHistory = setup_fee > 0 ? [{
-          month: p.history[0]?.month || '',
-          payment_date: p.history[0]?.payment_date || '',
-          amount_received: setupReceived,
-          reference_no: p.history[0]?.reference_no || '',
-          bank_name: p.history[0]?.bank_name || '',
-          payment_name: p.history[0]?.payment_name || '',
-          actual_balance_difference: 0,
-          client_status_history: 'New',
-          setup_type: p.setup_type,
+        // Calculate history for Setup product (only setup portion of amount)
+        const setupHistory = p.history.map(h => ({
+          ...h,
           tier: '',
-        }] : [];
+          setup_type: p.setup_type,
+          amount_received: h.amount_received >= (subscription_fee + setup_fee) 
+            ? setup_fee 
+            : Math.max(0, h.amount_received - subscription_fee),
+        }));
 
         // 1. Tier Product
         products.push({
@@ -414,7 +419,7 @@ function buildSimulatedClients(headers, rows, mapping) {
           setup_fee: '0',
           ad_id_number: p.latestAdId,
           client_ad_id_name: p.latestAdIdName || '',
-          amount_received: tierReceived,
+          amount_received: tierHistory.reduce((s, h) => s + h.amount_received, 0),
           is_trial: p.is_trial,
           history: tierHistory,
           month: p.history[0]?.month || '',
@@ -438,7 +443,7 @@ function buildSimulatedClients(headers, rows, mapping) {
           setup_fee: setup_fee.toString(),
           ad_id_number: p.latestAdId || '',
           client_ad_id_name: p.latestAdIdName || '',
-          amount_received: setupReceived,
+          amount_received: setupHistory.reduce((s, h) => s + h.amount_received, 0),
           is_trial: 0,
           history: setupHistory,
           month: p.history[0]?.month || '',
@@ -477,8 +482,21 @@ function buildSimulatedClients(headers, rows, mapping) {
       }
     });
 
+    // FILTER OUT DUPLICATE ZERO-FEE SETUP PRODUCTS:
+    // If a client has a setup product with setup_fee = 0 (and subscription_fee = 0), and has another valid paid setup product (e.g. 299$)
+    // or a valid tier product, discard the 0$ setup product as a false positive.
+    const filteredProducts = products.filter((p, i, arr) => {
+      const isZeroSetup = Boolean(p.setup_type) && !p.tier && parseFloat(p.setup_fee || '0') === 0 && parseFloat(p.subscription_fee || '0') === 0;
+      if (isZeroSetup) {
+        const hasPaidSetup = arr.some(other => other.setup_type && parseFloat(other.setup_fee || '0') > 0);
+        const hasTierProduct = arr.some(other => Boolean(other.tier));
+        if (hasPaidSetup || hasTierProduct) return false;
+      }
+      return true;
+    });
+
     // Sort products: tier products first, then setup
-    products.sort((a, b) => {
+    filteredProducts.sort((a, b) => {
       const aIsTier = a.tier.startsWith('TIER');
       const bIsTier = b.tier.startsWith('TIER');
       if (aIsTier && !bIsTier) return -1;
