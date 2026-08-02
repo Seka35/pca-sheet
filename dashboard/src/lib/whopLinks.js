@@ -26,6 +26,8 @@ export const TIER_SPEND_LIMITS = {
 
 // Setup pricing for upgrades
 export const SETUP_PRICING = {
+  'old setup': '199',
+  'Invincible set up (old)': '299',
   'Starter': '399',
   'Premium': '499',
   'VIP': '699',

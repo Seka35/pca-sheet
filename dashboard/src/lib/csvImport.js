@@ -204,7 +204,7 @@ export function buildSimulatedClients(headers, rows, mapping) {
   };
 
   const SETUP_PRICING = {
-    'Invincible set up (old)': '299', 'Invincible set up': '299',
+    'old setup': '199', 'Invincible set up (old)': '299', 'Invincible set up': '299',
     'Starter': '399', 'Premium': '499', 'VIP': '699',
     'Ad Account': '0', 'Only Pages': '99',
   };
@@ -234,8 +234,11 @@ export function buildSimulatedClients(headers, rows, mapping) {
       // Infer setup_type from setup_fee if setup_type is empty or generic
       let resolvedSetup = (entry.setup_type || '').toString().trim();
       const feeNum = Math.round(entry.setup_fee || 0);
-      if (!resolvedSetup || resolvedSetup.toLowerCase().includes('account') || resolvedSetup.toLowerCase().includes('ad account')) {
-        if (feeNum === 299) resolvedSetup = 'Invincible set up (old)';
+      if (feeNum === 199 && (!resolvedSetup || resolvedSetup.toLowerCase().includes('account') || resolvedSetup.toLowerCase().includes('invincible'))) {
+        resolvedSetup = 'old setup';
+      } else if (!resolvedSetup || resolvedSetup.toLowerCase().includes('account') || resolvedSetup.toLowerCase().includes('ad account')) {
+        if (feeNum === 199) resolvedSetup = 'old setup';
+        else if (feeNum === 299) resolvedSetup = 'Invincible set up (old)';
         else if (feeNum === 399) resolvedSetup = 'Starter';
         else if (feeNum === 499) resolvedSetup = 'Premium';
         else if (feeNum === 699) resolvedSetup = 'VIP';
@@ -375,6 +378,26 @@ export function buildSimulatedClients(headers, rows, mapping) {
 
       // If row has BOTH a tier AND a setup_type, split into 2 separate products
       if (p.tier && p.setup_type) {
+        // Calculate history for Tier product (only subscription portion of amount)
+        const tierHistory = p.history.map(h => ({
+          ...h,
+          tier: p.tier,
+          setup_type: '',
+          amount_received: h.amount_received >= (subscription_fee + setup_fee) 
+            ? subscription_fee 
+            : Math.min(h.amount_received, subscription_fee),
+        }));
+
+        // Calculate history for Setup product (only setup portion of amount)
+        const setupHistory = p.history.map(h => ({
+          ...h,
+          tier: '',
+          setup_type: p.setup_type,
+          amount_received: h.amount_received >= (subscription_fee + setup_fee) 
+            ? setup_fee 
+            : Math.max(0, h.amount_received - subscription_fee),
+        }));
+
         // 1. Tier Product
         products.push({
           sr_no: `SIM_${idx + 1}_${productIdx + 1}_TIER`,
@@ -386,9 +409,9 @@ export function buildSimulatedClients(headers, rows, mapping) {
           setup_fee: '0',
           ad_id_number: p.latestAdId,
           client_ad_id_name: p.latestAdIdName || '',
-          amount_received: p.history.reduce((s, h) => s + h.amount_received, 0),
+          amount_received: tierHistory.reduce((s, h) => s + h.amount_received, 0),
           is_trial: p.is_trial,
-          history: p.history,
+          history: tierHistory,
           month: p.history[0]?.month || '',
           start_date: firstRow.start_date || '',
           valid_stopped_date: firstRow.valid_stopped_date || '',
@@ -410,9 +433,9 @@ export function buildSimulatedClients(headers, rows, mapping) {
           setup_fee: setup_fee.toString(),
           ad_id_number: p.latestAdId || '',
           client_ad_id_name: p.latestAdIdName || '',
-          amount_received: setup_fee,
+          amount_received: setupHistory.reduce((s, h) => s + h.amount_received, 0),
           is_trial: 0,
-          history: [],
+          history: setupHistory,
           month: p.history[0]?.month || '',
           start_date: firstRow.start_date || '',
           valid_stopped_date: firstRow.valid_stopped_date || '',

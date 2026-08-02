@@ -3005,18 +3005,18 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                         }
                       } else {
                         // For regular payments
-                        const sub = parseAmount(product?.subscription_fee);
-                        const setup = parseAmount(product?.setup_fee);
-                        const disc = parseAmount(product?.discount);
+                        const sub = parseAmount(payment.subscription_fee || product?.subscription_fee);
+                        const setup = parseAmount(payment.setup_fee || product?.setup_fee);
+                        const disc = parseAmount(payment.discount || product?.discount);
                         const received = parseAmount(payment.amount_received);
                         const totalDue = (sub + setup) - disc;
-                        const isZeroOrEmpty = !payment.amount_received || payment.amount_received === '0' || payment.amount_received === '';
-                        const isFullyPaid = received >= totalDue || (totalDue > 0 && (received >= totalDue * 0.90 || (totalDue - received) <= 25));
+                        const isZeroOrEmpty = (!payment.amount_received && payment.amount_received !== 0) || payment.amount_received === '0' || payment.amount_received === '';
+                        const isFullyPaid = (totalDue > 0 && (received >= totalDue * 0.90 || (totalDue - received) <= 25)) || (received > 0 && received >= totalDue);
                         if (payment.is_topup === 1) {
                           paymentBillingStatus = 'TOPUP';
                         } else if (isZeroOrEmpty) {
                           paymentBillingStatus = 'UNPAID';
-                        } else if (isFullyPaid && totalDue > 0) {
+                        } else if (isFullyPaid || (received > 0 && totalDue === 0)) {
                           paymentBillingStatus = 'PAID';
                         } else if (received > 0) {
                           paymentBillingStatus = 'PARTIAL';
@@ -3143,44 +3143,75 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                                   );
                                 } catch { 
                                   return (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</span>
-                                      {payment.reference_no && clientPayments.filter(p => p.reference_no && p.reference_no === payment.reference_no).length > 1 && (
-                                        <span style={{
-                                          backgroundColor: 'rgba(236, 72, 153, 0.15)',
-                                          color: '#F472B6',
-                                          border: '1px solid rgba(236, 72, 153, 0.3)',
-                                          padding: '1px 6px',
-                                          borderRadius: '4px',
-                                          fontSize: '9px',
-                                          fontWeight: '800',
-                                          letterSpacing: '0.5px'
-                                        }}>
-                                          BUNDLE
-                                        </span>
-                                      )}
-                                    </div>
+                                    (() => {
+                                      const ref = payment.reference_no;
+                                      const matchingPayments = ref ? clientPayments.filter(p => p.reference_no && p.reference_no === ref) : [];
+                                      const isBundle = matchingPayments.length > 1;
+                                      
+                                      // Build bundle index mapping across clientPayments
+                                      const bundleRefs = Array.from(new Set(
+                                        clientPayments
+                                          .filter(p => p.reference_no && clientPayments.filter(x => x.reference_no === p.reference_no).length > 1)
+                                          .map(p => p.reference_no)
+                                      ));
+                                      const bundleNum = isBundle ? (bundleRefs.indexOf(ref) + 1) : 0;
+      
+                                      return (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{ref || '—'}</span>
+                                          {isBundle && bundleNum > 0 && (
+                                            <span style={{
+                                              backgroundColor: 'rgba(236, 72, 153, 0.15)',
+                                              color: '#F472B6',
+                                              border: '1px solid rgba(236, 72, 153, 0.3)',
+                                              padding: '1px 6px',
+                                              borderRadius: '4px',
+                                              fontSize: '9px',
+                                              fontWeight: '800',
+                                              letterSpacing: '0.5px'
+                                            }}>
+                                              Bundle {bundleNum}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })()
                                   ); 
                                 }
                               })()
                             ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{payment.reference_no || '—'}</span>
-                                {payment.reference_no && clientPayments.filter(p => p.reference_no && p.reference_no === payment.reference_no).length > 1 && (
-                                  <span style={{
-                                    backgroundColor: 'rgba(236, 72, 153, 0.15)',
-                                    color: '#F472B6',
-                                    border: '1px solid rgba(236, 72, 153, 0.3)',
-                                    padding: '1px 6px',
-                                    borderRadius: '4px',
-                                    fontSize: '9px',
-                                    fontWeight: '800',
-                                    letterSpacing: '0.5px'
-                                  }}>
-                                    BUNDLE
-                                  </span>
-                                )}
-                              </div>
+                              (() => {
+                                const ref = payment.reference_no;
+                                const matchingPayments = ref ? clientPayments.filter(p => p.reference_no && p.reference_no === ref) : [];
+                                const isBundle = matchingPayments.length > 1;
+
+                                const bundleRefs = Array.from(new Set(
+                                  clientPayments
+                                    .filter(p => p.reference_no && clientPayments.filter(x => x.reference_no === p.reference_no).length > 1)
+                                    .map(p => p.reference_no)
+                                ));
+                                const bundleNum = isBundle ? (bundleRefs.indexOf(ref) + 1) : 0;
+
+                                return (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{ref || '—'}</span>
+                                    {isBundle && bundleNum > 0 && (
+                                      <span style={{
+                                        backgroundColor: 'rgba(236, 72, 153, 0.15)',
+                                        color: '#F472B6',
+                                        border: '1px solid rgba(236, 72, 153, 0.3)',
+                                        padding: '1px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '9px',
+                                        fontWeight: '800',
+                                        letterSpacing: '0.5px'
+                                      }}>
+                                        Bundle {bundleNum}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()
                             )}
                           </td>
                           <td style={{ padding: '16px 8px', textAlign: 'center' }}>

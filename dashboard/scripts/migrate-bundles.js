@@ -4,7 +4,22 @@ const { db } = require('../src/lib/db.js');
 console.log('=== Début de la migration des bundles ===');
 
 const transaction = db.transaction(() => {
-  // 1. Trouver les client_products qui ont à la fois un tier et un setup_type
+  // 1. Normaliser d'abord les setup_type dont le prix est 199 (ou contenant invincible avec 199) vers 'old setup'
+  db.prepare(`
+    UPDATE client_products
+    SET setup_type = 'old setup'
+    WHERE (setup_type LIKE '%invincible%' OR setup_type LIKE '%account%' OR setup_type IS NULL OR setup_type = '')
+      AND (setup_fee = '199' OR setup_fee = '199.00' OR setup_fee = 199)
+  `).run();
+
+  db.prepare(`
+    UPDATE renewals
+    SET setup_type = 'old setup'
+    WHERE (setup_type LIKE '%invincible%' OR setup_type LIKE '%account%' OR setup_type IS NULL OR setup_type = '')
+      AND (setup_fee = '199' OR setup_fee = '199.00' OR setup_fee = 199)
+  `).run();
+
+  // 2. Trouver les client_products qui ont à la fois un tier et un setup_type
   const clientBundles = db.prepare(`
     SELECT * FROM client_products 
     WHERE tier IS NOT NULL AND tier != '' 
@@ -15,6 +30,11 @@ const transaction = db.transaction(() => {
 
   let splitClientProducts = 0;
   for (const item of clientBundles) {
+    let resolvedSetup = item.setup_type;
+    if ((parseFloat(item.setup_fee) === 199 || item.setup_fee === '199') && (resolvedSetup.includes('invincible') || resolvedSetup.includes('account'))) {
+      resolvedSetup = 'old setup';
+    }
+
     // Modifier l'entrée actuelle pour qu'elle devienne le Produit Tier uniquement (setup_type = '', setup_fee = '0')
     db.prepare(`
       UPDATE client_products 
@@ -30,8 +50,8 @@ const transaction = db.transaction(() => {
       ) VALUES (?, '', ?, '', ?, '0', ?, ?, '', ?, ?, ?)
     `).run(
       item.client_id,
-      item.setup_type,
-      item.setup_type,
+      resolvedSetup,
+      resolvedSetup,
       item.setup_fee || '0',
       item.discount || '0',
       item.is_active !== undefined ? item.is_active : 1,
@@ -42,7 +62,7 @@ const transaction = db.transaction(() => {
     splitClientProducts++;
   }
 
-  // 2. Traiter également les lignes dans renewals
+  // 3. Traiter également les lignes dans renewals
   const renewalBundles = db.prepare(`
     SELECT * FROM renewals
     WHERE tier IS NOT NULL AND tier != ''
@@ -53,12 +73,24 @@ const transaction = db.transaction(() => {
 
   let splitRenewals = 0;
   for (const r of renewalBundles) {
+    let resolvedSetup = r.setup_type;
+    if ((parseFloat(r.setup_fee) === 199 || r.setup_fee === '199') && (resolvedSetup.includes('invincible') || resolvedSetup.includes('account'))) {
+      resolvedSetup = 'old setup';
+    }
+
+    const subFee = parseFloat(r.subscription_fee || 0);
+    const setFee = parseFloat(r.setup_fee || 0);
+    const totalAmt = parseFloat(r.amount_received || 0);
+
+    const tierAmount = totalAmt >= (subFee + setFee) ? subFee : Math.min(totalAmt, subFee);
+    const setupAmount = totalAmt >= (subFee + setFee) ? setFee : Math.max(0, totalAmt - subFee);
+
     // On met à jour la ligne originale pour être le Tier uniquement
     db.prepare(`
       UPDATE renewals
-      SET setup_type = '', setup_fee = '0'
+      SET setup_type = '', setup_fee = '0', amount_received = ?
       WHERE sr_no = ?
-    `).run(r.sr_no);
+    `).run(tierAmount.toString(), r.sr_no);
 
     // Et on insère la ligne Setup dédiée si elle n'existe pas déjà
     const setupSrNo = `${r.sr_no}_SETUP`;
@@ -77,14 +109,14 @@ const transaction = db.transaction(() => {
         r.client_name,
         r.month,
         r.start_date,
-        r.setup_type,
-        r.setup_fee || '0',
+        resolvedSetup,
+        (setFee || 199).toString(),
         r.discount || '',
         r.referral_partner_name || '',
         r.valid_stopped_date || '',
         r.payment_name || '',
         r.bank_name || '',
-        r.setup_fee || '0',
+        setupAmount.toString(),
         r.payment_received_date || '',
         r.payment_received_month || '',
         r.reference_no || '',
