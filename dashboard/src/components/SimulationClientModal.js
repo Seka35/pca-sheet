@@ -28,7 +28,7 @@ export default function SimulationClientModal({
     const allPayments = [];
     if (clientData.history && Array.isArray(clientData.history)) {
       clientData.history.forEach((product) => {
-        if (product.history && Array.isArray(product.history) && product.history.length > 0) {
+        if (product.history && Array.isArray(product.history)) {
           product.history.forEach((payment) => {
             // Map client_status_history to payment type
             // New/Renewed → MONTHLY, Upgraded → UPGRADE, Replacement/Trial → keep as status (not a payment type)
@@ -75,33 +75,6 @@ export default function SimulationClientModal({
               setup_fee: product.setup_fee || '0',
               is_trial: product.is_trial || 0,
             });
-          });
-        } else if (product.amount_received > 0 || (product.setup_type && parseFloat(product.setup_fee || 0) > 0)) {
-          // Dedicated entry for Setup product without separate history rows
-          allPayments.push({
-            id: `setup_${product.sr_no}`,
-            sr_no: product.sr_no || '',
-            renewal_sr_no: product.sr_no || '',
-            client_id: simulatedId,
-            client_name: clientData.nom || '',
-            client_status_history: product.client_status_history || 'New',
-            month: product.month || '',
-            valid_stopped_date: product.valid_stopped_date || '',
-            payment_name: '',
-            bank_name: clientData.canal || '',
-            amount_received: product.amount_received || parseFloat(product.setup_fee || 0),
-            payment_received_date: product.start_date || '',
-            payment_received_month: product.month || '',
-            reference_no: clientData.history?.[0]?.history?.[0]?.reference_no || '',
-            source: 'payment_history',
-            is_transaction: false,
-            type: 'MONTHLY',
-            is_topup: 0,
-            tier: '',
-            setup_type: product.setup_type || '',
-            subscription_fee: '0',
-            setup_fee: product.setup_fee || '0',
-            is_trial: 0,
           });
         }
       });
