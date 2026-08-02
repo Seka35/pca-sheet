@@ -491,9 +491,23 @@ export function buildSimulatedClients(headers, rows, mapping) {
       }
     });
 
-    const totalCA = products.reduce((sum, p) => sum + p.amount_received, 0);
-    const mrr = products.reduce((sum, p) => sum + parseFloat(p.subscription_fee || 0) + parseFloat(p.setup_fee || 0), 0);
-    const latestProduct = products[products.length - 1] || {};
+    // FILTER OUT DUPLICATE ZERO-FEE SETUP PRODUCTS:
+    // If a client has multiple products with the same setup_type where one has a valid setup_fee > 0 (or subscription_fee > 0)
+    // and another has setup_fee = 0 and subscription_fee = 0, remove the zero-fee product.
+    const filteredProducts = products.filter((p, i, arr) => {
+      const isZeroProduct = parseFloat(p.setup_fee || '0') === 0 && parseFloat(p.subscription_fee || '0') === 0;
+      if (isZeroProduct && p.setup_type) {
+        const hasValidSibling = arr.some(other => 
+          other.setup_type === p.setup_type && parseFloat(other.setup_fee || '0') > 0
+        );
+        if (hasValidSibling) return false;
+      }
+      return true;
+    });
+
+    const totalCA = filteredProducts.reduce((sum, p) => sum + p.amount_received, 0);
+    const mrr = filteredProducts.reduce((sum, p) => sum + parseFloat(p.subscription_fee || 0) + parseFloat(p.setup_fee || 0), 0);
+    const latestProduct = filteredProducts[filteredProducts.length - 1] || {};
 
     const firstRow = clientRows[0];
     const getField = (field) => {
@@ -506,10 +520,10 @@ export function buildSimulatedClients(headers, rows, mapping) {
     const company_name = getField('company_name');
     const notes = getField('notes');
 
-    const hasActiveProduct = products.some((h) => h.visual_status === 'Active');
+    const hasActiveProduct = filteredProducts.some((h) => h.visual_status === 'Active');
     const statut = hasActiveProduct ? 'Active' : 'Inactive';
 
-    const produits = products.map((h) => h.tier || h.setup_type).filter(Boolean).join(', ') || '—';
+    const produits = filteredProducts.map((h) => h.tier || h.setup_type).filter(Boolean).join(', ') || '—';
 
     const parsingIssues = [];
     if (group.isUnparseable) {
@@ -518,10 +532,10 @@ export function buildSimulatedClients(headers, rows, mapping) {
     if (!rawName || rawName === 'unnamed' || rawName === '—') {
       parsingIssues.push({ type: 'CRITICAL', field: 'Client Name', message: 'Nom de client manquant ou invalide' });
     }
-    if (products.length === 0) {
+    if (filteredProducts.length === 0) {
       parsingIssues.push({ type: 'CRITICAL', field: 'Products', message: 'Aucun produit ni TIER associé à ce client' });
     }
-    products.forEach((p, pIdx) => {
+    filteredProducts.forEach((p, pIdx) => {
       const pName = p.tier || p.setup_type || `Produit ${pIdx + 1}`;
       if (!p.tier && !p.setup_type) {
         parsingIssues.push({ type: 'WARNING', field: 'Product', message: `Produit ${pIdx + 1}: TIER ou Setup Type non spécifié` });
@@ -552,7 +566,7 @@ export function buildSimulatedClients(headers, rows, mapping) {
       produits,
       parsingIssues,
       hasIssues: parsingIssues.length > 0,
-      productDetails: products.map((h) => ({
+      productDetails: filteredProducts.map((h) => ({
         tier: h.tier || '',
         setup_type: h.setup_type || '',
         is_trial: h.is_trial || 0,
@@ -579,12 +593,12 @@ export function buildSimulatedClients(headers, rows, mapping) {
         notes,
         referral_partner_name: latestProduct.referral_partner_name || '',
       },
-      history: products,
+      history: filteredProducts,
       computed: {
         totalSpend: 0,
         totalCA,
-        renewalCount: products.length,
-        earliestStartDate: products[0]?.start_date || null,
+        renewalCount: filteredProducts.length,
+        earliestStartDate: filteredProducts[0]?.start_date || null,
         nextRenewalDate: latestProduct.valid_stopped_date || null,
         latestTier: latestProduct.tier || null,
         latestSetupType: latestProduct.setup_type || null,
