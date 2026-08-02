@@ -283,7 +283,13 @@ export function buildSimulatedClients(headers, rows, mapping) {
           key = tier ? (tier + '|' + (isTopUpRow ? '' : rawSetup)) : 'MainProduct';
         }
       } else {
-        key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
+        // Find existing key for this tier (even if setup_type in renewal row is empty or generic)
+        const matchTierKey = tier ? Object.keys(productMap).find(k => k.startsWith(tier + '|')) : null;
+        if (matchTierKey) {
+          key = matchTierKey;
+        } else {
+          key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
+        }
       }
 
       if (!productMap[key]) {
