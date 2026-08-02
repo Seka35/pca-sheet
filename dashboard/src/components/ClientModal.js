@@ -2441,7 +2441,9 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>Price</span>
-                                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{formatCurrency(parseAmount(product.subscription_fee || product.setup_fee))}</span>
+                                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                                  {formatCurrency(parseAmount(product.subscription_fee) > 0 ? parseAmount(product.subscription_fee) : parseAmount(product.setup_fee))}
+                                </span>
                               </div>
                               {(product.discount || product.cl_amount) && (
                                 <>
