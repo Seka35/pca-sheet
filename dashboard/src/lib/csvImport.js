@@ -299,7 +299,9 @@ export function buildSimulatedClients(headers, rows, mapping) {
           firstRow: entry,
         };
       } else {
-        if (!isTopUpRow && !isUpgradeRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
+        if (!isTopUpRow && !isUpgradeRow && (entry.setup_fee > 0 && (!productMap[key].firstRow.setup_fee || productMap[key].firstRow.setup_fee === 0))) {
+          productMap[key].firstRow = entry;
+        } else if (!isTopUpRow && !isUpgradeRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
           productMap[key].firstRow = entry;
         }
       }
@@ -354,7 +356,9 @@ export function buildSimulatedClients(headers, rows, mapping) {
       if (!isTrial && firstRow.subscription_fee > 0) subscription_fee = firstRow.subscription_fee;
 
       let setup_fee = p.setup_type && SETUP_PRICING[p.setup_type] ? parseFloat(SETUP_PRICING[p.setup_type]) : 0;
+      const historySetupFee = p.history.find(h => h.setup_fee > 0)?.setup_fee || 0;
       if (firstRow.setup_fee > 0) setup_fee = firstRow.setup_fee;
+      else if (historySetupFee > 0) setup_fee = historySetupFee;
 
       const rawVisualStatus = (p.latestVisualStatus || '').toLowerCase();
       let visual_status = 'Inactive';
