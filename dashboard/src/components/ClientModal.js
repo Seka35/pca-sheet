@@ -3117,7 +3117,7 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
                           </td>
                           <td style={{ padding: '16px 8px' }}>{payment.bank_name || '—'}</td>
                           <td style={{ padding: '16px 8px', color: 'var(--primary-accent)', fontWeight: '700' }}>{payment.amount_received}</td>
-                          <td style={{ padding: '16px 8px' }}>{(payment.until_date || product?.valid_stopped_date) || '—'}</td>
+                          <td style={{ padding: '16px 8px' }}>{(payment.until_date || payment.valid_stopped_date || product?.valid_stopped_date) || '—'}</td>
                           <td style={{ padding: '16px 8px' }}>
                             {payment.bank_name === 'WHOP' && payment.whop_product_payments_json ? (
                               (() => {

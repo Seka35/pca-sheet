@@ -244,6 +244,7 @@ function buildSimulatedClients(headers, rows, mapping) {
           latestAdId: '',
           latestAdIdName: '',
           latestVisualStatus: '',
+          latestValidDate: '',
           is_trial: 0,
           firstRow: entry,
         };
@@ -255,6 +256,14 @@ function buildSimulatedClients(headers, rows, mapping) {
           productMap[key].firstRow = entry;
         } else if (!isTopUpRow && !isUpgradeRow && entry.start_date && entry.start_date < productMap[key].firstRow.start_date) {
           productMap[key].firstRow = entry;
+        }
+      }
+
+      // Track the latest valid_stopped_date across all rows of this product
+      const rowValidDate = (entry.valid_stopped_date || '').toString().trim();
+      if (rowValidDate) {
+        if (!productMap[key].latestValidDate || rowValidDate > productMap[key].latestValidDate) {
+          productMap[key].latestValidDate = rowValidDate;
         }
       }
 
@@ -286,6 +295,7 @@ function buildSimulatedClients(headers, rows, mapping) {
         client_status_history: entry.client_status_history || '',
         setup_type: entry.setup_type || '',
         tier: currentTier,
+        valid_stopped_date: (entry.valid_stopped_date || '').toString().trim(),
         from_tier: isUpgradeRow ? (previousTier || tier) : undefined,
         to_tier: isUpgradeRow ? tier : undefined,
         is_upgrade: isUpgradeRow,
@@ -379,7 +389,7 @@ function buildSimulatedClients(headers, rows, mapping) {
           history: tierHistory,
           month: p.history[0]?.month || '',
           start_date: firstRow.start_date || '',
-          valid_stopped_date: firstRow.valid_stopped_date || '',
+          valid_stopped_date: p.latestValidDate || firstRow.valid_stopped_date || '',
           ad_spend_limit: TIER_SPEND_LIMITS[p.tier] || firstRow.ad_spend_limit || '',
           referral_partner_name: firstRow.referral_partner_name || '',
           discount: firstRow.discount || '',
@@ -402,7 +412,7 @@ function buildSimulatedClients(headers, rows, mapping) {
           history: setupHistory,
           month: p.history[0]?.month || '',
           start_date: firstRow.start_date || '',
-          valid_stopped_date: firstRow.valid_stopped_date || '',
+          valid_stopped_date: p.latestValidDate || firstRow.valid_stopped_date || '',
           ad_spend_limit: '',
           referral_partner_name: firstRow.referral_partner_name || '',
           discount: '',
@@ -425,7 +435,7 @@ function buildSimulatedClients(headers, rows, mapping) {
           history: p.history,
           month: p.history[0]?.month || '',
           start_date: firstRow.start_date || '',
-          valid_stopped_date: firstRow.valid_stopped_date || '',
+          valid_stopped_date: p.latestValidDate || firstRow.valid_stopped_date || '',
           ad_spend_limit: TIER_SPEND_LIMITS[p.tier] || firstRow.ad_spend_limit || '',
           referral_partner_name: firstRow.referral_partner_name || '',
           discount: firstRow.discount || '',
@@ -544,7 +554,10 @@ function buildSimulatedClients(headers, rows, mapping) {
         totalCA,
         renewalCount: filteredProducts.length,
         earliestStartDate: filteredProducts[0]?.start_date || null,
-        nextRenewalDate: latestProduct.valid_stopped_date || null,
+        nextRenewalDate: filteredProducts.reduce((maxDate, p) => {
+          const d = p.valid_stopped_date || '';
+          return d > maxDate ? d : maxDate;
+        }, '') || null,
         latestTier: latestProduct.tier || null,
         latestSetupType: latestProduct.setup_type || null,
         isInvincible: (latestProduct.setup_type || '').toLowerCase().includes('invincible'),

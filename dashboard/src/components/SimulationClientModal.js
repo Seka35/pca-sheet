@@ -54,7 +54,7 @@ export default function SimulationClientModal({
               client_name: clientData.nom || '',
               client_status_history: payment.client_status_history || '',
               month: payment.month || '',
-              valid_stopped_date: product.valid_stopped_date || '',
+              valid_stopped_date: payment.valid_stopped_date || product.valid_stopped_date || '',
               payment_name: payment.payment_name || '',
               bank_name: payment.bank_name || '',
               amount_received: payment.amount_received || 0,
