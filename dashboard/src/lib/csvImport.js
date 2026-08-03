@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
-import { COLUMNS, RENEWAL_COLUMNS } from './sheetSchema';
-import { TIER_PRICING, SETUP_PRICING, TIER_SPEND_LIMITS } from './whopLinks';
+import { COLUMNS, RENEWAL_COLUMNS } from './sheetSchema.js';
+import { TIER_PRICING, SETUP_PRICING, TIER_SPEND_LIMITS } from './whopLinks.js';
 
 export const MAPPABLE_FIELDS = [
   {
@@ -107,10 +107,11 @@ export function formatCurrency(val) {
 export function normalizeSrNo(srNo) {
   if (!srNo) return '';
   let cleaned = srNo.toString().trim();
-  cleaned = cleaned.replace(/,/g, '');
+  // Standardize comma decimal to dot decimal
+  cleaned = cleaned.replace(/,/g, '.');
   const dotIdx = cleaned.indexOf('.');
   if (dotIdx !== -1) {
-    const mainPart = cleaned.substring(0, dotIdx);
+    const mainPart = cleaned.substring(0, dotIdx).trim();
     const suffix = cleaned.substring(dotIdx + 1);
     const suffixMatch = suffix.match(/(-[A-Z0-9]+)$/i);
     return mainPart + (suffixMatch ? suffixMatch[1] : '');
@@ -219,6 +220,9 @@ export function buildSimulatedClients(headers, rows, mapping) {
           let val = (row[csvIdx] || '').toString().trim();
           if (dbField === 'tier') {
             val = val.toUpperCase().replace(/\s+/g, ' ').trim();
+            if (val.includes('INVINCIBLE') || val.includes('SETUP') || val.includes('SET UP')) {
+              val = '';
+            }
           }
           if (dbField === 'amount_received' || dbField === 'subscription_fee' ||
               dbField === 'setup_fee' ||
@@ -280,15 +284,15 @@ export function buildSimulatedClients(headers, rows, mapping) {
         if (existingKey) {
           key = existingKey;
         } else {
-          key = tier ? (tier + '|' + (isTopUpRow ? '' : rawSetup)) : 'MainProduct';
+          key = tier ? `TIER_${tier}` : (rawSetup ? `SETUP_${rawSetup}` : 'MainProduct');
         }
       } else {
-        // Find existing key for this tier (even if setup_type in renewal row is empty or generic)
-        const matchTierKey = tier ? Object.keys(productMap).find(k => k.startsWith(tier + '|')) : null;
-        if (matchTierKey) {
-          key = matchTierKey;
+        if (tier) {
+          key = `TIER_${tier}`;
+        } else if (rawSetup) {
+          key = `SETUP_${rawSetup}`;
         } else {
-          key = tier ? (tier + '|' + rawSetup) : (rawSetup || 'MainProduct');
+          key = Object.keys(productMap)[0] || 'MainProduct';
         }
       }
 
@@ -400,25 +404,29 @@ export function buildSimulatedClients(headers, rows, mapping) {
 
       // If row has BOTH a tier AND a setup_type, split into 2 separate products
       if (p.tier && p.setup_type) {
-        // Calculate history for Tier product (only subscription portion of amount)
-        const tierHistory = p.history.map(h => ({
-          ...h,
-          tier: p.tier,
-          setup_type: '',
-          amount_received: h.amount_received >= (subscription_fee + setup_fee) 
-            ? subscription_fee 
-            : Math.min(h.amount_received, subscription_fee),
-        }));
+        // Calculate history for Tier product (only non-zero subscription portion)
+        const tierHistory = p.history
+          .map(h => ({
+            ...h,
+            tier: p.tier,
+            setup_type: '',
+            amount_received: h.amount_received >= (subscription_fee + setup_fee) 
+              ? subscription_fee 
+              : Math.min(h.amount_received, subscription_fee),
+          }))
+          .filter(h => h.amount_received > 0);
 
-        // Calculate history for Setup product (only setup portion of amount)
-        const setupHistory = p.history.map(h => ({
-          ...h,
-          tier: '',
-          setup_type: p.setup_type,
-          amount_received: h.amount_received >= (subscription_fee + setup_fee) 
-            ? setup_fee 
-            : Math.max(0, h.amount_received - subscription_fee),
-        }));
+        // Calculate history for Setup product (only non-zero setup portion)
+        const setupHistory = p.history
+          .map(h => ({
+            ...h,
+            tier: '',
+            setup_type: p.setup_type,
+            amount_received: h.amount_received >= (subscription_fee + setup_fee) 
+              ? setup_fee 
+              : Math.max(0, h.amount_received - subscription_fee),
+          }))
+          .filter(h => h.amount_received > 0);
 
         // 1. Tier Product
         products.push({
@@ -494,16 +502,21 @@ export function buildSimulatedClients(headers, rows, mapping) {
       }
     });
 
-    // FILTER OUT DUPLICATE ZERO-FEE SETUP PRODUCTS:
-    // If a client has a setup product with setup_fee = 0 (and subscription_fee = 0), and has another valid paid setup product (e.g. 299$)
-    // or a valid tier product, discard the 0$ setup product as a false positive.
+    // FILTER OUT DUPLICATE ZERO-FEE SETUP PRODUCTS & SPLIT DUMMY PRODUCTS:
     const filteredProducts = products.filter((p, i, arr) => {
-      const isZeroSetup = Boolean(p.setup_type) && !p.tier && parseFloat(p.setup_fee || '0') === 0 && parseFloat(p.subscription_fee || '0') === 0;
-      if (isZeroSetup) {
-        const hasPaidSetup = arr.some(other => other.setup_type && parseFloat(other.setup_fee || '0') > 0);
-        const hasTierProduct = arr.some(other => Boolean(other.tier));
-        if (hasPaidSetup || hasTierProduct) return false;
+      const subFee = parseFloat(p.subscription_fee || '0');
+      const setupFee = parseFloat(p.setup_fee || '0');
+
+      // 1. If it's a SETUP-only product (no tier) and its setup_fee = 0 and sub_fee = 0, discard it if client has any other product
+      if (Boolean(p.setup_type) && !p.tier && setupFee === 0 && subFee === 0) {
+        if (arr.length > 1) return false;
       }
+
+      // 2. If it's a split product ending in _SETUP (created when row had both tier and setup_type) but setup_fee is 0, discard it
+      if (p.sr_no && p.sr_no.endsWith('_SETUP') && setupFee === 0) {
+        return false;
+      }
+
       return true;
     });
 
