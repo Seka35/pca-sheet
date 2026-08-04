@@ -272,7 +272,7 @@ function ColumnMapping({ headers, mapping, onMappingChange, onBack, onImport, is
             cursor: isClientNameMapped ? 'pointer' : 'not-allowed',
           }}
         >
-          Parse & Preview →
+          Parse &amp; Preview →
         </button>
       </div>
     </div>
@@ -311,21 +311,54 @@ function StatusBadge({ status }) {
 }
 
 // ---------------------------------------------------------------------------
-// Simulated client row (matches /clients page table style)
+// Simulated client row (with checkbox)
 // ---------------------------------------------------------------------------
-function SimulatedClientRow({ client, onClick }) {
+function SimulatedClientRow({ client, onClick, isChecked, onToggle }) {
   return (
     <tr
-      onClick={onClick}
       style={{
         borderBottom: '1px solid var(--border-color)',
-        cursor: 'pointer',
         transition: 'all 0.2s',
+        backgroundColor: isChecked ? 'rgba(52, 211, 153, 0.04)' : 'transparent',
       }}
-      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)')}
-      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+      onMouseOver={(e) => {
+        if (!isChecked) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)';
+      }}
+      onMouseOut={(e) => {
+        if (!isChecked) e.currentTarget.style.backgroundColor = 'transparent';
+      }}
     >
-      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600' }}>
+      {/* Checkbox cell */}
+      <td
+        style={{ padding: '12px 12px', width: '44px', verticalAlign: 'middle', textAlign: 'center' }}
+        onClick={(e) => { e.stopPropagation(); onToggle(client.id); }}
+      >
+        <div
+          style={{
+            width: '18px',
+            height: '18px',
+            borderRadius: '4px',
+            border: isChecked ? '2px solid var(--primary-accent)' : '2px solid var(--border-color)',
+            backgroundColor: isChecked ? 'var(--primary-accent)' : 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            margin: '0 auto',
+          }}
+        >
+          {isChecked && (
+            <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
+              <path d="M1 4L4 7L10 1" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </div>
+      </td>
+      <td
+        style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+        onClick={onClick}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {client.hasIssues && (
             <span style={{ fontSize: '12px', color: '#EF4444' }} title={`${client.parsingIssues?.length || 0} anomalie(s) détectée(s)`}>⚠️</span>
@@ -333,33 +366,183 @@ function SimulatedClientRow({ client, onClick }) {
           <span>{client.nom}</span>
         </div>
       </td>
-      <td style={{ padding: '12px 16px', fontSize: '13px' }}>
+      <td style={{ padding: '12px 16px', fontSize: '13px', cursor: 'pointer' }} onClick={onClick}>
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           {client.productDetails?.map((p, i) => (
             <ProductBadge key={i} tier={p.tier} setup_type={p.setup_type} is_trial={p.is_trial === 1 || p.is_trial === true} />
           ))}
         </div>
       </td>
-      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: 'var(--primary-accent)' }}>
+      <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: 'var(--primary-accent)', cursor: 'pointer' }} onClick={onClick}>
         {formatCurrency(client.mensuel)}
       </td>
-      <td style={{ padding: '12px 16px', fontSize: '13px' }}>
+      <td style={{ padding: '12px 16px', fontSize: '13px', cursor: 'pointer' }} onClick={onClick}>
         <StatusBadge status={client.statut} />
       </td>
-      <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-secondary)' }}>{client.canal}</td>
+      <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={onClick}>{client.canal}</td>
     </tr>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Simulation results table
+// Import Logs Panel
 // ---------------------------------------------------------------------------
-function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
+function ImportLogsPanel({ logs, importing, importedCount, errorCount }) {
+  if (!logs || logs.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        marginTop: '24px',
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: '14px 20px',
+          backgroundColor: 'rgba(255,255,255,0.03)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+        }}
+      >
+        <span style={{ fontSize: '14px' }}>📋</span>
+        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Import Logs</h4>
+        {!importing && (
+          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+            {importedCount > 0 && (
+              <span
+                style={{
+                  padding: '3px 10px',
+                  backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                  color: '#34D399',
+                  borderRadius: '100px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                }}
+              >
+                ✓ {importedCount} importé{importedCount > 1 ? 's' : ''}
+              </span>
+            )}
+            {errorCount > 0 && (
+              <span
+                style={{
+                  padding: '3px 10px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  color: '#F87171',
+                  borderRadius: '100px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                }}
+              >
+                ✗ {errorCount} erreur{errorCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        )}
+        {importing && (
+          <span style={{ marginLeft: 'auto', color: '#FBBF24', fontSize: '12px', fontWeight: '600' }}>
+            ⏳ Import en cours...
+          </span>
+        )}
+      </div>
+
+      {/* Log entries */}
+      <div style={{ maxHeight: '320px', overflowY: 'auto', padding: '8px 0' }}>
+        {logs.map((log, i) => (
+          <div
+            key={i}
+            style={{
+              padding: '10px 20px',
+              borderBottom: i < logs.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+            }}
+          >
+            {/* Main row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '13px', flexShrink: 0 }}>
+                {log.status === 'success' ? '✅' : log.status === 'error' ? '❌' : '⏳'}
+              </span>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {log.nom}
+              </span>
+              {log.action && (
+                <span
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    backgroundColor: log.action === 'created' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                    color: log.action === 'created' ? '#38BDF8' : '#A855F7',
+                    flexShrink: 0,
+                  }}
+                >
+                  {log.action === 'created' ? 'NOUVEAU' : 'MIS À JOUR'}
+                </span>
+              )}
+              {log.renewalsImported > 0 && (
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                  {log.renewalsImported} ligne{log.renewalsImported > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {/* Error message */}
+            {log.error && (
+              <div style={{ marginLeft: '23px', fontSize: '11px', color: '#F87171' }}>
+                {log.error}
+              </div>
+            )}
+
+            {/* Warnings */}
+            {log.warnings && log.warnings.length > 0 && (
+              <div style={{ marginLeft: '23px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {log.warnings.map((w, wi) => (
+                  <div key={wi} style={{ fontSize: '11px', color: '#FBBF24' }}>{w}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Simulation results table (with checkboxes + real import)
+// ---------------------------------------------------------------------------
+function SimulationResults({
+  clients,
+  onClientClick,
+  onBack,
+  onRemap,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+  onRealImport,
+  importing,
+  importLogs,
+  importedCount,
+  errorCount,
+}) {
   const clientsWithIssues = clients.filter(c => c.hasIssues || (c.parsingIssues && c.parsingIssues.length > 0));
+  const allSelected = clients.length > 0 && clients.every(c => selectedIds.has(c.id));
+  const someSelected = clients.some(c => selectedIds.has(c.id));
+  const selectedCount = clients.filter(c => selectedIds.has(c.id)).length;
 
   return (
     <div style={{ marginTop: '24px' }}>
-      {/* Red Alert Banner for Clients Requiring Human Review */}
+
+      {/* ── Red Alert Banner for clients with issues ── */}
       {clientsWithIssues.length > 0 && (
         <div
           style={{
@@ -373,11 +556,11 @@ function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
             <span style={{ fontSize: '18px' }}>⚠️</span>
             <h4 style={{ color: '#F87171', fontSize: '15px', fontWeight: '700', margin: 0 }}>
-              {clientsWithIssues.length} Client{clientsWithIssues.length > 1 ? 's nécessitent' : ' nécessite'} une révision humaine (incohérences / erreurs CSV)
+              {clientsWithIssues.length} Client{clientsWithIssues.length > 1 ? 's nécessitent' : ' nécessite'} une révision humaine
             </h4>
           </div>
           <p style={{ color: '#FCA5A5', fontSize: '12px', margin: '0 0 12px 0', lineHeight: '1.5' }}>
-            Ces clients contiennent des données incomplètes ou ambiguës (ex: nom manquant, date invalide, montant non spécifié). Veuillez vérifier les lignes dans votre CSV ou cliquer dessus pour les inspecter :
+            Ces clients contiennent des données incomplètes ou ambiguës. Cliquer dessus pour inspecter :
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
             {clientsWithIssues.map(client => (
@@ -386,8 +569,8 @@ function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
                 onClick={() => onClientClick(client)}
                 style={{
                   display: 'flex',
-                  justify: 'space-between',
                   alignItems: 'center',
+                  justifyContent: 'space-between',
                   backgroundColor: 'rgba(239, 68, 68, 0.12)',
                   border: '1px solid rgba(239, 68, 68, 0.25)',
                   borderRadius: '8px',
@@ -422,31 +605,31 @@ function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
         </div>
       )}
 
+      {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
         <div>
           <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '2px' }}>
             {clients.length} Client{clients.length !== 1 ? 's' : ''} Parsed
           </h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            Click any row to preview in ClientModal. This is a simulation — no data is saved.
+            Coche les clients à importer puis clique &quot;Import for Real&quot;. Click une ligne pour voir le détail.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span
-            style={{
-              padding: '6px 12px',
-              backgroundColor: 'rgba(245, 158, 11, 0.1)',
-              color: '#FBBF24',
-              borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: '600',
-            }}
-          >
-            SIMULATION MODE
-          </span>
-        </div>
+        <span
+          style={{
+            padding: '6px 12px',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            color: '#FBBF24',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: '600',
+          }}
+        >
+          SIMULATION MODE
+        </span>
       </div>
 
+      {/* ── Action buttons ── */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
         <button
           onClick={onRemap}
@@ -476,10 +659,11 @@ function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
             cursor: 'pointer',
           }}
         >
-          Clear & Start Over
+          Clear &amp; Start Over
         </button>
       </div>
 
+      {/* ── Table with checkboxes ── */}
       <div
         style={{
           backgroundColor: 'rgba(255,255,255,0.02)',
@@ -491,75 +675,46 @@ function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
-              <th
-                style={{
-                  padding: '12px 16px',
-                  textAlign: 'left',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  color: 'var(--text-secondary)',
-                  borderBottom: '1px solid var(--border-color)',
-                }}
-              >
-                Client Name
+              {/* Select-all checkbox */}
+              <th style={{ padding: '12px 12px', width: '44px', borderBottom: '1px solid var(--border-color)', textAlign: 'center' }}>
+                <div
+                  onClick={() => onToggleAll(!allSelected)}
+                  title={allSelected ? 'Tout décocher' : 'Tout cocher'}
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '4px',
+                    border: (allSelected || someSelected) ? '2px solid var(--primary-accent)' : '2px solid var(--border-color)',
+                    backgroundColor: allSelected ? 'var(--primary-accent)' : someSelected ? 'rgba(52, 211, 153, 0.3)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    margin: '0 auto',
+                  }}
+                >
+                  {allSelected && (
+                    <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
+                      <path d="M1 4L4 7L10 1" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                  {someSelected && !allSelected && (
+                    <div style={{ width: '8px', height: '2px', backgroundColor: 'var(--primary-accent)', borderRadius: '1px' }} />
+                  )}
+                </div>
               </th>
-              <th
-                style={{
-                  padding: '12px 16px',
-                  textAlign: 'left',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  color: 'var(--text-secondary)',
-                  borderBottom: '1px solid var(--border-color)',
-                }}
-              >
-                Products
-              </th>
-              <th
-                style={{
-                  padding: '12px 16px',
-                  textAlign: 'left',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  color: 'var(--text-secondary)',
-                  borderBottom: '1px solid var(--border-color)',
-                }}
-              >
-                Monthly CA
-              </th>
-              <th
-                style={{
-                  padding: '12px 16px',
-                  textAlign: 'left',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  color: 'var(--text-secondary)',
-                  borderBottom: '1px solid var(--border-color)',
-                }}
-              >
-                Status
-              </th>
-              <th
-                style={{
-                  padding: '12px 16px',
-                  textAlign: 'left',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  color: 'var(--text-secondary)',
-                  borderBottom: '1px solid var(--border-color)',
-                }}
-              >
-                Channel
-              </th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Client Name</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Products</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Monthly CA</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Status</th>
+              <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>Channel</th>
             </tr>
           </thead>
           <tbody>
             {clients.length === 0 ? (
               <tr>
-                <td
-                  colSpan="5"
-                  style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}
-                >
+                <td colSpan="6" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                   No clients parsed yet
                 </td>
               </tr>
@@ -569,6 +724,8 @@ function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
                   key={client.id}
                   client={client}
                   onClick={() => onClientClick(client)}
+                  isChecked={selectedIds.has(client.id)}
+                  onToggle={onToggle}
                 />
               ))
             )}
@@ -576,42 +733,128 @@ function SimulationResults({ clients, onClientClick, onBack, onRemap }) {
         </table>
       </div>
 
-      {/* Phase 2 placeholder */}
+      {/* ── Phase 2: Real Import ── */}
       <div
         style={{
           marginTop: '32px',
-          padding: '20px',
-          backgroundColor: 'rgba(245, 158, 11, 0.05)',
-          border: '1px solid rgba(245, 158, 11, 0.2)',
+          padding: '24px',
+          backgroundColor: selectedCount > 0 ? 'rgba(52, 211, 153, 0.05)' : 'rgba(255,255,255,0.02)',
+          border: `1px solid ${selectedCount > 0 ? 'rgba(52, 211, 153, 0.25)' : 'var(--border-color)'}`,
           borderRadius: '12px',
+          transition: 'all 0.3s',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <span style={{ fontSize: '16px' }}>🔜</span>
-          <h4 style={{ fontSize: '14px', fontWeight: '600' }}>Phase 2: Real Import</h4>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          {/* Left: info */}
+          <div style={{ flex: 1, minWidth: '260px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '20px' }}>🚀</span>
+              <h4 style={{ fontSize: '15px', fontWeight: '700', margin: 0 }}>Import for Real</h4>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
+              Coche les clients à gauche du tableau puis clique le bouton.{' '}
+              <strong style={{ color: 'var(--text-primary)' }}>Les données existantes seront remplacées</strong>{' '}
+              mais{' '}
+              <strong style={{ color: '#38BDF8' }}>telegram_group_id et tele_id seront préservés</strong>{' '}
+              s&apos;ils existent déjà en DB.
+            </p>
+            {selectedCount > 0 ? (
+              <p style={{ color: 'var(--primary-accent)', fontSize: '13px', fontWeight: '600', marginTop: '10px', marginBottom: 0 }}>
+                ✓ {selectedCount} client{selectedCount > 1 ? 's' : ''} sélectionné{selectedCount > 1 ? 's' : ''}
+              </p>
+            ) : (
+              <p style={{ color: '#FBBF24', fontSize: '12px', marginTop: '10px', marginBottom: 0 }}>
+                ⚠️ Sélectionne au moins un client dans le tableau pour activer l&apos;import.
+              </p>
+            )}
+          </div>
+
+          {/* Right: buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+            {/* Quick select */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => onToggleAll(true)}
+                style={{
+                  padding: '6px 14px',
+                  backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                  color: 'var(--primary-accent)',
+                  border: '1px solid rgba(52, 211, 153, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                Tout sélectionner
+              </button>
+              <button
+                onClick={() => onToggleAll(false)}
+                style={{
+                  padding: '6px 14px',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                }}
+              >
+                Désélectionner
+              </button>
+            </div>
+
+            {/* Main import button */}
+            <button
+              onClick={onRealImport}
+              disabled={selectedCount === 0 || importing}
+              style={{
+                padding: '12px 28px',
+                backgroundColor: selectedCount > 0 && !importing ? 'var(--primary-accent)' : 'rgba(52, 211, 153, 0.12)',
+                color: selectedCount > 0 && !importing ? '#000' : 'rgba(52, 211, 153, 0.35)',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: '800',
+                cursor: selectedCount > 0 && !importing ? 'pointer' : 'not-allowed',
+                transition: 'all 0.2s',
+                boxShadow: selectedCount > 0 && !importing ? '0 4px 14px rgba(52, 211, 153, 0.3)' : 'none',
+                letterSpacing: '0.2px',
+                minWidth: '200px',
+                textAlign: 'center',
+              }}
+              onMouseOver={(e) => {
+                if (selectedCount > 0 && !importing) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 211, 153, 0.4)';
+                }
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                if (selectedCount > 0 && !importing) {
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(52, 211, 153, 0.3)';
+                }
+              }}
+            >
+              {importing
+                ? '⏳ Import en cours...'
+                : selectedCount === 0
+                  ? '⬆️ Import for Real'
+                  : `⬆️ Importer ${selectedCount} client${selectedCount > 1 ? 's' : ''}`
+              }
+            </button>
+          </div>
         </div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-          When ready, click below to import these clients into the database for real. This will create
-          new client records and their associated product rows.
-        </p>
-        <button
-          disabled
-          title="Coming in Phase 2"
-          style={{
-            marginTop: '12px',
-            padding: '10px 24px',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            color: 'rgba(245, 158, 11, 0.5)',
-            border: '1px solid rgba(245, 158, 11, 0.2)',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: '600',
-            cursor: 'not-allowed',
-          }}
-        >
-          Import for Real (Phase 2)
-        </button>
       </div>
+
+      {/* ── Import Logs ── */}
+      <ImportLogsPanel
+        logs={importLogs}
+        importing={importing}
+        importedCount={importedCount}
+        errorCount={errorCount}
+      />
     </div>
   );
 }
@@ -635,6 +878,13 @@ export default function ImportTab() {
   const [error, setError] = useState('');
   const [selectedSimulatedClient, setSelectedSimulatedClient] = useState(null);
   const [sessionId] = useState(() => `import_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+
+  // ── Phase 2: Real Import state ──────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [importing, setImporting] = useState(false);
+  const [importLogs, setImportLogs] = useState([]);
+  const [importedCount, setImportedCount] = useState(0);
+  const [importErrorCount, setImportErrorCount] = useState(0);
 
   // Auto-detect column mapping
   const autoDetectMapping = useCallback((headers) => {
@@ -702,16 +952,16 @@ export default function ImportTab() {
         function parseAmount(val) {
           if (!val || val === '-' || val.toString().trim() === '-') return 0;
           let str = val.toString().trim();
-          let cleaned = str.replace(/[^0-9.,\-]/g, '');
+          let cleaned = str.replace(/[^0-9.,\\-]/g, '');
           if (!cleaned) return 0;
           if (cleaned.includes(',') && cleaned.includes('.')) {
             if (cleaned.lastIndexOf('.') > cleaned.lastIndexOf(',')) {
               cleaned = cleaned.replace(/,/g, '');
             } else {
-              cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+              cleaned = cleaned.replace(/\\./g, '').replace(',', '.');
             }
           } else if (cleaned.includes(',')) {
-            if (/,\d{1,2}$/.test(cleaned)) {
+            if (/,\\d{1,2}$/.test(cleaned)) {
               cleaned = cleaned.replace(',', '.');
             } else {
               cleaned = cleaned.replace(/,/g, '');
@@ -732,7 +982,7 @@ export default function ImportTab() {
           return cleaned;
         }
         function normalizeClientName(name) {
-          return (name || '').replace(/^[🟢🔴🟡⚠️📌👑🥇]+\s*/g, '').replace(/^\[(DC|ENT-\d+)\]\s*/gi, '').replace(/\s*:\s*Tele\s*[-:\s]*\d+[A-Z]?\s*$/gi, '').replace(/\s*\(Tele\s*[-:\s]*\d+[A-Z]?\)\s*$/gi, '').replace(/\s*X\s+Prime\s+circle\s*$/gi, '').toLowerCase().trim();
+          return (name || '').replace(/^[🟢🔴🟡⚠️📌👑🥇]+\\s*/g, '').replace(/^\\[(DC|ENT-\\d+)\\]\\s*/gi, '').replace(/\\s*:\\s*Tele\\s*[-:\\s]*\\d+[A-Z]?\\s*$/gi, '').replace(/\\s*\\(Tele\\s*[-:\\s]*\\d+[A-Z]?\\)\\s*$/gi, '').replace(/\\s*X\\s+Prime\\s+circle\\s*$/gi, '').toLowerCase().trim();
         }
       `;
 
@@ -751,6 +1001,11 @@ export default function ImportTab() {
     }
 
     saveMapping(mapping);
+    // Reset import state when re-parsing
+    setSelectedIds(new Set());
+    setImportLogs([]);
+    setImportedCount(0);
+    setImportErrorCount(0);
     setStep(STEPS.PREVIEW);
   };
 
@@ -763,6 +1018,83 @@ export default function ImportTab() {
     setSimulatedClients([]);
     setError('');
     clearMapping();
+    setSelectedIds(new Set());
+    setImportLogs([]);
+    setImportedCount(0);
+    setImportErrorCount(0);
+  };
+
+  // ── Toggle single client checkbox ──────────────────────────────────────
+  const handleToggleClient = (clientId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(clientId)) {
+        next.delete(clientId);
+      } else {
+        next.add(clientId);
+      }
+      return next;
+    });
+  };
+
+  // ── Toggle all / deselect all ──────────────────────────────────────────
+  const handleToggleAll = (selectAll) => {
+    if (selectAll) {
+      setSelectedIds(new Set(simulatedClients.map(c => c.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  // ── Real import ────────────────────────────────────────────────────────
+  const handleRealImport = async () => {
+    const toImport = simulatedClients.filter(c => selectedIds.has(c.id));
+    if (toImport.length === 0) return;
+
+    const confirmed = window.confirm(
+      `⚠️ Tu es sur le point d'importer ${toImport.length} client${toImport.length > 1 ? 's' : ''} dans la DB.\n\n` +
+      `Les données existantes seront remplacées (sauf telegram_group_id et tele_id).\n\n` +
+      `Confirmer ?`
+    );
+    if (!confirmed) return;
+
+    setImporting(true);
+    setImportLogs([]);
+    setImportedCount(0);
+    setImportErrorCount(0);
+
+    try {
+      const res = await fetch('/api/admin/import-clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clients: toImport }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Import failed');
+      }
+
+      setImportLogs(data.logs || []);
+      setImportedCount(data.imported || 0);
+      setImportErrorCount(data.errors || 0);
+
+      console.log('[ImportTab] Real import result:', data);
+    } catch (err) {
+      console.error('[ImportTab] Real import error:', err);
+      setImportLogs([{
+        nom: 'Erreur globale',
+        status: 'error',
+        error: err.message,
+        action: null,
+        renewalsImported: 0,
+        warnings: [],
+      }]);
+      setImportErrorCount(1);
+    } finally {
+      setImporting(false);
+    }
   };
 
   const openModal = (client) => {
@@ -891,6 +1223,7 @@ export default function ImportTab() {
           </button>
         </div>
       )}
+
       {step === STEPS.UPLOAD && (
         <div>
           <div style={{ marginBottom: '24px' }}>
@@ -979,6 +1312,14 @@ export default function ImportTab() {
                 onClientClick={openModal}
                 onBack={handleReset}
                 onRemap={() => setStep(STEPS.MAPPING)}
+                selectedIds={selectedIds}
+                onToggle={handleToggleClient}
+                onToggleAll={handleToggleAll}
+                onRealImport={handleRealImport}
+                importing={importing}
+                importLogs={importLogs}
+                importedCount={importedCount}
+                errorCount={importErrorCount}
               />
             </div>
 

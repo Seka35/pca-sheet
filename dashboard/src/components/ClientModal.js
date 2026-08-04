@@ -648,16 +648,22 @@ export default function ClientModal({ selectedClient, onClose, onSaved, tierProd
     return () => window.removeEventListener('keydown', onKey);
   }, [saving, onClose]);
 
-  // Calculate total received for a product from payment_history
+  // Calculate total received for a product from payment_history or payments_table
   const getTotalReceivedForProduct = (product) => {
-    if (!clientPayments || clientPayments.length === 0) return 0;
-    // For new architecture, match by product.id (which is stored as renewal_sr_no in payment_history)
-    const productId = product.id || product.sr_no?.replace('CP_', '');
-    const paymentsForProduct = clientPayments.filter(p =>
-      p.source === 'payment_history' &&
-      String(p.renewal_sr_no) === String(productId)
-    );
-    return paymentsForProduct.reduce((sum, p) => sum + parseAmount(p.amount_received || p.amount), 0);
+    if (!product) return 0;
+
+    let receivedFromPayments = 0;
+    if (clientPayments && clientPayments.length > 0) {
+      const productId = product.id || product.sr_no?.replace('CP_', '');
+      const paymentsForProduct = clientPayments.filter(p =>
+        (String(p.renewal_sr_no) === String(productId) || String(p.renewal_sr_no) === String(product.sr_no))
+      );
+      receivedFromPayments = paymentsForProduct.reduce((sum, p) => sum + parseAmount(p.amount_received || p.amount), 0);
+    }
+
+    // Fallback: if no individual payment records found in clientPayments, use the product's direct amount_received field
+    const directAmount = parseAmount(product.amount_received);
+    return Math.max(receivedFromPayments, directAmount);
   };
 
   const calculateProductDue = (p) => {
