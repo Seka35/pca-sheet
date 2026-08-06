@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Générateur de Contrat - Referral Partner Agreement | Prime Circle Structuring LLC</title>
+  
+  <!-- Google Fonts: Inter & Dancing Script for signatures -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ==========================================================================
+       RESET & GLOBAL BASE STYLES
+       ========================================================================== */
+    :root {
+      --primary-navy: #1B2A4A;
+      --accent-gold: #C8A84B;
+      --text-dark: #1A1A1A;
+      --text-muted: #555555;
+      --text-light: #777777;
+      --bg-app: #0F172A;
+      --bg-sidebar: #1E293B;
+      --bg-card: #334155;
+      --border-color: #475569;
+      --input-bg: #0F172A;
+      --input-border: #475569;
+      --input-focus: #38BDF8;
+      --gold-light: #FDFBF7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-app);
+      color: #F8FAFC;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ==========================================================================
+       APP HEADER BAR
+       ========================================================================== */
+    .app-header {
+      height: 64px;
+      background-color: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: #FFFFFF;
+    }
+
+    .brand-title .badge {
+      background: linear-gradient(135deg, #C8A84B, #9A7B2C);
+      color: #FFF;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-card);
+      color: #F1F5F9;
+      border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover {
+      background-color: #475569;
+      color: #FFF;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #C8A84B, #A68632);
+      color: #0F172A;
+      box-shadow: 0 4px 14px rgba(200, 168, 75, 0.35);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #D4B659, #B8963D);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(200, 168, 75, 0.45);
+    }
+
+    /* ==========================================================================
+       MAIN APPSHELL LAYOUT (SIDEBAR + PREVIEW)
+       ========================================================================== */
+    .app-body {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 64px);
+      overflow: hidden;
+    }
+
+    /* --- SIDEBAR FORM PANEL --- */
+    .form-panel {
+      width: 420px;
+      min-width: 360px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 1.5rem;
+      gap: 1.5rem;
+    }
+
+    .form-section {
+      background-color: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .form-section-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #F8FAFC;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .form-group label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #94A3B8;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      background-color: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      color: #F8FAFC;
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent-gold);
+      box-shadow: 0 0 0 3px rgba(200, 168, 75, 0.2);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    /* Signature Type Toggle */
+    .signature-type-selector {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.25rem;
+    }
+
+    .sig-btn {
+      flex: 1;
+      padding: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: #94A3B8;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .sig-btn.active {
+      background: var(--accent-gold);
+      color: #0F172A;
+      border-color: var(--accent-gold);
+    }
+
+    /* --- DOCUMENT PREVIEW PANEL --- */
+    .preview-panel {
+      flex: 1;
+      background-color: var(--bg-app);
+      overflow-y: auto;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    /* ==========================================================================
+       A4 CONTRACT DOCUMENT STYLES (MATCHING ORIGINAL PDF PIXEL-PERFECT)
+       ========================================================================== */
+    .a4-page {
+      width: 210mm;
+      min-height: 297mm;
+      background-color: #FFFFFF;
+      color: var(--text-dark);
+      padding: 20mm 18mm 18mm 18mm;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border-radius: 2px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-size: 9.5pt;
+      line-height: 1.45;
+    }
+
+    .page-content {
+      flex: 1;
+    }
+
+    /* Document Top Header */
+    .doc-top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8pt;
+      border-bottom: 1px solid #E2E8F0;
+      padding-bottom: 6px;
+      margin-bottom: 18px;
+    }
+
+    .doc-top-header .left-title {
+      font-weight: 700;
+      color: var(--primary-navy);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .doc-top-header .right-confidential {
+      font-weight: 700;
+      color: #64748B;
+      letter-spacing: 0.05em;
+    }
+
+    /* Main Title Block */
+    .doc-title-block {
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .doc-main-title {
+      font-size: 20pt;
+      font-weight: 800;
+      color: var(--primary-navy);
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .doc-subtitle {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-size: 11pt;
+      color: var(--accent-gold);
+      margin-bottom: 4px;
+    }
+
+    .doc-confidential-tag {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+
+    .doc-date-line {
+      font-size: 10pt;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-top: 8px;
+    }
+
+    .dynamic-val {
+      color: #0F172A;
+      font-weight: 600;
+      border-bottom: 1px dashed var(--accent-gold);
+      padding: 0 4px;
+      transition: background-color 0.3s;
+    }
+
+    .dynamic-val.filled {
+      border-bottom: none;
+    }
+
+    /* Paragraphs & Intro */
+    .contract-intro {
+      margin-bottom: 16px;
+      font-size: 9.5pt;
+    }
+
+    /* Two-Column Party Box */
+    .parties-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .party-card {
+      background-color: #FAFAFA;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .party-card-header {
+      background-color: var(--primary-navy);
+      color: #FFFFFF;
+      font-size: 8.5pt;
+      font-weight: 700;
+      padding: 6px 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .party-card-body {
+      padding: 10px 12px;
+      font-size: 8.5pt;
+      line-height: 1.5;
+    }
+
+    .party-card-body .company-name {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: var(--primary-navy);
+      margin-bottom: 4px;
+    }
+
+    .party-card-body .party-label {
+      font-style: italic;
+      color: var(--accent-gold);
+      font-weight: 600;
+      margin-top: 8px;
+      display: block;
+    }
+
+    .party-row {
+      display: flex;
+      margin-bottom: 3px;
+    }
+
+    .party-row .label {
+      font-weight: 600;
+      width: 85px;
+      color: #475569;
+      flex-shrink: 0;
+    }
+
+    .party-row .val {
+      font-weight: 500;
+      color: #0F172A;
+      word-break: break-word;
+    }
+
+    .parties-collective {
+      text-align: center;
+      font-style: italic;
+      font-size: 9pt;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    /* Article Sections */
+    .article-section {
+      margin-bottom: 16px;
+    }
+
+    .article-title {
+      font-size: 10pt;
+      font-weight: 800;
+      color: var(--primary-navy);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .article-title .art-num {
+      color: var(--accent-gold);
+    }
+
+    .article-body {
+      font-size: 9.5pt;
+      text-align: justify;
+      color: #1E293B;
+      line-height: 1.45;
+    }
+
+    /* Custom Bullet Lists */
+    .article-list {
+      list-style: none;
+      padding-left: 14px;
+      margin: 6px 0;
+    }
+
+    .article-list li {
+      position: relative;
+      padding-left: 14px;
+      margin-bottom: 4px;
+      font-size: 9.5pt;
+      text-align: justify;
+    }
+
+    .article-list li::before {
+      content: "•";
+      color: var(--primary-navy);
+      font-weight: bold;
+      font-size: 11pt;
+      position: absolute;
+      left: 0;
+      top: -2px;
+    }
+
+    /* Article Subsections */
+    .sub-article-title {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: var(--primary-navy);
+      margin: 10px 0 4px 0;
+    }
+
+    /* Commission Box Table */
+    .commission-box-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      border: 1px solid #1E293B;
+    }
+
+    .commission-box-table td {
+      width: 50%;
+      vertical-align: top;
+      padding: 10px 14px;
+      border: 1px solid #1E293B;
+    }
+
+    .commission-box-table .box-title {
+      font-weight: 700;
+      font-size: 9.5pt;
+      color: var(--primary-navy);
+      margin-bottom: 6px;
+    }
+
+    .commission-box-table .box-default {
+      font-size: 8.5pt;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+
+    .commission-box-table .box-rate-highlight {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+
+    .commission-box-table .box-trigger-text {
+      font-size: 8.5pt;
+      color: #1E293B;
+      line-height: 1.35;
+      margin-bottom: 4px;
+    }
+
+    .commission-box-table .box-note {
+      font-size: 8pt;
+      font-style: italic;
+      color: var(--text-muted);
+    }
+
+    /* Signatures Block */
+    .signatures-block {
+      margin-top: 24px;
+    }
+
+    .signatures-title {
+      font-size: 11pt;
+      font-weight: 800;
+      color: var(--primary-navy);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .signatures-intro {
+      font-size: 9pt;
+      margin-bottom: 16px;
+    }
+
+    .signatures-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .sig-column-title {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: var(--primary-navy);
+      margin-bottom: 8px;
+    }
+
+    .sig-field-row {
+      font-size: 9pt;
+      margin-bottom: 6px;
+      display: flex;
+    }
+
+    .sig-field-row .label {
+      font-weight: 600;
+      width: 75px;
+      color: #475569;
+    }
+
+    .sig-box-container {
+      height: 60px;
+      border-bottom: 1px solid #94A3B8;
+      margin-top: 8px;
+      display: flex;
+      align-items: flex-end;
+      padding-bottom: 4px;
+    }
+
+    .cursive-sig {
+      font-family: 'Dancing Script', cursive;
+      font-size: 22pt;
+      color: #0F2942;
+      font-weight: 700;
+      transform: rotate(-2deg);
+    }
+
+    /* Footer */
+    .doc-footer {
+      border-top: 1px solid #E2E8F0;
+      padding-top: 6px;
+      text-align: center;
+      font-size: 7.5pt;
+      font-style: italic;
+      color: #94A3B8;
+      margin-top: auto;
+    }
+
+    /* ==========================================================================
+       PRINT STYLES (@media print)
+       ========================================================================== */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+      
+      body {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+        overflow: visible !important;
+      }
+
+      .no-print,
+      .app-header,
+      .form-panel {
+        display: none !important;
+      }
+
+      .app-body {
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      .preview-panel {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: none !important;
+        overflow: visible !important;
+        display: block !important;
+      }
+
+      .a4-page {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        width: 210mm !important;
+        height: 296mm !important; /* Slightly reduced to prevent overflow blank page */
+        margin: 0 !important;
+        padding: 15mm 16mm 14mm 16mm !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        box-sizing: border-box !important;
+      }
+
+      .dynamic-val {
+        border-bottom: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================================================
+       TOP APPLICATION NAVBAR
+       ========================================================================== -->
+  <header class="app-header no-print">
+    <div class="brand-title">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C8A84B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+      <span>Prime Circle Structuring</span>
+      <span class="badge">Générateur v2</span>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="btn btn-secondary" onclick="fillDemoData()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+        Remplir exemple
+      </button>
+      
+      <button type="button" class="btn btn-secondary" onclick="resetForm()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+        Réinitialiser
+      </button>
+
+      <button type="button" class="btn btn-primary" onclick="window.print()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+        Imprimer / Sauvegarder PDF
+      </button>
+    </div>
+  </header>
+
+  <div class="app-body">
+
+    <!-- ==========================================================================
+         LEFT CONTROL PANEL (DYNAMIC FORM)
+         ========================================================================== -->
+    <aside class="form-panel no-print">
+      
+      <!-- Section 1: Agreement Info -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C8A84B" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          Information Générale
+        </div>
+        <div class="form-group">
+          <label for="inp_agreement_date">Date du Contrat</label>
+          <input type="text" id="inp_agreement_date" class="form-control" placeholder="ex: 06 / 08 / 2026" oninput="updateContract()">
+        </div>
+      </div>
+
+      <!-- Section 2: Referral Partner Details -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C8A84B" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Informations du Partenaire (Referral Partner)
+        </div>
+
+        <div class="form-group">
+          <label for="inp_partner_name">Nom & Prénom / Représentant</label>
+          <input type="text" id="inp_partner_name" class="form-control" placeholder="ex: Jean Dupont" oninput="updateContract()">
+        </div>
+
+        <div class="form-group">
+          <label for="inp_partner_company">Nom de la Société (Optionnel)</label>
+          <input type="text" id="inp_partner_company" class="form-control" placeholder="ex: Dupont Digital Marketing FZ-LLC" oninput="updateContract()">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="inp_partner_nationality">Nationalité</label>
+            <input type="text" id="inp_partner_nationality" class="form-control" placeholder="ex: Française" oninput="updateContract()">
+          </div>
+          <div class="form-group">
+            <label for="inp_partner_phone">Téléphone</label>
+            <input type="text" id="inp_partner_phone" class="form-control" placeholder="ex: +33 6 12 34 56 78" oninput="updateContract()">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="inp_partner_email">Email professionnel</label>
+          <input type="email" id="inp_partner_email" class="form-control" placeholder="ex: contact@dupontmarketing.com" oninput="updateContract()">
+        </div>
+
+        <div class="form-group">
+          <label for="inp_partner_address">Adresse complète</label>
+          <input type="text" id="inp_partner_address" class="form-control" placeholder="ex: 15 Avenue des Champs-Élysées, 75008 Paris, France" oninput="updateContract()">
+        </div>
+      </div>
+
+      <!-- Section 3: Commission Terms -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C8A84B" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          Conditions Financières (Commission)
+        </div>
+        <div class="form-group">
+          <label for="inp_commission_rate">Taux de commission pour cet Accord (%)</label>
+          <input type="text" id="inp_commission_rate" class="form-control" placeholder="ex: 10" value="10" oninput="updateContract()">
+        </div>
+      </div>
+
+      <!-- Section 4: Signatures & Dates -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C8A84B" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          Signatures & Validation
+        </div>
+
+        <div class="form-group">
+          <label for="inp_company_sign_date">Date Signature (Société)</label>
+          <input type="text" id="inp_company_sign_date" class="form-control" placeholder="ex: 06 / 08 / 2026" oninput="updateContract()">
+        </div>
+
+        <div class="form-group">
+          <label for="inp_partner_sign_date">Date Signature (Partenaire)</label>
+          <input type="text" id="inp_partner_sign_date" class="form-control" placeholder="ex: 06 / 08 / 2026" oninput="updateContract()">
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ==========================================================================
+         RIGHT PREVIEW PANEL (A4 CONTRACT PAGES)
+         ========================================================================== -->
+    <main class="preview-panel">
+
+      <!-- ================= PAGE 1 ================= -->
+      <div class="a4-page" id="page-1">
+        <div class="page-content">
+          
+          <!-- Top Header -->
+          <div class="doc-top-header">
+            <span class="left-title">Prime Circle Structuring LLC - Referral Partner Agreement</span>
+            <span class="right-confidential">CONFIDENTIAL</span>
+          </div>
+
+          <!-- Document Main Header -->
+          <div class="doc-title-block">
+            <h1 class="doc-main-title">REFERRAL PARTNER AGREEMENT</h1>
+            <div class="doc-subtitle">Prime Circle Structuring LLC - Independent Referral Program</div>
+            <div class="doc-confidential-tag">CONFIDENTIAL DOCUMENT</div>
+            <div class="doc-date-line">
+              Agreement Date : <span id="out_agreement_date" class="dynamic-val">_________________________________</span>
+            </div>
+          </div>
+
+          <!-- Intro Paragraph -->
+          <p class="contract-intro">
+            This Referral Partner Agreement (the "Agreement") is entered into between:
+          </p>
+
+          <!-- Two Column Party Box -->
+          <div class="parties-grid">
+            
+            <!-- Company Column -->
+            <div class="party-card">
+              <div class="party-card-header">THE COMPANY</div>
+              <div class="party-card-body">
+                <div class="company-name">Prime Circle Structuring LLC</div>
+                <div>Wyoming LLC - ID : 2025-001853063</div>
+                <div>30 N Gould St, Ste R, Sheridan, WY 82801, USA</div>
+                <div>contact@primecircle-banking.com</div>
+                <span class="party-label">("the Company")</span>
+              </div>
+            </div>
+
+            <!-- Partner Column -->
+            <div class="party-card">
+              <div class="party-card-header">THE REFERRAL PARTNER</div>
+              <div class="party-card-body">
+                <div class="party-row">
+                  <span class="label">Full Name :</span>
+                  <span class="val dynamic-val" id="out_p_name">__________________</span>
+                </div>
+                <div class="party-row">
+                  <span class="label">Company :</span>
+                  <span class="val dynamic-val" id="out_p_company">__________________</span>
+                </div>
+                <div class="party-row">
+                  <span class="label">Nationality :</span>
+                  <span class="val dynamic-val" id="out_p_nationality">__________________</span>
+                </div>
+                <div class="party-row">
+                  <span class="label">Address :</span>
+                  <span class="val dynamic-val" id="out_p_address">__________________</span>
+                </div>
+                <div class="party-row">
+                  <span class="label">Email :</span>
+                  <span class="val dynamic-val" id="out_p_email">__________________</span>
+                </div>
+                <div class="party-row">
+                  <span class="label">Phone :</span>
+                  <span class="val dynamic-val" id="out_p_phone">__________________</span>
+                </div>
+                <span class="party-label">("the Referral Partner")</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Parties Collective -->
+          <div class="parties-collective">
+            The Company and the Referral Partner are collectively referred to as the "Parties".
+          </div>
+
+          <!-- Section 1 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">1.</span> PURPOSE</h2>
+            <p class="article-body">
+              The Company appoints the Referral Partner on a non-exclusive basis to refer potential clients to Prime Circle Structuring LLC's services, including US LLC formation, US bank account opening, ITIN applications, physical address delivery, and any other services offered by the Company. The Referral Partner acts as an independent intermediary and is not an employee, agent, or representative of the Company.
+            </p>
+          </div>
+
+          <!-- Section 2 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">2.</span> REFERRAL PROCESS</h2>
+            <p class="article-body">The Referral Partner agrees to:</p>
+            <ul class="article-list">
+              <li>Introduce potential clients through the channels approved by the Company</li>
+              <li>Collect and transmit all required client documents exclusively through the secure channels designated by the Company</li>
+              <li>Ensure referred clients are informed of and consent to the services they subscribe to</li>
+              <li>Provide accurate and truthful information about the Company's services</li>
+            </ul>
+            <p class="article-body" style="margin-top: 6px;">
+              The Company reserves the right to accept or decline any referred client at its sole discretion.
+            </p>
+          </div>
+
+          <!-- Section 3 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">3.</span> COMMISSION</h2>
+            
+            <table class="commission-box-table">
+              <tr>
+                <td>
+                  <div class="box-default">Default : 10% of service amount collected</div>
+                  <div class="box-rate-highlight">
+                    Rate for this Agreement : <span id="out_commission_rate" class="dynamic-val">10</span> %
+                  </div>
+                </td>
+                <td>
+                  <div class="box-title">Payment Trigger</div>
+                  <div class="box-trigger-text">
+                    One-time payment, after full collection from the referred client.
+                  </div>
+                  <div class="box-note">
+                    No commission on unpaid, cancelled or refunded transactions.
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <p class="article-body">
+              The commission is a one-time payment per referred client, calculated on the net amount effectively collected by the Company. No recurring commission is due regardless of any future purchases made by the referred client. Commission is paid within 30 days following full receipt of client payment, upon submission of an invoice by the Referral Partner. No commission is due on existing clients already registered with the Company.
+            </p>
+          </div>
+
+        </div>
+
+        <div class="doc-footer">
+          Prime Circle Structuring LLC - Referral Partner Agreement Template - CONFIDENTIAL
+        </div>
+      </div>
+
+      <!-- ================= PAGE 2 ================= -->
+      <div class="a4-page" id="page-2">
+        <div class="page-content">
+          
+          <!-- Top Header -->
+          <div class="doc-top-header">
+            <span class="left-title">Prime Circle Structuring LLC - Referral Partner Agreement</span>
+            <span class="right-confidential">CONFIDENTIAL</span>
+          </div>
+
+          <!-- Section 4 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">4.</span> DATA HANDLING AND RESPONSIBILITY FOR CLIENT DOCUMENTS</h2>
+            <p class="article-body" style="margin-bottom: 10px;">
+              The Referral Partner assumes full and exclusive responsibility for any client data they collect, store, or transmit. Prime Circle Structuring LLC shall bear no liability whatsoever for any misuse, loss, or unauthorized disclosure of client information occurring prior to its receipt by the Company.
+            </p>
+
+            <div class="sub-article-title">4.1 Referral Partner's Sole Responsibility</div>
+            <p class="article-body">
+              The Referral Partner may collect sensitive personal information from referred clients, including passports, identity documents, proof of address, financial statements, and any other documentation required for the Company's services. The Referral Partner is solely and exclusively responsible for:
+            </p>
+            <ul class="article-list">
+              <li>The lawful collection of client documents, with the client's full informed consent</li>
+              <li>The secure storage of any client documents prior to transmission to the Company</li>
+              <li>The secure transmission of client documents exclusively through the channels approved by the Company</li>
+              <li>Any use, misuse, loss, theft, or unauthorized disclosure of client data occurring prior to its receipt by the Company</li>
+              <li>Full compliance with all applicable data protection laws in the Referral Partner's jurisdiction</li>
+            </ul>
+
+            <div class="sub-article-title">4.2 Approved Transmission Channels</div>
+            <p class="article-body">
+              Client documents must be transmitted exclusively through the secure channels designated by the Company. Transmission via unencrypted channels, unauthorized third-party platforms, or non-approved messaging applications is strictly prohibited.
+            </p>
+
+            <div class="sub-article-title">4.3 Exoneration of Prime Circle Structuring LLC</div>
+            <p class="article-body">
+              Prime Circle Structuring LLC disclaims any and all liability for any loss, misuse, or breach of client data that occurs while such data is in the possession of the Referral Partner. The Referral Partner agrees to indemnify and hold harmless Prime Circle Structuring LLC from any claim or liability arising from a breach of data handling obligations under this Article.
+            </p>
+
+            <div class="sub-article-title">4.4 Data Retention</div>
+            <p class="article-body">
+              The Referral Partner shall not retain any copy of client documents beyond what is strictly necessary, and in any event must securely delete all copies upon confirmed receipt by the Company.
+            </p>
+
+            <div class="sub-article-title">4.5 Limitation of Prime Circle Structuring LLC's Responsibility to the Referred Service Only</div>
+            <p class="article-body">
+              The Company's responsibility is strictly limited to the service explicitly requested for each client individually referred by the Referral Partner. For each referred client, Prime Circle Structuring LLC undertakes solely to:
+            </p>
+            <ul class="article-list">
+              <li>Receive and process the client's documents in connection with the specific service requested</li>
+              <li>Connect the referred client with the relevant institution or authority required for that specific service (such as the Secretary of State, the IRS, a banking partner, or any other applicable third party)</li>
+            </ul>
+            <p class="article-body" style="margin-top: 6px;">
+              The Company's engagement begins upon receipt of a referred client's documents and ends upon completion of the service for which the client was referred. The Company bears no responsibility whatsoever for any other dealings, services, or arrangements that the Referral Partner may have made with or on behalf of the same client, outside the scope of the referral.
+            </p>
+            <p class="article-body" style="margin-top: 6px;">
+              Furthermore, the Company expressly disclaims any and all liability arising from:
+            </p>
+            <ul class="article-list">
+              <li>Any subcontracting, sub-referral, or independent commercial activity carried out by the Referral Partner, whether in the Company's name or otherwise</li>
+              <li>Any client acquired, approached, or engaged by the Referral Partner through their own channels, who has not been formally referred to and accepted by the Company under this Agreement</li>
+            </ul>
+          </div>
+
+        </div>
+
+        <div class="doc-footer">
+          Prime Circle Structuring LLC - Referral Partner Agreement Template - CONFIDENTIAL
+        </div>
+      </div>
+
+      <!-- ================= PAGE 3 ================= -->
+      <div class="a4-page" id="page-3">
+        <div class="page-content">
+          
+          <!-- Top Header -->
+          <div class="doc-top-header">
+            <span class="left-title">Prime Circle Structuring LLC - Referral Partner Agreement</span>
+            <span class="right-confidential">CONFIDENTIAL</span>
+          </div>
+
+          <div class="article-section">
+            <ul class="article-list" style="margin-bottom: 10px;">
+              <li>Any representation, promise, or commitment made by the Referral Partner to any client or third party, beyond the scope of the services explicitly offered by Prime Circle Structuring LLC</li>
+              <li>Any legal, financial, or reputational consequences arising from the Referral Partner's independent commercial activities, even where such activities reference or involve the Company's name, brand, or services</li>
+            </ul>
+            <p class="article-body">
+              The Referral Partner agrees not to engage in any sub-referral arrangement, downstream partnership, or commercial activity involving third parties in connection with the Company's services, without the prior express written consent of the Company.
+            </p>
+          </div>
+
+          <!-- Section 5 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">5.</span> CONFIDENTIALITY</h2>
+            <p class="article-body">
+              The Referral Partner agrees to maintain strict confidentiality regarding the Company's commission rates, pricing, business processes, client information, and the terms of this Agreement. This obligation survives termination indefinitely.
+            </p>
+          </div>
+
+          <!-- Section 6 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">6.</span> INDEPENDENT STATUS</h2>
+            <p class="article-body">
+              The Referral Partner is an independent contractor. Nothing in this Agreement creates an employment, agency, or partnership relationship. The Referral Partner is solely responsible for their own taxes and legal obligations, and shall not make any representations on behalf of the Company without prior written authorization.
+            </p>
+          </div>
+
+          <!-- Section 7 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">7.</span> NON-SOLICITATION</h2>
+            <p class="article-body">
+              During the term of this Agreement and for 12 months following termination, the Referral Partner agrees not to directly solicit any referred client for competing services, or recruit any employee or contractor of the Company for competing activities.
+            </p>
+          </div>
+
+          <!-- Section 8 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">8.</span> TERM AND TERMINATION</h2>
+            <p class="article-body">
+              This Agreement continues indefinitely until terminated by either Party with 14 days written notice, or immediately by the Company in case of material breach. Pending commissions for already-referred clients whose payment has been received remain due upon termination.
+            </p>
+          </div>
+
+          <!-- Section 9 -->
+          <div class="article-section">
+            <h2 class="article-title"><span class="art-num">9.</span> LIABILITY AND GOVERNING LAW</h2>
+            <p class="article-body">
+              The Referral Partner is fully liable for damages resulting from breach of data handling obligations, misrepresentation of the Company's services, unauthorized use of the Company's brand, or breach of confidentiality. This Agreement is governed by the laws of the State of Wyoming, USA. Any unresolved dispute shall be submitted to binding arbitration under the rules of the American Arbitration Association (AAA).
+            </p>
+          </div>
+
+          <!-- Signatures Section -->
+          <div class="signatures-block">
+            <h2 class="signatures-title">SIGNATURES</h2>
+            <p class="signatures-intro">
+              Both Parties acknowledge having read, understood, and accepted all terms of this Agreement, and in particular the data handling responsibilities set out in Article 4.
+            </p>
+
+            <div class="signatures-grid">
+              
+              <!-- Company Signature -->
+              <div>
+                <div class="sig-column-title">For Prime Circle Structuring LLC</div>
+                <div class="sig-field-row">
+                  <span class="label">Name :</span>
+                  <span>Maxence Yves Eric Van Beneden</span>
+                </div>
+                <div class="sig-field-row">
+                  <span class="label">Title :</span>
+                  <span>Member / Manager</span>
+                </div>
+                <div class="sig-field-row">
+                  <span class="label">Date :</span>
+                  <span id="out_company_sign_date" class="dynamic-val">__________________</span>
+                </div>
+                <div class="sig-field-row" style="margin-top: 4px;">
+                  <span class="label">Signature :</span>
+                </div>
+                <div class="sig-box-container"></div>
+              </div>
+
+              <!-- Referral Partner Signature -->
+              <div>
+                <div class="sig-column-title">The Referral Partner</div>
+                <div class="sig-field-row">
+                  <span class="label">Full Name :</span>
+                  <span id="out_sig_partner_name" class="dynamic-val">__________________</span>
+                </div>
+                <div class="sig-field-row">
+                  <span class="label">Company :</span>
+                  <span id="out_sig_partner_company" class="dynamic-val">__________________</span>
+                </div>
+                <div class="sig-field-row">
+                  <span class="label">Date :</span>
+                  <span id="out_partner_sign_date" class="dynamic-val">__________________</span>
+                </div>
+                <div class="sig-field-row" style="margin-top: 4px;">
+                  <span class="label">Signature :</span>
+                </div>
+                <div class="sig-box-container"></div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <div class="doc-footer">
+          Prime Circle Structuring LLC - Referral Partner Agreement Template - CONFIDENTIAL
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ==========================================================================
+       JAVASCRIPT FOR DYNAMIC DATA BINDING & DEMO CONTROLS
+       ========================================================================== -->
+  <script>
+    function updateContract() {
+      // Helper function to update text & add/remove 'filled' class
+      function bind(inputId, outputId, defaultText = "__________________") {
+        const inputElem = document.getElementById(inputId);
+        const outputElem = document.getElementById(outputId);
+        if (!inputElem || !outputElem) return;
+
+        const val = inputElem.value.trim();
+        if (val) {
+          outputElem.textContent = val;
+          outputElem.classList.add('filled');
+        } else {
+          outputElem.textContent = defaultText;
+          outputElem.classList.remove('filled');
+        }
+      }
+
+      // Agreement Date
+      bind('inp_agreement_date', 'out_agreement_date', '_________________________________');
+
+      // Partner Info
+      bind('inp_partner_name', 'out_p_name');
+      bind('inp_partner_name', 'out_sig_partner_name');
+
+      bind('inp_partner_company', 'out_p_company', 'N/A');
+      bind('inp_partner_company', 'out_sig_partner_company', 'N/A');
+
+      bind('inp_partner_nationality', 'out_p_nationality');
+      bind('inp_partner_address', 'out_p_address');
+      bind('inp_partner_email', 'out_p_email');
+      bind('inp_partner_phone', 'out_p_phone');
+
+      // Commission Rate
+      bind('inp_commission_rate', 'out_commission_rate', '10');
+
+      // Sign Dates
+      bind('inp_company_sign_date', 'out_company_sign_date');
+      bind('inp_partner_sign_date', 'out_partner_sign_date');
+    }
+
+    function fillDemoData() {
+      const todayStr = new Date().toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).replace(/\//g, ' / ');
+
+      document.getElementById('inp_agreement_date').value = todayStr;
+      document.getElementById('inp_partner_name').value = "Alexandre Martin";
+      document.getElementById('inp_partner_company').value = "Horizon Growth Agency FZ-LLC";
+      document.getElementById('inp_partner_nationality').value = "Française";
+      document.getElementById('inp_partner_address').value = "12 Rue de la Paix, 75002 Paris, France";
+      document.getElementById('inp_partner_email').value = "alex@horizongrowth.io";
+      document.getElementById('inp_partner_phone').value = "+33 6 98 76 54 32";
+      document.getElementById('inp_commission_rate').value = "15";
+      document.getElementById('inp_company_sign_date').value = todayStr;
+      document.getElementById('inp_partner_sign_date').value = todayStr;
+
+      updateContract();
+    }
+
+    function resetForm() {
+      document.querySelectorAll('.form-control').forEach(inp => {
+        if (inp.id === 'inp_commission_rate') {
+          inp.value = '10';
+        } else {
+          inp.value = '';
+        }
+      });
+      updateContract();
+    }
+
+    // Initialize default values on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      // Set today's date by default
+      const defaultDate = new Date().toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).replace(/\//g, ' / ');
+
+      document.getElementById('inp_agreement_date').value = defaultDate;
+      document.getElementById('inp_company_sign_date').value = defaultDate;
+      document.getElementById('inp_partner_sign_date').value = defaultDate;
+
+      updateContract();
+    });
+  </script>
+</body>
+</html>

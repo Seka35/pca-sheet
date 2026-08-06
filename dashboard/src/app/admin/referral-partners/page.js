@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import ReferralAgreementTab from '@/components/ReferralAgreementTab';
 
 const IconBack = ({ size = 16, color = 'currentColor' }) => (
   <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -29,7 +30,18 @@ const IconPlus = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 );
 
+const IconDocument = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+  </svg>
+);
+
 export default function ReferralPartnersPage() {
+  const [activeTab, setActiveTab] = useState('partners'); // 'partners' or 'agreement'
+  const [selectedPartnerForDoc, setSelectedPartnerForDoc] = useState(null);
   const [partners, setPartners] = useState([]);
   const [partnerStats, setPartnerStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -56,7 +68,6 @@ export default function ReferralPartnersPage() {
       setPartnerStats(statsData);
     } catch (err) {
       console.error(err);
-      // Still try to fetch just partners
       try {
         const res = await fetch('/api/referral-partners');
         const data = await res.json();
@@ -85,6 +96,11 @@ export default function ReferralPartnersPage() {
     });
     setError(null);
     setShowModal(true);
+  };
+
+  const handleGenerateAgreement = (partner) => {
+    setSelectedPartnerForDoc(partner);
+    setActiveTab('agreement');
   };
 
   const handleSave = async () => {
@@ -148,159 +164,224 @@ export default function ReferralPartnersPage() {
         <span style={{ color: 'var(--text-primary)', fontSize: '14px' }}>Referral Partners</span>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '4px' }}>Referral Partners</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-            Manage referral partners, commissions, and client discounts.
+            Manage referral partners, commissions, and generate legal agreements.
           </p>
         </div>
-        <button
-          onClick={openAddModal}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '8px',
-            background: 'var(--primary-accent)',
-            color: '#0B111A',
-            border: 'none',
-            fontWeight: '600',
-            fontSize: '14px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <IconPlus size={16} color="#0B111A" /> Add Partner
-        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Sub-tab switcher */}
+          <div style={{ display: 'flex', backgroundColor: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+            <button
+              onClick={() => setActiveTab('partners')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                backgroundColor: activeTab === 'partners' ? 'var(--primary-accent)' : 'transparent',
+                color: activeTab === 'partners' ? '#0B111A' : 'var(--text-secondary)'
+              }}
+            >
+              Partners List
+            </button>
+            <button
+              onClick={() => setActiveTab('agreement')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                backgroundColor: activeTab === 'agreement' ? 'var(--primary-accent)' : 'transparent',
+                color: activeTab === 'agreement' ? '#0B111A' : 'var(--text-secondary)'
+              }}
+            >
+              Agreement Generator
+            </button>
+          </div>
+
+          {activeTab === 'partners' && (
+            <button
+              onClick={openAddModal}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                background: 'var(--primary-accent)',
+                color: '#0B111A',
+                border: 'none',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <IconPlus size={16} color="#0B111A" /> Add Partner
+            </button>
+          )}
+        </div>
       </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {partners.map(partner => {
-            const stats = getStats(partner.name);
-            return (
-              <div key={partner.id} className="card" style={{ padding: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{
-                      width: '48px', height: '48px', borderRadius: '12px',
-                      background: 'rgba(168, 85, 247, 0.15)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '20px', fontWeight: '700', color: '#A78BFA'
-                    }}>
-                      {partner.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>
-                        {partner.name}
+      {activeTab === 'partners' ? (
+        loading ? (
+          <p>Loading...</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {partners.map(partner => {
+              const stats = getStats(partner.name);
+              return (
+                <div key={partner.id} className="card" style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{
+                        width: '48px', height: '48px', borderRadius: '12px',
+                        background: 'rgba(168, 85, 247, 0.15)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '20px', fontWeight: '700', color: '#A78BFA'
+                      }}>
+                        {partner.name.charAt(0)}
                       </div>
-                      <div style={{ display: 'flex', gap: '16px', fontSize: '13px' }}>
-                        <span style={{
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          background: partner.status === 'active' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                          color: partner.status === 'active' ? '#22c55e' : '#ef4444',
+                      <div>
+                        <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                          {partner.name}
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px', fontSize: '13px' }}>
+                          <span style={{
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: partner.status === 'active' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            color: partner.status === 'active' ? '#22c55e' : '#ef4444',
+                            fontWeight: '600'
+                          }}>
+                            {partner.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => handleGenerateAgreement(partner)}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          background: 'rgba(0, 242, 181, 0.1)',
+                          color: 'var(--primary-accent)',
+                          border: '1px solid rgba(0, 242, 181, 0.3)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '13px',
                           fontWeight: '600'
-                        }}>
-                          {partner.status}
-                        </span>
+                        }}
+                        title="Générer Accord"
+                      >
+                        <IconDocument size={16} color="var(--primary-accent)" />
+                        Générer Accord
+                      </button>
+                      <button
+                        onClick={() => openEditModal(partner)}
+                        style={{
+                          width: '36px', height: '36px',
+                          borderRadius: '8px',
+                          background: 'rgba(20, 184, 166, 0.1)',
+                          color: '#14b8a6',
+                          border: '1px solid rgba(20, 184, 166, 0.2)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Edit"
+                      >
+                        <IconEdit size={16} color="#14b8a6" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(partner)}
+                        style={{
+                          width: '36px', height: '36px',
+                          borderRadius: '8px',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Delete"
+                      >
+                        <IconTrash size={16} color="#ef4444" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        Commission Rate
+                      </div>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: '#A78BFA' }}>
+                        {partner.commission_percentage}%
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        per payment
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        Client Discount
+                      </div>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: '#22c55e' }}>
+                        {partner.client_discount_percentage}%
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        off subscription + setup
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        Total Clients
+                      </div>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {stats.client_count}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        linked to this partner
+                      </div>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        Total Commission
+                      </div>
+                      <div style={{ fontSize: '24px', fontWeight: '700', color: '#A78BFA' }}>
+                        ${stats.total_commission?.toFixed(2) || '0.00'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        earned from this partner
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      onClick={() => openEditModal(partner)}
-                      style={{
-                        width: '36px', height: '36px',
-                        borderRadius: '8px',
-                        background: 'rgba(20, 184, 166, 0.1)',
-                        color: '#14b8a6',
-                        border: '1px solid rgba(20, 184, 166, 0.2)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      title="Edit"
-                    >
-                      <IconEdit size={16} color="#14b8a6" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(partner)}
-                      style={{
-                        width: '36px', height: '36px',
-                        borderRadius: '8px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        color: '#ef4444',
-                        border: '1px solid rgba(239, 68, 68, 0.2)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      title="Delete"
-                    >
-                      <IconTrash size={16} color="#ef4444" />
-                    </button>
-                  </div>
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                      Commission Rate
-                    </div>
-                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#A78BFA' }}>
-                      {partner.commission_percentage}%
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      per payment
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                      Client Discount
-                    </div>
-                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#22c55e' }}>
-                      {partner.client_discount_percentage}%
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      off subscription + setup
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                      Total Clients
-                    </div>
-                    <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                      {stats.client_count}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      linked to this partner
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                      Total Commission
-                    </div>
-                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#A78BFA' }}>
-                      ${stats.total_commission?.toFixed(2) || '0.00'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      earned from this partner
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        <ReferralAgreementTab partner={selectedPartnerForDoc} />
       )}
 
       {/* Add/Edit Modal */}
